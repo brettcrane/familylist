@@ -10,8 +10,6 @@ services:
     volumes:
       # Persist SQLite database
       - familylist-data:/app/data
-      # Cache for sentence-transformers model
-      - familylist-cache:/home/appuser/.cache
     environment:
       - API_KEY=${API_KEY:-dev-key}
       - DATABASE_URL=sqlite:///./data/familylist.db
@@ -48,8 +46,6 @@ services:
 
 volumes:
   familylist-data:
-    driver: local
-  familylist-cache:
     driver: local
   ollama-models:
     driver: local
