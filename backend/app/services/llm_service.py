@@ -152,7 +152,7 @@ class LLMParsingService:
                     "num_predict": settings.llm_max_tokens,
                 },
             },
-            timeout=30,
+            timeout=120,
         )
         response.raise_for_status()
         return response.json()["response"].strip()
