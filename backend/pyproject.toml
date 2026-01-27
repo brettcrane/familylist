@@ -25,6 +25,11 @@ dev = [
     "ruff>=0.8.0",
 ]
 
+[tool.uv]
+# Use CPU-only PyTorch to avoid massive NVIDIA CUDA downloads
+index-strategy = "unsafe-best-match"
+extra-index-url = ["https://download.pytorch.org/whl/cpu"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
