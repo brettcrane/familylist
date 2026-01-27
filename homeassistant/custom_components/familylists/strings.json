@@ -1,0 +1,79 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to FamilyLists",
+        "description": "Enter the connection details for your FamilyLists backend.",
+        "data": {
+          "backend_url": "Backend URL",
+          "api_key": "API Key (leave empty if disabled)",
+          "poll_interval": "Poll interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to FamilyLists backend. Check the URL and API key."
+    },
+    "abort": {
+      "already_configured": "This backend is already configured."
+    }
+  },
+  "services": {
+    "add_item": {
+      "name": "Add item",
+      "description": "Add an item to a list.",
+      "fields": {
+        "list_name": {
+          "name": "List name",
+          "description": "Name of the list to add to."
+        },
+        "item": {
+          "name": "Item",
+          "description": "Name of the item to add."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Quantity of the item (default: 1)."
+        }
+      }
+    },
+    "check_item": {
+      "name": "Check item",
+      "description": "Mark an item as checked/completed.",
+      "fields": {
+        "list_name": {
+          "name": "List name",
+          "description": "Name of the list."
+        },
+        "item": {
+          "name": "Item",
+          "description": "Name of the item to check."
+        }
+      }
+    },
+    "uncheck_item": {
+      "name": "Uncheck item",
+      "description": "Mark an item as unchecked (undo).",
+      "fields": {
+        "list_name": {
+          "name": "List name",
+          "description": "Name of the list."
+        },
+        "item": {
+          "name": "Item",
+          "description": "Name of the item to uncheck."
+        }
+      }
+    },
+    "clear_completed": {
+      "name": "Clear completed",
+      "description": "Remove all checked items from a list.",
+      "fields": {
+        "list_name": {
+          "name": "List name",
+          "description": "Name of the list to clear."
+        }
+      }
+    }
+  }
+}
