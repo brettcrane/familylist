@@ -12,8 +12,13 @@ async def verify_api_key(api_key: str | None = Security(api_key_header)) -> str:
     """Verify the API key from request header.
 
     Returns the API key if valid, raises HTTPException otherwise.
+    If API_KEY is set to 'disabled', authentication is skipped.
     """
     settings = get_settings()
+
+    # Allow disabling auth for home/family deployments
+    if settings.api_key == "disabled":
+        return "disabled"
 
     if api_key is None:
         raise HTTPException(

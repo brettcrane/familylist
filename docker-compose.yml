@@ -11,7 +11,7 @@ services:
       # Persist SQLite database
       - familylist-data:/app/data
     environment:
-      - API_KEY=${API_KEY:-dev-key}
+      - API_KEY=${API_KEY:-disabled}
       - DATABASE_URL=sqlite:///./data/familylist.db
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
