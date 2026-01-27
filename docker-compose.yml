@@ -15,12 +15,8 @@ services:
       - DATABASE_URL=sqlite:///./data/familylist.db
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
-      # Ollama for natural language parsing
-      - LLM_OLLAMA_URL=http://ollama:11434
-      - LLM_OLLAMA_MODEL=tinyllama
-    depends_on:
-      ollama:
-        condition: service_started
+      # NL parsing disabled - requires GPU for good performance
+      - ENABLE_LLM_PARSING=false
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
@@ -28,24 +24,6 @@ services:
       retries: 3
       start_period: 60s
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: familylist-ollama
-    restart: unless-stopped
-    volumes:
-      # Persist downloaded models
-      - ollama-models:/root/.ollama
-    # Uncomment for GPU support (NVIDIA)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
-
 volumes:
   familylist-data:
-    driver: local
-  ollama-models:
     driver: local
