@@ -62,6 +62,8 @@ class FamilyListsAddItemIntent(intent.IntentHandler):
             response.async_set_speech(f"Added {item_name} to {lst['name']}")
             return response
 
+        except intent.IntentHandleError:
+            raise
         except Exception as err:
             _LOGGER.error("Failed to add item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't add {item_name}") from err

@@ -21,7 +21,14 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import FamilyListsCoordinator
-from .intent import async_register_intents
+from .intent import (
+    INTENT_ADD_ITEM,
+    INTENT_CHECK_ITEM,
+    INTENT_CLEAR_COMPLETED,
+    INTENT_GET_ITEMS,
+    INTENT_UNCHECK_ITEM,
+    async_register_intents,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -100,7 +107,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
 
-        # Remove services if no more entries
+        # Remove services and intents if no more entries
         if not hass.data[DOMAIN]:
             for service in [
                 SERVICE_ADD_ITEM,
@@ -110,6 +117,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_REFRESH,
             ]:
                 hass.services.async_remove(DOMAIN, service)
+
+            from homeassistant.helpers import intent
+
+            for intent_type in [
+                INTENT_ADD_ITEM,
+                INTENT_CHECK_ITEM,
+                INTENT_UNCHECK_ITEM,
+                INTENT_CLEAR_COMPLETED,
+                INTENT_GET_ITEMS,
+            ]:
+                intent.async_remove(hass, intent_type)
 
     return unload_ok
 

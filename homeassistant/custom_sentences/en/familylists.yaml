@@ -24,7 +24,6 @@ intents:
           - "mark {item} [as] done on [the] {list_name}"
           - "cross off {item} from [the] {list_name} list"
           - "got {item} from [the] {list_name} list"
-          - "I got [the] {item}"
         slots:
           item:
             type: text

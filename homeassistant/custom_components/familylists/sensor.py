@@ -41,11 +41,6 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-def slugify_list_name(name: str) -> str:
-    """Convert list name to entity ID slug."""
-    return name.lower().replace(" ", "_").replace("-", "_")
-
-
 class FamilyListsSensor(CoordinatorEntity[FamilyListsCoordinator], SensorEntity):
     """Sensor representing a FamilyLists list."""
 

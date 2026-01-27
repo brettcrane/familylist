@@ -5,9 +5,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import asyncio
+
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
+
+DEFAULT_TIMEOUT = 10
 
 
 class FamilyListsApiError(Exception):
@@ -41,26 +45,30 @@ class FamilyListsClient:
         method: str,
         endpoint: str,
         data: dict[str, Any] | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
     ) -> Any:
         """Make an API request."""
         url = f"{self._url}/api{endpoint}"
         try:
-            async with self._session.request(
-                method,
-                url,
-                headers=self._headers,
-                json=data,
-            ) as response:
-                if response.status == 401:
-                    raise FamilyListsApiError("Invalid API key")
-                if response.status == 404:
-                    raise FamilyListsApiError(f"Not found: {endpoint}")
-                if response.status >= 400:
-                    text = await response.text()
-                    raise FamilyListsApiError(f"API error {response.status}: {text}")
-                return await response.json()
+            async with asyncio.timeout(timeout):
+                async with self._session.request(
+                    method,
+                    url,
+                    headers=self._headers,
+                    json=data,
+                ) as response:
+                    if response.status == 401:
+                        raise FamilyListsApiError("Invalid API key")
+                    if response.status == 404:
+                        raise FamilyListsApiError(f"Not found: {endpoint}")
+                    if response.status >= 400:
+                        text = await response.text()
+                        raise FamilyListsApiError(f"API error {response.status}: {text}")
+                    return await response.json()
         except aiohttp.ClientError as err:
             raise FamilyListsApiError(f"Connection error: {err}") from err
+        except TimeoutError as err:
+            raise FamilyListsApiError(f"Request timeout after {timeout}s") from err
 
     async def test_connection(self) -> bool:
         """Test the connection to the backend."""
