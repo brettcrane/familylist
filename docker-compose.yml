@@ -15,8 +15,11 @@ services:
       - DATABASE_URL=sqlite:///./data/familylist.db
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
-      # NL parsing disabled - requires GPU for good performance
-      - ENABLE_LLM_PARSING=false
+      # NL parsing via OpenAI GPT-5 Nano
+      - ENABLE_LLM_PARSING=true
+      - LLM_BACKEND=openai
+      - LLM_OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_OPENAI_MODEL=gpt-5-nano
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s

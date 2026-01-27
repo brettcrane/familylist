@@ -6,6 +6,7 @@ import re
 from typing import ClassVar
 
 import requests
+from openai import OpenAI
 
 from app.config import get_settings
 from app.schemas import ListType
@@ -50,13 +51,16 @@ class ParsedItem:
 class LLMParsingService:
     """Service for LLM-based natural language parsing.
 
-    Supports two backends:
-    1. Local GGUF model via llama-cpp-python (if llm_model_path is set)
-    2. Ollama API (if llm_model_path is empty)
+    Supports three backends:
+    1. OpenAI API (default, recommended for GPT-5 Nano)
+    2. Local GGUF model via llama-cpp-python
+    3. Ollama API
     """
 
     _instance: ClassVar["LLMParsingService | None"] = None
     _llm = None
+    _openai_client: OpenAI | None = None
+    _backend: str | None = None
     _loaded = False
 
     def __new__(cls) -> "LLMParsingService":
@@ -64,6 +68,21 @@ class LLMParsingService:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    def _load_openai(self) -> bool:
+        """Initialize OpenAI client."""
+        settings = get_settings()
+        if not settings.llm_openai_api_key:
+            return False
+
+        try:
+            self._openai_client = OpenAI(api_key=settings.llm_openai_api_key)
+            # Quick validation - list models to check API key works
+            logger.info(f"Using OpenAI API with model: {settings.llm_openai_model}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI client: {e}")
+            return False
 
     def _load_local_model(self) -> bool:
         """Load local GGUF model via llama-cpp-python."""
@@ -103,7 +122,7 @@ class LLMParsingService:
     def load(self) -> bool:
         """Lazy load the LLM backend."""
         if self._loaded:
-            return self._llm is not None or self._check_ollama()
+            return self._backend is not None
 
         settings = get_settings()
         if not settings.enable_llm_parsing:
@@ -111,14 +130,38 @@ class LLMParsingService:
             self._loaded = True
             return False
 
-        # Try local model first
-        if settings.llm_model_path:
-            if self._load_local_model():
-                self._loaded = True
-                return True
+        backend = settings.llm_backend.lower()
 
-        # Fall back to Ollama
+        # Try configured backend first
+        if backend == "openai" and self._load_openai():
+            self._backend = "openai"
+            self._loaded = True
+            return True
+
+        if backend == "local" and self._load_local_model():
+            self._backend = "local"
+            self._loaded = True
+            return True
+
+        if backend == "ollama" and self._check_ollama():
+            self._backend = "ollama"
+            logger.info(f"Using Ollama at {settings.llm_ollama_url}")
+            self._loaded = True
+            return True
+
+        # Fallback: try all backends in order of preference
+        if self._load_openai():
+            self._backend = "openai"
+            self._loaded = True
+            return True
+
+        if self._load_local_model():
+            self._backend = "local"
+            self._loaded = True
+            return True
+
         if self._check_ollama():
+            self._backend = "ollama"
             logger.info(f"Using Ollama at {settings.llm_ollama_url}")
             self._loaded = True
             return True
@@ -126,6 +169,20 @@ class LLMParsingService:
         logger.warning("No LLM backend available")
         self._loaded = True
         return False
+
+    def _call_openai(self, prompt: str) -> str:
+        """Call OpenAI API."""
+        settings = get_settings()
+        response = self._openai_client.chat.completions.create(
+            model=settings.llm_openai_model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that parses shopping and packing lists. Always respond with valid JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=settings.llm_max_tokens,
+            temperature=settings.llm_temperature,
+        )
+        return response.choices[0].message.content.strip()
 
     def _call_local(self, prompt: str) -> str:
         """Call local GGUF model."""
@@ -199,7 +256,6 @@ class LLMParsingService:
             logger.warning("LLM not available, returning empty list")
             return []
 
-        settings = get_settings()
         list_type_str = list_type.value if isinstance(list_type, ListType) else list_type
 
         prompt = PARSE_PROMPT.format(
@@ -209,7 +265,9 @@ class LLMParsingService:
 
         try:
             # Call appropriate backend
-            if self._llm is not None:
+            if self._backend == "openai":
+                response = self._call_openai(prompt)
+            elif self._backend == "local":
                 response = self._call_local(prompt)
             else:
                 response = self._call_ollama(prompt)
