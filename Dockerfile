@@ -51,8 +51,8 @@ COPY backend/app ./app
 # Copy frontend build from frontend-builder
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-# Create data directory
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+# Create data and cache directories with correct ownership
+RUN mkdir -p /app/data /home/appuser/.cache && chown -R appuser:appuser /app /home/appuser
 
 # Switch to non-root user
 USER appuser
@@ -62,8 +62,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Pre-download the model during build (optional, reduces first-start time)
-# RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+# Pre-download the embedding model during build (baked into image)
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Expose port
 EXPOSE 8000
