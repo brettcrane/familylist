@@ -2,7 +2,7 @@
 # CPU-only inference for sentence-transformers
 
 # Stage 1: Build frontend
-FROM node:20-alpine as frontend-builder
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -19,7 +19,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Python dependencies
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -34,7 +34,7 @@ COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Stage 3: Runtime
-FROM python:3.12-slim as runtime
+FROM python:3.12-slim AS runtime
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser
