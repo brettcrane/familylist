@@ -2,9 +2,7 @@ version: "3.8"
 
 services:
   familylist:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/brettcrane/familylist:latest
     container_name: familylist-api
     restart: unless-stopped
     ports:
