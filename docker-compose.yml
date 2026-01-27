@@ -9,7 +9,7 @@ services:
       - "8001:8000"
     volumes:
       # Persist SQLite database
-      - ./data:/app/data
+      - familylist-data:/app/data
       # Cache for sentence-transformers model
       - familylist-cache:/home/appuser/.cache
     environment:
@@ -47,6 +47,8 @@ services:
     #           capabilities: [gpu]
 
 volumes:
+  familylist-data:
+    driver: local
   familylist-cache:
     driver: local
   ollama-models:
