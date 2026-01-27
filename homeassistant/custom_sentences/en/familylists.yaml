@@ -1,0 +1,90 @@
+language: "en"
+intents:
+  FamilyListsAddItem:
+    data:
+      - sentences:
+          - "add {item} to [the] {list_name} list"
+          - "add {item} to [the] {list_name}"
+          - "put {item} on [the] {list_name} list"
+          - "put {item} on [the] {list_name}"
+          - "add {item} to my {list_name} list"
+          - "I need {item} on [the] {list_name} list"
+        slots:
+          item:
+            type: text
+          list_name:
+            type: text
+
+  FamilyListsCheckItem:
+    data:
+      - sentences:
+          - "check off {item} from [the] {list_name} list"
+          - "check off {item} from [the] {list_name}"
+          - "mark {item} [as] done on [the] {list_name} list"
+          - "mark {item} [as] done on [the] {list_name}"
+          - "cross off {item} from [the] {list_name} list"
+          - "got {item} from [the] {list_name} list"
+          - "I got [the] {item}"
+        slots:
+          item:
+            type: text
+          list_name:
+            type: text
+
+  FamilyListsUncheckItem:
+    data:
+      - sentences:
+          - "uncheck {item} from [the] {list_name} list"
+          - "uncheck {item} from [the] {list_name}"
+          - "I still need {item} on [the] {list_name} list"
+          - "put {item} back on [the] {list_name} list"
+        slots:
+          item:
+            type: text
+          list_name:
+            type: text
+
+  FamilyListsClearCompleted:
+    data:
+      - sentences:
+          - "clear [the] {list_name} list"
+          - "clear completed [items] from [the] {list_name} list"
+          - "clear checked [items] from [the] {list_name} list"
+          - "remove completed [items] from [the] {list_name} list"
+        slots:
+          list_name:
+            type: text
+
+  FamilyListsGetItems:
+    data:
+      - sentences:
+          - "what's on [my] {list_name} list"
+          - "what is on [my] {list_name} list"
+          - "read [my] {list_name} list"
+          - "what do I need from [the] {list_name} list"
+          - "how many items [are] on [my] {list_name} list"
+        slots:
+          list_name:
+            type: text
+
+lists:
+  list_name:
+    values:
+      - in: "grocery"
+        out: "Grocery List"
+      - in: "groceries"
+        out: "Grocery List"
+      - in: "shopping"
+        out: "Grocery List"
+      - in: "packing"
+        out: "Packing List"
+      - in: "pack"
+        out: "Packing List"
+      - in: "to do"
+        out: "To Do"
+      - in: "todo"
+        out: "To Do"
+      - in: "task"
+        out: "To Do"
+      - in: "tasks"
+        out: "To Do"

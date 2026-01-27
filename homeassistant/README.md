@@ -151,33 +151,27 @@ automation:
 
 ## Voice Commands (Google Assistant)
 
-To enable voice commands, add custom sentences to your HA configuration.
+Voice commands are built-in via HA's conversation integration. Copy the custom sentences file to your HA config:
 
-Create `custom_sentences/en/familylists.yaml`:
+1. Copy `custom_sentences/en/familylists.yaml` to your HA `custom_sentences/en/` directory
+2. Restart Home Assistant
 
-```yaml
-language: "en"
-intents:
-  AddToGroceryList:
-    data:
-      - sentences:
-          - "add {item} to [the] grocery list"
-          - "put {item} on [the] grocery list"
-```
+**Supported voice commands:**
 
-Then create an intent script in `configuration.yaml`:
+| Command | Example |
+|---------|---------|
+| Add item | "Add milk to the grocery list" |
+| Check off | "Check off milk from the grocery list" |
+| Uncheck | "Put milk back on the grocery list" |
+| Clear completed | "Clear the grocery list" |
+| Read list | "What's on my grocery list?" |
 
-```yaml
-intent_script:
-  AddToGroceryList:
-    action:
-      - service: familylists.add_item
-        data:
-          list_name: "Grocery List"
-          item: "{{ item }}"
-    speech:
-      text: "Added {{ item }} to the grocery list"
-```
+**Supported list aliases:**
+- "grocery" / "groceries" / "shopping" → Grocery List
+- "packing" / "pack" → Packing List
+- "todo" / "tasks" / "to do" → To Do
+
+The integration automatically handles the intent responses with natural speech.
 
 ## Troubleshooting
 

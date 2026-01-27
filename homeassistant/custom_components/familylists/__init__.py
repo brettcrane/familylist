@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import FamilyListsCoordinator
+from .intent import async_register_intents
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register services (only once)
     if not hass.services.has_service(DOMAIN, SERVICE_ADD_ITEM):
         await _async_register_services(hass)
+        await async_register_intents(hass)
 
     return True
 
