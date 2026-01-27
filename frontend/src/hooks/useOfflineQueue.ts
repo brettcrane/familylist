@@ -1,0 +1,182 @@
+import { useEffect, useCallback, useRef } from 'react';
+import { useQueryClient, onlineManager } from '@tanstack/react-query';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+/** Pending mutation type */
+export interface PendingMutation {
+  id: string;
+  type: 'create' | 'update' | 'delete' | 'check' | 'uncheck';
+  endpoint: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: unknown;
+  timestamp: number;
+  listId?: string;
+  itemId?: string;
+}
+
+/** Offline queue store */
+interface OfflineQueueStore {
+  pendingMutations: PendingMutation[];
+  addMutation: (mutation: Omit<PendingMutation, 'id' | 'timestamp'>) => string;
+  removeMutation: (id: string) => void;
+  clearMutations: () => void;
+  getMutationsForItem: (itemId: string) => PendingMutation[];
+}
+
+/**
+ * Zustand store for offline mutation queue
+ * Persisted to localStorage for offline resilience
+ */
+export const useOfflineQueueStore = create<OfflineQueueStore>()(
+  persist(
+    (set, get) => ({
+      pendingMutations: [],
+
+      addMutation: (mutation) => {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const newMutation: PendingMutation = {
+          ...mutation,
+          id,
+          timestamp: Date.now(),
+        };
+        set((state) => ({
+          pendingMutations: [...state.pendingMutations, newMutation],
+        }));
+        return id;
+      },
+
+      removeMutation: (id) => {
+        set((state) => ({
+          pendingMutations: state.pendingMutations.filter((m) => m.id !== id),
+        }));
+      },
+
+      clearMutations: () => {
+        set({ pendingMutations: [] });
+      },
+
+      getMutationsForItem: (itemId) => {
+        return get().pendingMutations.filter((m) => m.itemId === itemId);
+      },
+    }),
+    {
+      name: 'familylists-offline-queue',
+    }
+  )
+);
+
+/**
+ * Hook to check if an item has pending mutations
+ */
+export function useHasPendingMutation(itemId: string): boolean {
+  return useOfflineQueueStore(
+    (state) => state.pendingMutations.some((m) => m.itemId === itemId)
+  );
+}
+
+/**
+ * Hook to manage offline queue synchronization
+ */
+export function useOfflineSync() {
+  const queryClient = useQueryClient();
+  const { pendingMutations, removeMutation } = useOfflineQueueStore();
+  const isSyncing = useRef(false);
+
+  const syncMutations = useCallback(async () => {
+    if (isSyncing.current || pendingMutations.length === 0) return;
+    if (!navigator.onLine) return;
+
+    isSyncing.current = true;
+
+    for (const mutation of pendingMutations) {
+      try {
+        const response = await fetch(`/api${mutation.endpoint}`, {
+          method: mutation.method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: mutation.body ? JSON.stringify(mutation.body) : undefined,
+        });
+
+        if (response.ok) {
+          removeMutation(mutation.id);
+
+          // Invalidate relevant queries
+          if (mutation.listId) {
+            queryClient.invalidateQueries({
+              queryKey: ['lists', 'list', mutation.listId],
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to sync mutation:', mutation.id, error);
+        // Stop syncing on error, will retry when online again
+        break;
+      }
+    }
+
+    isSyncing.current = false;
+  }, [pendingMutations, removeMutation, queryClient]);
+
+  // Sync when coming back online
+  useEffect(() => {
+    const handleOnline = () => {
+      syncMutations();
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    // Also sync on mount if online
+    if (navigator.onLine) {
+      syncMutations();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [syncMutations]);
+
+  // Configure TanStack Query online manager
+  useEffect(() => {
+    onlineManager.setEventListener((setOnline) => {
+      const handleOnline = () => setOnline(true);
+      const handleOffline = () => setOnline(false);
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    });
+  }, []);
+
+  return {
+    pendingCount: pendingMutations.length,
+    isSyncing: isSyncing.current,
+    syncNow: syncMutations,
+  };
+}
+
+/**
+ * Hook to check online status
+ */
+export function useOnlineStatus() {
+  const queryClient = useQueryClient();
+  const isOnline = onlineManager.isOnline();
+
+  useEffect(() => {
+    return onlineManager.subscribe((online) => {
+      if (online) {
+        // Refetch queries when coming back online
+        queryClient.resumePausedMutations().then(() => {
+          queryClient.invalidateQueries();
+        });
+      }
+    });
+  }, [queryClient]);
+
+  return isOnline;
+}

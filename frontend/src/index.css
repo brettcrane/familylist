@@ -1,0 +1,234 @@
+/* Google Fonts - must be first */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
+
+/* ============================================================================
+   Design System: FamilyLists
+   ============================================================================ */
+
+@theme {
+  /* Typography */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Light Mode Colors */
+  --color-bg-primary: #FAF8F5;
+  --color-bg-secondary: #F0EDE8;
+  --color-bg-card: #FFFFFF;
+  --color-text-primary: #2D2A26;
+  --color-text-secondary: #6B6560;
+  --color-text-muted: #9A948D;
+
+  /* Category Accents */
+  --color-cat-produce: #7CB067;
+  --color-cat-dairy: #89B4D8;
+  --color-cat-meat: #D4847A;
+  --color-cat-bakery: #C9A86C;
+  --color-cat-frozen: #94B8C8;
+  --color-cat-pantry: #B8A07A;
+  --color-cat-beverages: #7A9EC9;
+  --color-cat-snacks: #D4A574;
+  --color-cat-household: #8B9A7A;
+  --color-cat-personal: #C490A0;
+
+  /* Action Colors */
+  --color-checked: #7CB067;
+  --color-destructive: #D4847A;
+  --color-pending: #C9A86C;
+  --color-accent: #7CB067;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Z-index */
+  --z-dropdown: 50;
+  --z-modal: 100;
+  --z-toast: 150;
+}
+
+/* Dark Mode Colors */
+[data-theme="dark"] {
+  --color-bg-primary: #1A1917;
+  --color-bg-secondary: #252320;
+  --color-bg-card: #2D2A26;
+  --color-text-primary: #F0EDE8;
+  --color-text-secondary: #A8A29D;
+  --color-text-muted: #6B6560;
+}
+
+/* ============================================================================
+   Base Styles
+   ============================================================================ */
+
+html {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   Typography Utilities
+   ============================================================================ */
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ============================================================================
+   Animations
+   ============================================================================ */
+
+@keyframes pop {
+  50% { transform: scale(1.2); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-pop {
+  animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+/* ============================================================================
+   Focus Styles
+   ============================================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   Scrollbar Styles
+   ============================================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-muted);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* ============================================================================
+   Safe Area Insets (PWA)
+   ============================================================================ */
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-right {
+  padding-right: env(safe-area-inset-right);
+}

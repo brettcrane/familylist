@@ -67,3 +67,9 @@ Thumbs.db
 
 # Model cache (sentence-transformers)
 .cache/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local

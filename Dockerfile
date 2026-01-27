@@ -1,7 +1,24 @@
-# Multi-stage Dockerfile for FamilyList backend
+# Multi-stage Dockerfile for FamilyList backend + PWA frontend
 # CPU-only inference for sentence-transformers
 
-# Stage 1: Build dependencies
+# Stage 1: Build frontend
+FROM node:20-alpine as frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build the PWA
+RUN npm run build
+
+# Stage 2: Build Python dependencies
 FROM python:3.12-slim as builder
 
 # Install uv
@@ -16,7 +33,7 @@ COPY backend/pyproject.toml backend/uv.lock ./
 # Install dependencies (production only, no dev)
 RUN uv sync --frozen --no-dev --no-install-project
 
-# Stage 2: Runtime
+# Stage 3: Runtime
 FROM python:3.12-slim as runtime
 
 # Create non-root user
@@ -30,6 +47,9 @@ COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
 COPY backend/app ./app
+
+# Copy frontend build from frontend-builder
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # Create data directory
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
