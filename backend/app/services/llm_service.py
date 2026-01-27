@@ -14,20 +14,20 @@ from app.schemas import ListType
 logger = logging.getLogger(__name__)
 
 # Prompt template for parsing natural language into items
-PARSE_PROMPT = """You are a helpful assistant that parses shopping or packing requests into individual items.
+PARSE_PROMPT = """Parse this into grocery/shopping items.
 
-Given a natural language input, extract the individual items that should be added to a {list_type} list.
-For each item, provide:
-- name: The item name (singular, lowercase)
-- quantity: Number needed (default 1)
+"stuff for X" or "things for X" means ingredients to make X.
+"we need X, Y, Z" means items X, Y, and Z.
 
 Input: "{input}"
+List type: {list_type}
 
-Respond with ONLY a JSON array, no explanation. Example format:
-[{{"name": "tortillas", "quantity": 1}}, {{"name": "ground beef", "quantity": 1}}]
+Return a JSON array of items. Each item has "name" (lowercase) and "quantity" (default 1).
 
-If the input is a single item, return an array with one item.
-If you cannot parse any items, return an empty array: []
+Examples:
+- "stuff for tacos" → [{{"name": "tortillas", "quantity": 1}}, {{"name": "ground beef", "quantity": 1}}, {{"name": "cheese", "quantity": 1}}, {{"name": "salsa", "quantity": 1}}]
+- "stuff for chili" → [{{"name": "ground beef", "quantity": 1}}, {{"name": "kidney beans", "quantity": 2}}, {{"name": "diced tomatoes", "quantity": 1}}, {{"name": "chili powder", "quantity": 1}}, {{"name": "onion", "quantity": 1}}]
+- "milk and eggs" → [{{"name": "milk", "quantity": 1}}, {{"name": "eggs", "quantity": 1}}]
 
 JSON array:"""
 
