@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import clsx from 'clsx';
 
 interface LayoutProps {
@@ -24,8 +24,12 @@ interface MainProps {
   className?: string;
 }
 
-export function Main({ children, className }: MainProps) {
-  return (
-    <main className={clsx('flex-1 overflow-auto', className)}>{children}</main>
-  );
-}
+export const Main = forwardRef<HTMLElement, MainProps>(
+  function Main({ children, className }, ref) {
+    return (
+      <main ref={ref} className={clsx('flex-1 overflow-auto', className)}>
+        {children}
+      </main>
+    );
+  }
+);

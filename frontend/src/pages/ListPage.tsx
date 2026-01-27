@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Layout, Main, Header } from '../components/layout';
-import { Tabs, TabList, TabTrigger, TabContent } from '../components/ui';
-import { CategorySection, ItemInput } from '../components/items';
+import { AnimatePresence } from 'framer-motion';
+import { Layout, Main } from '../components/layout';
+import { ListHeader } from '../components/layout/ListHeader';
+import { CategorySection } from '../components/items';
+import { CategorySuggestion } from '../components/items/CategorySuggestion';
+import { NLParseModal } from '../components/items/NLParseModal';
 import { DoneList } from '../components/done';
 import { useList } from '../hooks/useLists';
 import {
@@ -13,7 +16,17 @@ import {
   useClearCompleted,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
-import type { Item } from '../types/api';
+import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
+import type { Item, ParsedItem } from '../types/api';
+
+const AUTO_ACCEPT_DELAY = 2000;
+
+interface CategorySuggestionState {
+  itemName: string;
+  categoryName: string;
+  categoryId: string | null;
+  confidence: number;
+}
 
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +40,29 @@ export function ListPage() {
   const uncheckItem = useUncheckItem(id!);
   const deleteItem = useDeleteItem(id!);
   const clearCompleted = useClearCompleted(id!);
+
+  // Input state
+  const [inputValue, setInputValue] = useState('');
+  const [mealMode, setMealMode] = useState(false);
+  const [isInputLoading, setIsInputLoading] = useState(false);
+  const [suggestion, setSuggestion] = useState<CategorySuggestionState | null>(null);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [nlModalOpen, setNlModalOpen] = useState(false);
+  const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
+  const [originalInput, setOriginalInput] = useState('');
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
+  const timerRef = useRef<number | null>(null);
+
+  // Clear timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   // Group items by category
   const { categorizedItems, uncategorizedItems, checkedItems } = useMemo(() => {
@@ -62,6 +98,7 @@ export function ListPage() {
   const checkedCount = checkedItems.length;
   const totalItems = list?.items.length || 0;
 
+  // Handlers
   const handleAddItem = (name: string, categoryId: string | null) => {
     if (!name) return;
     createItem.mutate({
@@ -86,19 +123,156 @@ export function ListPage() {
     clearCompleted.mutate();
   };
 
+  // Input submission
+  const handleInputSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedValue = inputValue.trim();
+    if (!trimmedValue || !list) return;
+
+    // If meal mode is active, parse as recipe
+    if (mealMode) {
+      setIsInputLoading(true);
+      try {
+        const result = await parseNaturalLanguage({
+          input: trimmedValue,
+          list_type: list.type,
+        });
+
+        if (result.items.length > 0) {
+          setParsedItems(result.items);
+          setOriginalInput(result.original_input);
+          setNlModalOpen(true);
+          setIsInputLoading(false);
+          return;
+        }
+      } catch {
+        // Fall through to single item
+      }
+      setIsInputLoading(false);
+    }
+
+    // Single item flow
+    await handleSingleItem(trimmedValue);
+  };
+
+  const handleSingleItem = async (itemName: string) => {
+    if (!list) return;
+
+    try {
+      setIsInputLoading(true);
+      const result = await categorizeItem({
+        item_name: itemName,
+        list_type: list.type,
+      });
+
+      const matchedCategory = list.categories.find(
+        (cat) => cat.name.toLowerCase() === result.category.toLowerCase()
+      );
+
+      setSuggestion({
+        itemName,
+        categoryName: result.category,
+        categoryId: matchedCategory?.id || null,
+        confidence: result.confidence,
+      });
+
+      // Start auto-accept timer
+      timerRef.current = window.setTimeout(() => {
+        acceptSuggestion(itemName, matchedCategory?.id || null);
+      }, AUTO_ACCEPT_DELAY);
+    } catch {
+      handleAddItem(itemName, null);
+      setInputValue('');
+    } finally {
+      setIsInputLoading(false);
+    }
+  };
+
+  const acceptSuggestion = (itemName: string, categoryId: string | null) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    if (!itemName) return;
+    handleAddItem(itemName, categoryId);
+    setInputValue('');
+    setSuggestion(null);
+  };
+
+  const handleAcceptSuggestion = () => {
+    if (suggestion) {
+      acceptSuggestion(suggestion.itemName, suggestion.categoryId);
+    }
+  };
+
+  const handleChangeCategory = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    setShowCategoryPicker(true);
+  };
+
+  const handleSelectCategory = (categoryId: string | null) => {
+    if (suggestion && list) {
+      const selectedCategory = list.categories.find((c) => c.id === categoryId);
+      const selectedCategoryName = selectedCategory?.name || 'Uncategorized';
+
+      if (selectedCategoryName !== suggestion.categoryName) {
+        submitFeedback({
+          item_name: suggestion.itemName,
+          list_type: list.type,
+          correct_category: selectedCategoryName,
+        }).catch(() => {});
+      }
+
+      acceptSuggestion(suggestion.itemName, categoryId);
+    }
+    setShowCategoryPicker(false);
+  };
+
+  const handleDismissSuggestion = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    setSuggestion(null);
+    setShowCategoryPicker(false);
+  };
+
+  const handleNlConfirm = (items: ParsedItem[]) => {
+    if (!list) return;
+
+    items.forEach((item) => {
+      const matchedCategory = list.categories.find(
+        (cat) => cat.name.toLowerCase() === item.category.toLowerCase()
+      );
+      handleAddItem(item.name, matchedCategory?.id || null);
+    });
+
+    setNlModalOpen(false);
+    setParsedItems([]);
+    setOriginalInput('');
+    setInputValue('');
+    setMealMode(false);
+  };
+
+  const handleNlCancel = () => {
+    setNlModalOpen(false);
+    setParsedItems([]);
+    setOriginalInput('');
+  };
+
+  // Loading state
   if (error) {
     return (
       <Layout>
-        <Header title="Error" showBack />
-        <Main className="flex flex-col items-center justify-center p-8">
-          <div className="text-4xl mb-4">😕</div>
+        <div className="flex flex-col items-center justify-center min-h-screen p-8">
+          <div className="text-5xl mb-4">😕</div>
           <h2 className="font-semibold text-[var(--color-text-primary)]">
             Couldn't load list
           </h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
             Please check your connection and try again
           </p>
-        </Main>
+        </div>
       </Layout>
     );
   }
@@ -106,12 +280,13 @@ export function ListPage() {
   if (isLoading || !list) {
     return (
       <Layout>
-        <Header title="Loading..." showBack />
+        <div className="sticky top-0 z-40 safe-top bg-[var(--color-bg-primary)] border-b border-[var(--color-text-muted)]/10 p-4">
+          <div className="h-8 w-32 bg-[var(--color-bg-secondary)] rounded-lg animate-pulse" />
+        </div>
         <Main className="p-4">
-          <div className="animate-pulse space-y-4">
-            <div className="h-10 bg-[var(--color-bg-secondary)] rounded-lg" />
+          <div className="animate-pulse space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 bg-[var(--color-bg-secondary)] rounded-lg" />
+              <div key={i} className="h-14 bg-[var(--color-bg-secondary)] rounded-xl" />
             ))}
           </div>
         </Main>
@@ -119,86 +294,108 @@ export function ListPage() {
     );
   }
 
-  // Sort categories by sort_order
   const sortedCategories = [...list.categories].sort(
     (a, b) => a.sort_order - b.sort_order
   );
 
   return (
     <Layout>
-      <Header title={list.name} showBack />
+      <ListHeader
+        title={list.name}
+        listType={list.type}
+        uncheckedCount={uncheckedCount}
+        checkedCount={checkedCount}
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab as 'todo' | 'done')}
+        inputValue={inputValue}
+        onInputChange={setInputValue}
+        onInputSubmit={handleInputSubmit}
+        isLoading={isInputLoading}
+        mealMode={mealMode}
+        onMealModeToggle={() => setMealMode(!mealMode)}
+        inputDisabled={!!suggestion || isInputLoading}
+        inputRef={inputRef}
+        scrollContainerRef={scrollRef}
+      />
 
-      <Tabs value={activeTab} onChange={(value) => setActiveTab(value as 'todo' | 'done')}>
-        <TabList>
-          <TabTrigger value="todo" count={uncheckedCount}>
-            To Do
-          </TabTrigger>
-          <TabTrigger value="done" count={checkedCount}>
-            Done
-          </TabTrigger>
-        </TabList>
+      {/* Category suggestion (shows below header when suggesting) */}
+      <CategorySuggestion
+        suggestion={suggestion}
+        showPicker={showCategoryPicker}
+        categories={list.categories}
+        autoAcceptDelay={AUTO_ACCEPT_DELAY}
+        onAccept={handleAcceptSuggestion}
+        onChangeCategory={handleChangeCategory}
+        onSelectCategory={handleSelectCategory}
+        onDismiss={handleDismissSuggestion}
+      />
 
-        <Main className="flex flex-col">
-          <TabContent value="todo" className="flex-1">
-            {uncheckedCount === 0 ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center">
-                <div className="text-5xl mb-4">✨</div>
-                <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
-                  All caught up!
-                </h3>
-                <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                  Add items below to get started
-                </p>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto pb-32">
-                {/* Uncategorized items first */}
-                {uncategorizedItems.length > 0 && (
-                  <CategorySection
-                    listId={id!}
-                    category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
-                    items={uncategorizedItems}
-                    onCheckItem={handleCheckItem}
-                    onDeleteItem={handleDeleteItem}
-                  />
-                )}
-
-                {/* Categorized items */}
-                {sortedCategories.map((category) => {
-                  const items = categorizedItems.get(category.id) || [];
-                  if (items.length === 0) return null;
-                  return (
+      <Main ref={scrollRef} className="flex-1 overflow-y-auto">
+        <AnimatePresence mode="wait">
+          {activeTab === 'todo' ? (
+            <div key="todo" className="pb-8">
+              {uncheckedCount === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <div className="text-5xl mb-4">✨</div>
+                  <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
+                    All caught up!
+                  </h3>
+                  <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                    Add items using the field above
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {uncategorizedItems.length > 0 && (
                     <CategorySection
-                      key={category.id}
                       listId={id!}
-                      category={category}
-                      items={items}
+                      category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
+                      items={uncategorizedItems}
                       onCheckItem={handleCheckItem}
                       onDeleteItem={handleDeleteItem}
                     />
-                  );
-                })}
-              </div>
-            )}
+                  )}
 
-            <ItemInput
-              listType={list.type}
-              categories={list.categories}
-              onAddItem={handleAddItem}
-            />
-          </TabContent>
-
-          <TabContent value="done" className="flex-1">
+                  {sortedCategories.map((category) => {
+                    const items = categorizedItems.get(category.id) || [];
+                    if (items.length === 0) return null;
+                    return (
+                      <CategorySection
+                        key={category.id}
+                        listId={id!}
+                        category={category}
+                        items={items}
+                        onCheckItem={handleCheckItem}
+                        onDeleteItem={handleDeleteItem}
+                      />
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          ) : (
             <DoneList
+              key="done"
               items={checkedItems}
               totalItems={totalItems}
               onUncheckItem={handleUncheckItem}
               onClearAll={handleClearAll}
               isClearingAll={clearCompleted.isPending}
             />
-          </TabContent>
-        </Main>
-      </Tabs>
+          )}
+        </AnimatePresence>
+      </Main>
+
+      {/* Natural language parse modal */}
+      <NLParseModal
+        isOpen={nlModalOpen}
+        originalInput={originalInput}
+        items={parsedItems}
+        categories={list.categories}
+        listType={list.type}
+        onConfirm={handleNlConfirm}
+        onCancel={handleNlCancel}
+      />
     </Layout>
   );
 }
