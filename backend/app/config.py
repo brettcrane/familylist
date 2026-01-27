@@ -27,8 +27,16 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # AI Model
+    # AI Model - Embeddings
     embedding_model: str = "all-MiniLM-L6-v2"
+
+    # AI Model - LLM for natural language parsing
+    enable_llm_parsing: bool = True
+    llm_model_path: str = ""  # Path to GGUF model file, or empty to use Ollama
+    llm_ollama_url: str = "http://localhost:11434"  # Ollama API URL
+    llm_ollama_model: str = "phi3:mini"  # Ollama model name
+    llm_max_tokens: int = 512
+    llm_temperature: float = 0.1  # Low temp for consistent parsing
 
     @property
     def is_development(self) -> bool:

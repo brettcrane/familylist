@@ -138,6 +138,26 @@ export interface FeedbackResponse {
   item_name_normalized: string;
 }
 
+/** Parsed item from NL parsing */
+export interface ParsedItem {
+  name: string;
+  category: string;
+  quantity: number;
+}
+
+/** AI parse request for natural language */
+export interface ParseRequest {
+  input: string;
+  list_type: ListType;
+}
+
+/** AI parse response with multiple items */
+export interface ParseResponse {
+  original_input: string;
+  items: ParsedItem[];
+  confidence: number;
+}
+
 /** Health check response */
 export interface HealthResponse {
   status: string;

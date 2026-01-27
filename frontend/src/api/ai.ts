@@ -4,6 +4,8 @@ import type {
   CategorizeResponse,
   FeedbackRequest,
   FeedbackResponse,
+  ParseRequest,
+  ParseResponse,
 } from '../types/api';
 
 /**
@@ -20,4 +22,12 @@ export function categorizeItem(
  */
 export function submitFeedback(data: FeedbackRequest): Promise<FeedbackResponse> {
   return post<FeedbackResponse>('/ai/feedback', data);
+}
+
+/**
+ * Parse natural language input into multiple items
+ * Returns 503 error if LLM service is not available
+ */
+export function parseNaturalLanguage(data: ParseRequest): Promise<ParseResponse> {
+  return post<ParseResponse>('/ai/parse', data);
 }

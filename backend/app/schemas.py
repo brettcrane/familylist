@@ -225,6 +225,29 @@ class FeedbackResponse(BaseModel):
     item_name_normalized: str
 
 
+class ParsedItemResponse(BaseModel):
+    """Schema for a single parsed item."""
+
+    name: str
+    category: str
+    quantity: int = 1
+
+
+class ParseRequest(BaseModel):
+    """Schema for natural language parsing request."""
+
+    input: str = Field(..., min_length=1, max_length=500)
+    list_type: ListType
+
+
+class ParseResponse(BaseModel):
+    """Schema for natural language parsing response."""
+
+    original_input: str
+    items: list[ParsedItemResponse]
+    confidence: float = Field(..., ge=0, le=1)
+
+
 # ============================================================================
 # Health Check
 # ============================================================================

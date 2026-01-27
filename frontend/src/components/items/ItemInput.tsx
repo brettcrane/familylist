@@ -2,14 +2,16 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Input } from '../ui/Input';
-import { categorizeItem } from '../../api/ai';
-import type { ListType, Category } from '../../types/api';
+import { NLParseModal } from './NLParseModal';
+import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../../api/ai';
+import type { ListType, Category, ParsedItem } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 
 interface ItemInputProps {
   listType: ListType;
   categories: Category[];
   onAddItem: (name: string, categoryId: string | null) => void;
+  onAddItems?: (items: Array<{ name: string; categoryId: string | null; quantity?: number }>) => void;
 }
 
 interface CategorySuggestion {
@@ -21,10 +23,37 @@ interface CategorySuggestion {
 
 const AUTO_ACCEPT_DELAY = 2000; // 2 seconds
 
-export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
+// Patterns that suggest natural language / multi-item input
+const NL_PATTERNS = [
+  /\bstuff for\b/i,
+  /\bthings for\b/i,
+  /\bitems for\b/i,
+  /\bwe need\b/i,
+  /\bi need\b/i,
+  /\bget some\b/i,
+  /\bpack for\b/i,
+  /,.*,/,  // Multiple commas (list of items)
+  /\band\b.*\band\b/i,  // Multiple "and"s
+];
+
+function looksLikeNaturalLanguage(input: string): boolean {
+  // Check for NL patterns
+  if (NL_PATTERNS.some((pattern) => pattern.test(input))) {
+    return true;
+  }
+  // Check for comma-separated list with 2+ items
+  const parts = input.split(/,|(?:\band\b)/i).filter((p) => p.trim());
+  return parts.length >= 3;
+}
+
+export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemInputProps) {
   const [value, setValue] = useState('');
   const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [nlModalOpen, setNlModalOpen] = useState(false);
+  const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
+  const [originalInput, setOriginalInput] = useState('');
   const timerRef = useRef<number | null>(null);
 
   // Clear timer on unmount
@@ -41,10 +70,45 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
     const trimmedValue = value.trim();
     if (!trimmedValue) return;
 
-    // Get AI category suggestion
+    // Check if this looks like natural language input
+    if (looksLikeNaturalLanguage(trimmedValue)) {
+      setIsLoading(true);
+      try {
+        const result = await parseNaturalLanguage({
+          input: trimmedValue,
+          list_type: listType,
+        });
+
+        if (result.items.length > 1) {
+          // Multiple items parsed - show confirmation modal
+          setParsedItems(result.items);
+          setOriginalInput(result.original_input);
+          setNlModalOpen(true);
+          setIsLoading(false);
+          return;
+        } else if (result.items.length === 1) {
+          // Single item - fall through to normal flow
+          // Use the parsed name instead of raw input
+          const item = result.items[0];
+          await handleSingleItem(item.name);
+          setIsLoading(false);
+          return;
+        }
+        // No items parsed - fall through to normal single item flow
+      } catch {
+        // NL parsing failed (503 or other error) - fall through to single item
+      }
+      setIsLoading(false);
+    }
+
+    // Single item flow - get AI category suggestion
+    await handleSingleItem(trimmedValue);
+  };
+
+  const handleSingleItem = async (itemName: string) => {
     try {
       const result = await categorizeItem({
-        item_name: trimmedValue,
+        item_name: itemName,
         list_type: listType,
       });
 
@@ -54,7 +118,7 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
       );
 
       setSuggestion({
-        itemName: trimmedValue,
+        itemName: itemName,
         categoryName: result.category,
         categoryId: matchedCategory?.id || null,
         confidence: result.confidence,
@@ -62,11 +126,11 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
 
       // Start auto-accept timer - pass itemName directly to avoid stale closure
       timerRef.current = window.setTimeout(() => {
-        acceptSuggestion(trimmedValue, matchedCategory?.id || null);
+        acceptSuggestion(itemName, matchedCategory?.id || null);
       }, AUTO_ACCEPT_DELAY);
     } catch {
       // On error, add without category
-      onAddItem(trimmedValue, null);
+      onAddItem(itemName, null);
       setValue('');
     }
   };
@@ -96,6 +160,21 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
 
   const handleSelectCategory = (categoryId: string | null) => {
     if (suggestion) {
+      // Find the selected category name for feedback
+      const selectedCategory = categories.find((c) => c.id === categoryId);
+      const selectedCategoryName = selectedCategory?.name || 'Uncategorized';
+
+      // Submit feedback if category differs from AI suggestion
+      if (selectedCategoryName !== suggestion.categoryName) {
+        submitFeedback({
+          item_name: suggestion.itemName,
+          list_type: listType,
+          correct_category: selectedCategoryName,
+        }).catch(() => {
+          // Silently ignore feedback errors - non-critical
+        });
+      }
+
       acceptSuggestion(suggestion.itemName, categoryId);
     }
     setShowCategoryPicker(false);
@@ -109,6 +188,41 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
     setShowCategoryPicker(false);
   };
 
+  const handleNlConfirm = (items: ParsedItem[]) => {
+    // Find category IDs for each item
+    const itemsWithCategoryIds = items.map((item) => {
+      const matchedCategory = categories.find(
+        (cat) => cat.name.toLowerCase() === item.category.toLowerCase()
+      );
+      return {
+        name: item.name,
+        categoryId: matchedCategory?.id || null,
+        quantity: item.quantity,
+      };
+    });
+
+    // Use batch add if available, otherwise add one by one
+    if (onAddItems) {
+      onAddItems(itemsWithCategoryIds);
+    } else {
+      itemsWithCategoryIds.forEach((item) => {
+        onAddItem(item.name, item.categoryId);
+      });
+    }
+
+    // Reset state
+    setNlModalOpen(false);
+    setParsedItems([]);
+    setOriginalInput('');
+    setValue('');
+  };
+
+  const handleNlCancel = () => {
+    setNlModalOpen(false);
+    setParsedItems([]);
+    setOriginalInput('');
+  };
+
   const categoryColor = suggestion
     ? CATEGORY_COLORS[suggestion.categoryName] || 'var(--color-accent)'
     : 'var(--color-accent)';
@@ -120,20 +234,33 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Add item..."
-          disabled={!!suggestion}
+          disabled={!!suggestion || isLoading}
           icon={
-            <svg
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            isLoading ? (
+              <svg
+                className="w-5 h-5 animate-spin"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            )
           }
         />
       </form>
@@ -302,6 +429,17 @@ export function ItemInput({ listType, categories, onAddItem }: ItemInputProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Natural language parse modal */}
+      <NLParseModal
+        isOpen={nlModalOpen}
+        originalInput={originalInput}
+        items={parsedItems}
+        categories={categories}
+        listType={listType}
+        onConfirm={handleNlConfirm}
+        onCancel={handleNlCancel}
+      />
     </div>
   );
 }
