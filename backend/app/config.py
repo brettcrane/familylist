@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     llm_ollama_url: str = "http://localhost:11434"  # Ollama API URL
     llm_ollama_model: str = "phi3:mini"  # Ollama model name
     llm_openai_api_key: str = ""  # OpenAI API key
-    llm_openai_model: str = "gpt-5-nano"  # OpenAI model name
+    llm_openai_model: str = "gpt-5-mini"  # OpenAI model name
     llm_max_tokens: int = 512
     llm_temperature: float = 0.1  # Low temp for consistent parsing
 

@@ -19,7 +19,7 @@ services:
       - ENABLE_LLM_PARSING=true
       - LLM_BACKEND=openai
       - LLM_OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - LLM_OPENAI_MODEL=gpt-5-nano
+      - LLM_OPENAI_MODEL=gpt-5-mini
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s

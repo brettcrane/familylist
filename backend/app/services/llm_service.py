@@ -173,16 +173,28 @@ class LLMParsingService:
     def _call_openai(self, prompt: str) -> str:
         """Call OpenAI API."""
         settings = get_settings()
-        response = self._openai_client.chat.completions.create(
-            model=settings.llm_openai_model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that parses shopping and packing lists. Always respond with valid JSON only."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=settings.llm_max_tokens,
-            temperature=settings.llm_temperature,
-        )
-        return response.choices[0].message.content.strip()
+        # GPT-5 models use max_completion_tokens and don't support custom temperature
+        if "gpt-5" in settings.llm_openai_model:
+            response = self._openai_client.chat.completions.create(
+                model=settings.llm_openai_model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that parses shopping and packing lists. Always respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_completion_tokens=settings.llm_max_tokens,
+            )
+        else:
+            response = self._openai_client.chat.completions.create(
+                model=settings.llm_openai_model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that parses shopping and packing lists. Always respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=settings.llm_max_tokens,
+                temperature=settings.llm_temperature,
+            )
+        content = response.choices[0].message.content
+        return content.strip() if content else ""
 
     def _call_local(self, prompt: str) -> str:
         """Call local GGUF model."""
@@ -272,7 +284,7 @@ class LLMParsingService:
             else:
                 response = self._call_ollama(prompt)
 
-            logger.debug(f"LLM response: {response}")
+            logger.info(f"LLM response: {response}")
 
             # Parse JSON from response
             items_data = self._extract_json(response)
