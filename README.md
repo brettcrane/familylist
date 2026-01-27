@@ -6,8 +6,13 @@ A family-friendly list management application with AI-powered categorization, de
 
 - **Multiple List Types**: Grocery, packing, and task lists
 - **AI Categorization**: Automatic item categorization using embeddings
+- **Natural Language Parsing**: "Meal mode" lets you type dishes and AI extracts ingredients
 - **Learning System**: Remembers user corrections to improve over time
 - **Home Assistant Ready**: Designed for HA integration via REST API
+
+## Known Issues
+
+See [TODO.md](./TODO.md) for current bugs and planned improvements.
 
 ## Quick Start
 
