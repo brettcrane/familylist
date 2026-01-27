@@ -34,6 +34,10 @@ Required for AI features:
 
 See [TODO.md](./TODO.md) for current bugs and tasks.
 
+## Development Plans
+
+- Phase 4 (Home Assistant Integration): `~/.claude/plans/phase-4-home-assistant-integration.md`
+
 ## Development
 
 ```bash
