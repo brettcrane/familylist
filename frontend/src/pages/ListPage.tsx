@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
 import { CategorySection } from '../components/items';
-import { CategorySuggestion } from '../components/items/CategorySuggestion';
+import { BottomInputBar } from '../components/items/BottomInputBar';
 import { NLParseModal } from '../components/items/NLParseModal';
 import { DoneList } from '../components/done';
 import { useList } from '../hooks/useLists';
@@ -302,38 +302,16 @@ export function ListPage() {
     <Layout>
       <ListHeader
         title={list.name}
-        listType={list.type}
         uncheckedCount={uncheckedCount}
         checkedCount={checkedCount}
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab as 'todo' | 'done')}
-        inputValue={inputValue}
-        onInputChange={setInputValue}
-        onInputSubmit={handleInputSubmit}
-        isLoading={isInputLoading}
-        mealMode={mealMode}
-        onMealModeToggle={() => setMealMode(!mealMode)}
-        inputDisabled={!!suggestion || isInputLoading}
-        inputRef={inputRef}
-        scrollContainerRef={scrollRef}
-      />
-
-      {/* Category suggestion (shows below header when suggesting) */}
-      <CategorySuggestion
-        suggestion={suggestion}
-        showPicker={showCategoryPicker}
-        categories={list.categories}
-        autoAcceptDelay={AUTO_ACCEPT_DELAY}
-        onAccept={handleAcceptSuggestion}
-        onChangeCategory={handleChangeCategory}
-        onSelectCategory={handleSelectCategory}
-        onDismiss={handleDismissSuggestion}
       />
 
       <Main ref={scrollRef} className="flex-1 overflow-y-auto">
         <AnimatePresence mode="wait">
           {activeTab === 'todo' ? (
-            <div key="todo" className="pb-8">
+            <div key="todo" className="pb-24">
               {uncheckedCount === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
                   <div className="text-5xl mb-4">✨</div>
@@ -341,7 +319,7 @@ export function ListPage() {
                     All caught up!
                   </h3>
                   <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                    Add items using the field above
+                    Add items using the field below
                   </p>
                 </div>
               ) : (
@@ -385,6 +363,26 @@ export function ListPage() {
           )}
         </AnimatePresence>
       </Main>
+
+      {/* Bottom input bar - always visible, thumb-friendly */}
+      <BottomInputBar
+        ref={inputRef}
+        inputValue={inputValue}
+        onInputChange={setInputValue}
+        onInputSubmit={handleInputSubmit}
+        isLoading={isInputLoading}
+        mealMode={mealMode}
+        onMealModeToggle={() => setMealMode(!mealMode)}
+        inputDisabled={!!suggestion || isInputLoading}
+        suggestion={suggestion}
+        showCategoryPicker={showCategoryPicker}
+        categories={list.categories}
+        autoAcceptDelay={AUTO_ACCEPT_DELAY}
+        onAcceptSuggestion={handleAcceptSuggestion}
+        onChangeCategory={handleChangeCategory}
+        onSelectCategory={handleSelectCategory}
+        onDismissSuggestion={handleDismissSuggestion}
+      />
 
       {/* Natural language parse modal */}
       <NLParseModal

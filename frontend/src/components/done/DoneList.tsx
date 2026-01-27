@@ -98,7 +98,7 @@ export function DoneList({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
+      <div className="flex flex-col items-center justify-center p-12 pb-24 text-center">
         <div className="text-5xl mb-4">📋</div>
         <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
           Nothing done yet
@@ -111,7 +111,7 @@ export function DoneList({
   }
 
   return (
-    <div className="pb-20">
+    <div className="pb-24">
       {/* Progress bar */}
       <div className="px-4 py-3 bg-[var(--color-bg-secondary)]">
         {allDone ? (
