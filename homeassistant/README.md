@@ -101,6 +101,63 @@ Force refresh all list data.
 service: familylists.refresh
 ```
 
+## Lovelace Dashboard
+
+### Iframe Card (Full PWA)
+
+Add the PWA to your dashboard as an iframe:
+
+```yaml
+type: iframe
+url: http://pve3.local:8000
+aspect_ratio: 100%
+```
+
+For a panel view (full page):
+
+```yaml
+views:
+  - title: Shopping
+    path: shopping
+    panel: true
+    cards:
+      - type: iframe
+        url: http://pve3.local:8000
+        aspect_ratio: 100%
+```
+
+### Entities Card (Quick Overview)
+
+Show list status on your main dashboard:
+
+```yaml
+type: entities
+title: Shopping Lists
+entities:
+  - entity: sensor.familylists_grocery_list
+    name: Grocery
+  - entity: sensor.familylists_packing_list
+    name: Packing
+  - entity: sensor.familylists_to_do
+    name: To Do
+```
+
+### Markdown Card (Item Preview)
+
+Show unchecked items inline:
+
+```yaml
+type: markdown
+title: Grocery List
+content: |
+  {% set items = state_attr('sensor.familylists_grocery_list', 'unchecked_items') %}
+  {% if items == 0 %}
+  ✓ All done!
+  {% else %}
+  {{ items }} items remaining
+  {% endif %}
+```
+
 ## Example Automations
 
 ### Notify on arrival at grocery store
