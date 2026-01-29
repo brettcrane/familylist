@@ -96,9 +96,9 @@ Frontend (optional):
 1. `git push master` triggers GitHub Actions (~2-3 min build)
 2. Actions builds image with `VITE_CLERK_PUBLISHABLE_KEY` (GitHub secret, build-time)
 3. Image pushed to `ghcr.io/brettcrane/familylist:latest`
-4. Watchtower polls every 30 seconds, auto-pulls new images
-5. Container recreated automatically
-6. **Still need to purge Cloudflare cache** for frontend changes
+4. Actions auto-purges Cloudflare cache
+5. Watchtower polls every 30 seconds, auto-pulls new images
+6. Container recreated automatically
 
 **Manual deploy (when Watchtower hasn't picked up changes):**
 1. Portainer → **Images** → delete `ghcr.io/brettcrane/familylist` (forces fresh pull)
@@ -116,8 +116,10 @@ Frontend (optional):
 - `API_KEY`, `OPENAI_API_KEY` - Core config
 - `AUTH_MODE=hybrid`, `CLERK_JWT_ISSUER` - Clerk auth
 
-**GitHub secrets (build-time):**
+**GitHub secrets:**
 - `VITE_CLERK_PUBLISHABLE_KEY` - Baked into frontend at build
+- `CLOUDFLARE_ZONE_ID` - For cache purge
+- `CLOUDFLARE_API_TOKEN` - For cache purge (Cache Purge permission)
 
 ## Known Issues
 
