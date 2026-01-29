@@ -62,6 +62,25 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
+### Auto-Updates with Watchtower
+
+The GitHub Actions workflow automatically builds and pushes a new Docker image to `ghcr.io` on every push to master. To auto-update your running container, use [Watchtower](https://containrrr.dev/watchtower/):
+
+```bash
+docker run -d \
+  --name watchtower \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  containrrr/watchtower \
+  --interval 300
+```
+
+This checks every 5 minutes for new images and automatically recreates containers with the latest version.
+
+**Manual update (Portainer):**
+1. Go to **Containers** → click your familylist container
+2. Click **Recreate**
+3. Check **"Re-pull image"** before confirming
+
 ## API Authentication
 
 All API endpoints (except health check) require an API key:
