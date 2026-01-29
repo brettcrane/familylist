@@ -189,15 +189,21 @@ class FamilyListsTodoEntity(CoordinatorEntity[FamilyListsCoordinator], TodoListE
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete items from the list."""
-        try:
-            # Delete items in parallel for better performance
-            await asyncio.gather(
-                *[self.coordinator.client.delete_item(uid) for uid in uids]
-            )
+        # Delete items in parallel, collecting any errors
+        results = await asyncio.gather(
+            *[self.coordinator.client.delete_item(uid) for uid in uids],
+            return_exceptions=True,
+        )
+
+        # Check for any failures
+        errors = [r for r in results if isinstance(r, Exception)]
+        if errors:
+            _LOGGER.error("Failed to delete %d of %d items: %s", len(errors), len(uids), errors[0])
+            # Refresh anyway since some deletes may have succeeded
             await self.coordinator.async_request_refresh()
-        except FamilyListsApiError as err:
-            _LOGGER.error("Failed to delete items: %s", err)
-            raise HomeAssistantError(f"Failed to delete items: {err}") from err
+            raise HomeAssistantError(f"Failed to delete {len(errors)} item(s): {errors[0]}") from errors[0]
+
+        await self.coordinator.async_request_refresh()
 
     @callback
     def _handle_coordinator_update(self) -> None:

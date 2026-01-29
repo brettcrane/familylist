@@ -203,6 +203,50 @@ class TestItemEndpoints:
         )
         assert len(get_response.json()) == 0
 
+    def test_restore_clears_timestamps(self, client, auth_headers, created_list):
+        """Test that restore properly clears checked_at timestamps."""
+        list_id = created_list["id"]
+
+        # Create and check an item
+        item_data = {"name": "Test Item"}
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        # Check the item and verify timestamp is set
+        check_response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
+        assert check_response.json()["checked_at"] is not None
+
+        # Restore and verify timestamp is cleared
+        client.post(f"/api/lists/{list_id}/restore", headers=auth_headers)
+
+        get_response = client.get(f"/api/lists/{list_id}/items", headers=auth_headers)
+        item = get_response.json()[0]
+        assert item["is_checked"] is False
+        assert item["checked_at"] is None
+
+    def test_restore_no_checked_items(self, client, auth_headers, created_list):
+        """Test restore when there are no checked items returns zero count."""
+        list_id = created_list["id"]
+
+        # Create an unchecked item
+        item_data = {"name": "Unchecked Item"}
+        client.post(f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers)
+
+        # Restore should return 0
+        response = client.post(f"/api/lists/{list_id}/restore", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["restored_count"] == 0
+
+    def test_restore_empty_list(self, client, auth_headers, created_list):
+        """Test restore on an empty list returns zero count."""
+        list_id = created_list["id"]
+
+        response = client.post(f"/api/lists/{list_id}/restore", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["restored_count"] == 0
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""
