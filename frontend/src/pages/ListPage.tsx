@@ -355,6 +355,7 @@ export function ListPage() {
             <DoneList
               key="done"
               items={checkedItems}
+              categories={list.categories}
               totalItems={totalItems}
               onUncheckItem={handleUncheckItem}
               onClearAll={handleClearAll}

@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Button } from '../ui/Button';
-import type { Item } from '../../types/api';
+import type { Item, Category } from '../../types/api';
+import { CATEGORY_COLORS } from '../../types/api';
 
 interface DoneListProps {
   items: Item[];
+  categories: Category[];
   totalItems: number;
   onUncheckItem: (itemId: string) => void;
   onClearAll: () => void;
@@ -78,11 +80,20 @@ function groupItemsByTime(items: Item[]): GroupedItems[] {
 
 export function DoneList({
   items,
+  categories,
   totalItems,
   onUncheckItem,
   onClearAll,
   isClearingAll = false,
 }: DoneListProps) {
+  // Build category lookup map
+  const categoryMap = useMemo(() => {
+    const map: Record<string, Category> = {};
+    categories.forEach((cat) => {
+      map[cat.id] = cat;
+    });
+    return map;
+  }, [categories]);
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
       const dateA = a.checked_at ? new Date(a.checked_at).getTime() : 0;
@@ -198,6 +209,17 @@ export function DoneList({
                   <span className="text-[var(--color-text-secondary)] line-through">
                     {item.name}
                   </span>
+                  {item.category_id && categoryMap[item.category_id] && (
+                    <span
+                      className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded opacity-50"
+                      style={{
+                        color: CATEGORY_COLORS[categoryMap[item.category_id].name] || 'var(--color-text-muted)',
+                        backgroundColor: 'var(--color-bg-secondary)',
+                      }}
+                    >
+                      {categoryMap[item.category_id].name}
+                    </span>
+                  )}
                 </div>
 
                 <div className="text-right flex-shrink-0">
