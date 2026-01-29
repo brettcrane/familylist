@@ -20,6 +20,9 @@ services:
       - LLM_BACKEND=openai
       - LLM_OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - LLM_OPENAI_MODEL=gpt-4o-mini
+      # Clerk authentication
+      - AUTH_MODE=${AUTH_MODE:-hybrid}
+      - CLERK_JWT_ISSUER=${CLERK_JWT_ISSUER:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
