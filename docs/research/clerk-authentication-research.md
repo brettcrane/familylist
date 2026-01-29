@@ -16,21 +16,127 @@ Clerk is a strong fit for FamilyList's authentication needs. It would enable Goo
 - ✅ Organizations feature could support family "households" for sharing
 - ⚠️ Requires database schema changes and new authorization logic
 - ⚠️ PWA offline mode needs careful token/cache management
+- ⚠️ **CRITICAL**: Must use JWT v2 (API version 2025-04-10) — v1 deprecated April 2025
+
+---
+
+## ⚠️ CRITICAL: JWT v2 Migration (April 2025)
+
+**This is essential information for implementation.**
+
+### What Happened
+
+On **April 14, 2025**, Clerk released Session Token JWT v2 and **deprecated v1**. Any new implementation must use the v2 token format and API version `2025-04-10`.
+
+### Key Changes in JWT v2
+
+| Aspect | v1 (Deprecated) | v2 (Current) |
+|--------|-----------------|--------------|
+| **Version claim** | None | New `v` claim identifies token version |
+| **Organization claims** | Flat structure | Nested under `o` claim for compactness |
+| **Permissions** | Simple list | Binary bitmask encoding (`o.fpm`) |
+| **Token size** | Larger | Optimized/smaller |
+| **API version** | 2021-02-05 or 2024-10-01 | **2025-04-10** (required) |
+
+### Impact on Implementation
+
+#### Frontend (@clerk/clerk-react)
+- ✅ **No issues** — The React SDK automatically handles v2 tokens
+- Just ensure you're using a recent version of `@clerk/clerk-react`
+
+#### Backend (Python/FastAPI)
+
+**Option 1: Official SDK (Recommended)**
+```bash
+pip install clerk-backend-api>=4.2.0
+```
+- Latest version is **4.2.0** (December 2025)
+- Supports API version 2025-04-10
+- Handles v2 token decoding reliably
+
+**Option 2: Community Middleware (Use with Caution)**
+```bash
+pip install fastapi-clerk-auth
+```
+- Current version is **0.0.9**
+- ⚠️ **Unclear v2 support** — No explicit confirmation in docs/changelog
+- May work (JWKS validation is standard), but not officially confirmed
+- Recommendation: Test thoroughly or use official SDK instead
+
+### Recommended Backend Approach
+
+Given the v2 migration, prefer **manual JWT validation with the official SDK** or **PyJWT with JWKS**:
+
+```python
+# backend/app/auth.py
+import jwt
+from jwt import PyJWKClient
+
+# Clerk JWKS endpoint (get from Dashboard)
+CLERK_JWKS_URL = "https://your-instance.clerk.accounts.dev/.well-known/jwks.json"
+jwks_client = PyJWKClient(CLERK_JWKS_URL)
+
+async def verify_clerk_token(token: str) -> dict:
+    """Verify Clerk JWT v2 token."""
+    signing_key = jwks_client.get_signing_key_from_jwt(token)
+
+    decoded = jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        # Clerk v2 tokens use these claims
+        options={"verify_aud": False}  # Clerk doesn't use aud claim
+    )
+
+    # Verify it's a v2 token
+    if decoded.get("v") != 2:
+        raise ValueError("Expected JWT v2 token")
+
+    return decoded
+
+async def get_current_user(authorization: str = Header(...)) -> str:
+    """Extract user ID from Clerk JWT."""
+    token = authorization.replace("Bearer ", "")
+    decoded = await verify_clerk_token(token)
+    return decoded["sub"]  # Clerk user ID
+```
+
+### How to Upgrade (for existing Clerk apps)
+
+If you had an existing Clerk implementation on v1:
+
+1. Go to **Clerk Dashboard → Settings → Updates**
+2. Click **Upgrade to v2**
+3. Update backend SDKs to versions supporting API 2025-04-10
+4. Test token validation thoroughly
+
+### Additional v2 Considerations
+
+1. **Organization permissions are compacted**: If using Organizations, the `o.fpm` claim uses binary bitmasks—let the SDK decode this
+2. **Supabase JWT template deprecated**: As of April 1, 2025, use native Supabase integration instead
+3. **Go SDK completely rewritten**: If using Go, it's a full v2 rewrite with breaking changes
+
+### Sources for JWT v2
+
+- [Session Token JWT v2 Changelog](https://clerk.com/changelog/2025-04-14-session-token-jwt-v2)
+- [Session Tokens Documentation](https://clerk.com/docs/guides/sessions/session-tokens)
+- [API Versioning Overview](https://clerk.com/docs/guides/development/upgrading/versioning)
 
 ---
 
 ## Table of Contents
 
-1. [Current State Analysis](#1-current-state-analysis)
-2. [Why Clerk Fits Your Needs](#2-why-clerk-fits-your-needs)
-3. [Alternatives Comparison](#3-alternatives-comparison)
-4. [Technical Integration Details](#4-technical-integration-details)
-5. [Database Schema Changes](#5-database-schema-changes)
-6. [Shared vs. Private Lists Implementation](#6-shared-vs-private-lists-implementation)
-7. [Pricing Analysis](#7-pricing-analysis)
-8. [Challenges and Considerations](#8-challenges-and-considerations)
-9. [PWA/Offline Implications](#9-pwaoffline-implications)
-10. [High-Level Migration Path](#10-high-level-migration-path)
+1. [CRITICAL: JWT v2 Migration](#️-critical-jwt-v2-migration-april-2025) ⬆️ (above)
+2. [Current State Analysis](#1-current-state-analysis)
+3. [Why Clerk Fits Your Needs](#2-why-clerk-fits-your-needs)
+4. [Alternatives Comparison](#3-alternatives-comparison)
+5. [Technical Integration Details](#4-technical-integration-details)
+6. [Database Schema Changes](#5-database-schema-changes)
+7. [Shared vs. Private Lists Implementation](#6-shared-vs-private-lists-implementation)
+8. [Pricing Analysis](#7-pricing-analysis)
+9. [Challenges and Considerations](#8-challenges-and-considerations)
+10. [PWA/Offline Implications](#9-pwaoffline-implications)
+11. [High-Level Migration Path](#10-high-level-migration-path)
 
 ---
 
@@ -206,31 +312,38 @@ function useApiClient() {
 
 ### Backend (FastAPI)
 
-**Option 1: Community Middleware (Recommended)**
+> ⚠️ **Important**: Due to the JWT v2 migration (April 2025), use the official SDK or manual PyJWT validation. See the [JWT v2 section](#️-critical-jwt-v2-migration-april-2025) for details.
+
+**Option 1: PyJWT with JWKS (Recommended for v2)**
 
 ```bash
-pip install fastapi-clerk-auth
+pip install PyJWT cryptography
 ```
 
 ```python
 # backend/app/auth.py
-from fastapi import Depends, Request
-from fastapi_clerk_auth import ClerkConfig, ClerkHTTPBearer
+import jwt
+from jwt import PyJWKClient
+from fastapi import Header, HTTPException
 
-clerk_config = ClerkConfig(
-    jwks_url="https://your-instance.clerk.accounts.dev/.well-known/jwks.json"
-)
-clerk_auth = ClerkHTTPBearer(config=clerk_config, add_state=True)
+CLERK_JWKS_URL = "https://your-instance.clerk.accounts.dev/.well-known/jwks.json"
+jwks_client = PyJWKClient(CLERK_JWKS_URL)
 
-async def get_current_user(request: Request, credentials = Depends(clerk_auth)):
-    """Extract user ID from Clerk JWT."""
-    return credentials.decoded.get("sub")  # Clerk user ID
+async def get_current_user(authorization: str = Header(...)) -> str:
+    """Extract user ID from Clerk JWT v2 token."""
+    try:
+        token = authorization.replace("Bearer ", "")
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        decoded = jwt.decode(token, signing_key.key, algorithms=["RS256"])
+        return decoded["sub"]  # Clerk user ID
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=str(e))
 ```
 
 **Option 2: Official Clerk Python SDK**
 
 ```bash
-pip install clerk-backend-api
+pip install clerk-backend-api>=4.2.0
 ```
 
 ```python
@@ -241,6 +354,14 @@ clerk = Clerk(bearer_auth="sk_live_xxx")
 # Verify session and get user
 user = clerk.users.get(user_id="user_xxx")
 ```
+
+**Option 3: Community Middleware (v2 compatibility unconfirmed)**
+
+```bash
+pip install fastapi-clerk-auth
+```
+- Version 0.0.9 — may work but no explicit v2 confirmation
+- Test thoroughly before production use
 
 **Protecting Routes:**
 ```python
