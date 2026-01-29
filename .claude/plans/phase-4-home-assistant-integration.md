@@ -22,6 +22,24 @@ list data without treating it as an opaque sensor blob.
 
 ---
 
+## The Reusable Checklist Model
+
+FamilyLists grocery lists work as **reusable checklists**, not one-time task lists:
+
+1. You have a grocery list (e.g., "Fred Meyer") with your regular items
+2. You shop and check off items as you get them
+3. Completed items stay in the list with their category labels intact
+4. Before your next shopping trip, you **restore** completed items (uncheck them)
+5. You might remove a few items you don't need, then shop again
+
+This means:
+- Completed items are **rarely deleted** -- they persist for reuse
+- Categories matter on completed items (for organization when restoring)
+- A "restore completed" action is essential (manual, not automated)
+- The PWA remains the primary UI for category-organized views
+
+---
+
 ## What We Have Today (Sensor-Based)
 
 The current integration creates `sensor.familylists_*` entities for each list. The
@@ -104,7 +122,7 @@ action:
 | **Departure notification** | When someone leaves home, send a push notification listing unchecked grocery items | You don't forget the list when you're already at the store |
 | **Evening digest** | At 8pm, announce remaining to-do items via a smart speaker | Family stays aware of open tasks without opening an app |
 | **Arrival reminder** | When arriving at a geofenced store, send the grocery list | Context-aware reminders at the right time and place |
-| **Empty list auto-clear** | When all items are checked, auto-clear completed items after 1 hour | Keeps lists clean without manual cleanup |
+| **List reset button** | Dashboard button to restore all completed items for next shopping trip | Reusable checklist workflow |
 | **Weekly summary** | Every Sunday, count items across all lists and post to a family chat | Planning visibility for the week |
 | **Restock detection** | If the grocery list has > 10 unchecked items, change a dashboard indicator to "Time to shop" | Passive awareness without notifications |
 
@@ -171,7 +189,7 @@ known limitation and an active feature request in the HA community. When HA even
 adds item-level events, todo entities will get them automatically -- sensor entities
 won't.
 
-### No Category Support
+### No Category Support in Todo Platform
 
 `TodoItem` has: `summary`, `uid`, `status`, `due`, `description`. That's it. No
 categories, tags, priority, or custom metadata. FamilyLists' category system (Produce,
@@ -180,7 +198,15 @@ Dairy, etc.) cannot be represented natively in the todo platform.
 **Mitigation:** Categories remain a FamilyLists-backend concern. The PWA is still the
 right place for category-organized views. The HA integration provides a flat item list,
 which is fine for the use cases that matter in HA (visibility, voice, automation). We
-can optionally encode the category in the `description` field for display purposes.
+encode the category in the `description` field so it's visible in HA dashboards:
+
+```python
+# In todo.py item mapping:
+description = f"[{item['category']['name']}]" if item.get('category') else None
+```
+
+**Important:** Completed items retain their category assignments in the backend. When
+restored (unchecked), they appear in their original category in the PWA.
 
 ### No Quantity as a Native Field
 
@@ -217,10 +243,9 @@ class FamilyListsTodoEntity(CoordinatorEntity, TodoListEntity):
 - Implements `async_delete_todo_items` (maps to backend DELETE item)
 - Sets `supported_features = CREATE | UPDATE | DELETE | SET_DESCRIPTION`
 
-**API Client Addition Required:**
+**API Client Additions Required:**
 
-The current `api.py` lacks an `update_item` method for renaming items. To fully
-support `async_update_todo_item`, add to `FamilyListsClient`:
+1. **Update item** (for renaming via HA):
 
 ```python
 async def update_item(
@@ -238,7 +263,18 @@ async def update_item(
     return await self._request("PATCH", f"/items/{item_id}", data)
 ```
 
-This also requires a corresponding backend endpoint (`PATCH /items/{item_id}`).
+2. **Restore completed items** (uncheck all checked items):
+
+```python
+async def restore_completed(self, list_id: str) -> dict[str, Any]:
+    """Restore (uncheck) all completed items in a list."""
+    return await self._request("POST", f"/lists/{list_id}/restore")
+```
+
+**Backend Endpoints Required:**
+
+- `PATCH /items/{item_id}` - Update item name/notes
+- `POST /lists/{list_id}/restore` - Uncheck all checked items (preserves categories)
 
 **Item Mapping:**
 
@@ -348,25 +384,34 @@ action:
         You have {{ tasks['todo.familylists_to_do']['items'] | length }} tasks remaining.
 ```
 
-**3. Auto-Clear Completed Items Nightly**
+**3. Voice-Triggered List Reset**
 
-Note: The standard todo platform doesn't provide a `remove_completed_items` service.
-We use the FamilyLists custom service instead, which is more efficient than fetching
-and deleting items individually.
+FamilyLists uses a **reusable checklist** model: you shop, check off items, and
+later restore them for the next trip. Completed items are rarely deleted -- they
+persist with their category labels intact so you can selectively restore them.
+
+This is manual, not automated. Example voice command via custom intent:
 
 ```yaml
-alias: "Nightly list cleanup"
-trigger:
-  - platform: time
-    at: "03:00:00"
-action:
-  - action: familylists.clear_completed
-    data:
-      list_name: "Grocery List"
-  - action: familylists.clear_completed
-    data:
-      list_name: "To Do"
+# Custom sentence in sentences/en/familylists.yaml
+- sentences:
+    - "reset [the] {list_name} [list]"
+  intent: FamilyListsRestoreCompleted
 ```
+
+Or trigger via a dashboard button:
+
+```yaml
+type: button
+name: "Reset Grocery List"
+tap_action:
+  action: call-service
+  service: familylists.restore_completed
+  data:
+    list_name: "Fred Meyer"
+```
+
+Note: This requires a new `restore_completed` service and intent (see Backend Changes).
 
 ### Phase 4C: Evaluate Sensor Deprecation
 
@@ -452,6 +497,7 @@ household.
 | `custom_components/familylists/manifest.json` | **Modify** | Bump version to 1.1.0 |
 | `custom_components/familylists/README.md` | **Modify** | Document todo entities and new automation examples |
 | `custom_components/familylists/sensor.py` | **No change** | Kept for backwards compatibility |
-| `custom_components/familylists/intent.py` | **Review** | Check for conflicts with built-in todo intents |
-| `custom_components/familylists/services.yaml` | **No change** | Custom services still valid alongside standard todo services |
+| `custom_components/familylists/intent.py` | **Modify** | Add `FamilyListsRestoreCompleted` intent |
+| `custom_components/familylists/services.yaml` | **Modify** | Add `restore_completed` service |
 | `backend/app/api/items.py` | **Modify** | Add `PATCH /items/{id}` endpoint for updates |
+| `backend/app/api/lists.py` | **Modify** | Add `POST /lists/{id}/restore` endpoint |
