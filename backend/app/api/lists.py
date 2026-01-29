@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import AuthResult, get_auth
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import check_list_access, get_current_user
 from app.models import User
 from app.schemas import (
     ListCreate,
@@ -17,41 +17,6 @@ from app.schemas import (
 from app.services import list_service
 
 router = APIRouter(prefix="/lists", tags=["lists"], dependencies=[Depends(get_auth)])
-
-
-def _check_list_access(
-    db: Session, list_id: str, current_user: User | None, require_edit: bool = False
-) -> None:
-    """Check if the current user can access a list.
-
-    For API key auth (current_user is None), all lists are accessible.
-    For Clerk auth, user must own the list or have appropriate share permission.
-
-    Args:
-        db: Database session
-        list_id: ID of the list to check
-        current_user: Current user or None for API key auth
-        require_edit: If True, require edit permission (not just view)
-
-    Raises:
-        HTTPException: 403 if user doesn't have access
-    """
-    if current_user is None:
-        # API key mode - allow all access for backward compatibility
-        return
-
-    if require_edit:
-        if not list_service.user_can_edit_list(db, current_user.id, list_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have permission to modify this list",
-            )
-    else:
-        if not list_service.user_can_access_list(db, current_user.id, list_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have access to this list",
-            )
 
 
 @router.get("", response_model=list[ListResponse])
@@ -127,7 +92,7 @@ def get_list(
         raise HTTPException(status_code=404, detail="List not found")
 
     # Check access permission
-    _check_list_access(db, list_id, current_user, require_edit=False)
+    check_list_access(db, list_id, current_user, require_edit=False)
 
     return list_obj
 
@@ -145,7 +110,7 @@ def update_list(
         raise HTTPException(status_code=404, detail="List not found")
 
     # Check edit permission
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     updated = list_service.update_list(db, list_obj, data)
     return updated
@@ -163,7 +128,7 @@ def delete_list(
         raise HTTPException(status_code=404, detail="List not found")
 
     # Check edit permission (delete requires edit access)
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     list_service.delete_list(db, list_obj)
 
@@ -181,7 +146,7 @@ def duplicate_list(
         raise HTTPException(status_code=404, detail="List not found")
 
     # Check view permission (need to see list to duplicate it)
-    _check_list_access(db, list_id, current_user, require_edit=False)
+    check_list_access(db, list_id, current_user, require_edit=False)
 
     # Set owner of new list to current user if Clerk-authenticated
     owner_id = current_user.id if current_user else list_obj.owner_id

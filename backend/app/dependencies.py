@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.auth import AuthResult, get_auth
 from app.database import get_db
 from app.models import User
-from app.services import user_service
+from app.services import list_service, user_service
 
 
 async def get_current_user(
@@ -76,3 +76,37 @@ async def require_user(
         )
 
     return user_service.get_or_create_user(db, auth.clerk_user)
+
+
+def check_list_access(
+    db: Session, list_id: str, current_user: User | None, require_edit: bool = False
+) -> None:
+    """Check if the current user can access a list.
+
+    For API key auth (current_user is None), all lists are accessible.
+    For Clerk auth, user must own the list or have appropriate share permission.
+
+    Args:
+        db: Database session.
+        list_id: ID of the list to check access for.
+        current_user: Current user or None for API key auth.
+        require_edit: If True, require edit permission. If False, view is sufficient.
+
+    Raises:
+        HTTPException: 403 if user doesn't have required permission.
+    """
+    if current_user is None:
+        return
+
+    if require_edit:
+        if not list_service.user_can_edit_list(db, current_user.id, list_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to modify this list",
+            )
+    else:
+        if not list_service.user_can_access_list(db, current_user.id, list_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have access to this list",
+            )

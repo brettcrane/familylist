@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_auth
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import check_list_access, get_current_user
 from app.models import User
 from app.schemas import (
     ItemBatchCreate,
@@ -17,31 +17,6 @@ from app.schemas import (
 from app.services import item_service, list_service
 
 router = APIRouter(tags=["items"], dependencies=[Depends(get_auth)])
-
-
-def _check_list_access(
-    db: Session, list_id: str, current_user: User | None, require_edit: bool = False
-) -> None:
-    """Check if the current user can access a list.
-
-    For API key auth (current_user is None), all lists are accessible.
-    For Clerk auth, user must own the list or have appropriate share permission.
-    """
-    if current_user is None:
-        return
-
-    if require_edit:
-        if not list_service.user_can_edit_list(db, current_user.id, list_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have permission to modify this list",
-            )
-    else:
-        if not list_service.user_can_access_list(db, current_user.id, list_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have access to this list",
-            )
 
 
 @router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
@@ -56,7 +31,7 @@ def get_items(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=False)
+    check_list_access(db, list_id, current_user, require_edit=False)
 
     items = item_service.get_items_by_list(db, list_id, status=status)
     return items
@@ -74,7 +49,7 @@ def create_items(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     if isinstance(data, ItemBatchCreate):
         items = item_service.create_items_batch(db, list_id, data.items)
@@ -96,7 +71,7 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    _check_list_access(db, item.list_id, current_user, require_edit=True)
+    check_list_access(db, item.list_id, current_user, require_edit=True)
 
     updated = item_service.update_item(db, item, data)
     return updated
@@ -113,7 +88,7 @@ def delete_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    _check_list_access(db, item.list_id, current_user, require_edit=True)
+    check_list_access(db, item.list_id, current_user, require_edit=True)
 
     item_service.delete_item(db, item)
 
@@ -130,7 +105,7 @@ def check_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    _check_list_access(db, item.list_id, current_user, require_edit=True)
+    check_list_access(db, item.list_id, current_user, require_edit=True)
 
     # Use current user's ID if available and no user_id provided
     user_id = data.user_id if data and data.user_id else (current_user.id if current_user else None)
@@ -149,7 +124,7 @@ def uncheck_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    _check_list_access(db, item.list_id, current_user, require_edit=True)
+    check_list_access(db, item.list_id, current_user, require_edit=True)
 
     unchecked = item_service.uncheck_item(db, item)
     return unchecked
@@ -166,7 +141,7 @@ def clear_checked_items(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     count = item_service.clear_checked_items(db, list_id)
     return {"deleted_count": count}
@@ -183,7 +158,7 @@ def restore_checked_items(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     count = item_service.restore_checked_items(db, list_id)
     return {"restored_count": count}

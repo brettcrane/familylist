@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_auth
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import check_list_access, get_current_user
 from app.models import User
 from app.schemas import (
     CategoryCreate,
@@ -16,31 +16,6 @@ from app.schemas import (
 from app.services import category_service, list_service
 
 router = APIRouter(tags=["categories"], dependencies=[Depends(get_auth)])
-
-
-def _check_list_access(
-    db: Session, list_id: str, current_user: User | None, require_edit: bool = False
-) -> None:
-    """Check if the current user can access a list.
-
-    For API key auth (current_user is None), all lists are accessible.
-    For Clerk auth, user must own the list or have appropriate share permission.
-    """
-    if current_user is None:
-        return
-
-    if require_edit:
-        if not list_service.user_can_edit_list(db, current_user.id, list_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have permission to modify this list",
-            )
-    else:
-        if not list_service.user_can_access_list(db, current_user.id, list_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have access to this list",
-            )
 
 
 @router.get("/lists/{list_id}/categories", response_model=list[CategoryResponse])
@@ -54,7 +29,7 @@ def get_categories(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=False)
+    check_list_access(db, list_id, current_user, require_edit=False)
 
     categories = category_service.get_categories_by_list(db, list_id)
     return categories
@@ -72,7 +47,7 @@ def create_category(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     # Check for duplicate name
     existing = category_service.get_category_by_name(db, list_id, data.name)
@@ -95,7 +70,7 @@ def update_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    _check_list_access(db, category.list_id, current_user, require_edit=True)
+    check_list_access(db, category.list_id, current_user, require_edit=True)
 
     # Check for duplicate name if name is being changed
     if data.name and data.name != category.name:
@@ -118,7 +93,7 @@ def delete_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    _check_list_access(db, category.list_id, current_user, require_edit=True)
+    check_list_access(db, category.list_id, current_user, require_edit=True)
 
     category_service.delete_category(db, category)
 
@@ -135,7 +110,7 @@ def reorder_categories(
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
-    _check_list_access(db, list_id, current_user, require_edit=True)
+    check_list_access(db, list_id, current_user, require_edit=True)
 
     categories = category_service.reorder_categories(db, list_id, data.category_ids)
     return categories
