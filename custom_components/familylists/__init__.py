@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -26,19 +26,21 @@ from .intent import (
     INTENT_CHECK_ITEM,
     INTENT_CLEAR_COMPLETED,
     INTENT_GET_ITEMS,
+    INTENT_RESTORE_COMPLETED,
     INTENT_UNCHECK_ITEM,
     async_register_intents,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.TODO]
 
 # Service schemas
 SERVICE_ADD_ITEM = "add_item"
 SERVICE_CHECK_ITEM = "check_item"
 SERVICE_UNCHECK_ITEM = "uncheck_item"
 SERVICE_CLEAR_COMPLETED = "clear_completed"
+SERVICE_RESTORE_COMPLETED = "restore_completed"
 SERVICE_REFRESH = "refresh"
 
 SERVICE_SCHEMA_ADD_ITEM = vol.Schema(
@@ -114,6 +116,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_CHECK_ITEM,
                 SERVICE_UNCHECK_ITEM,
                 SERVICE_CLEAR_COMPLETED,
+                SERVICE_RESTORE_COMPLETED,
                 SERVICE_REFRESH,
             ]:
                 hass.services.async_remove(DOMAIN, service)
@@ -125,6 +128,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 INTENT_CHECK_ITEM,
                 INTENT_UNCHECK_ITEM,
                 INTENT_CLEAR_COMPLETED,
+                INTENT_RESTORE_COMPLETED,
                 INTENT_GET_ITEMS,
             ]:
                 intent.async_remove(hass, intent_type)
@@ -145,8 +149,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         """Handle add_item service call."""
         coordinator = _get_coordinator()
         if not coordinator:
-            _LOGGER.error("No FamilyLists integration configured")
-            return
+            raise HomeAssistantError("No FamilyLists integration configured")
 
         list_name = call.data["list_name"]
         item_name = call.data["item"]
@@ -155,21 +158,19 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         try:
             lst = await coordinator.client.find_list_by_name(list_name)
             if not lst:
-                _LOGGER.error("List not found: %s", list_name)
-                return
+                raise HomeAssistantError(f"List not found: {list_name}")
 
             await coordinator.client.add_item(lst["id"], item_name, quantity)
             await coordinator.async_request_refresh()
             _LOGGER.info("Added %s to %s", item_name, list_name)
         except FamilyListsApiError as err:
-            _LOGGER.error("Failed to add item: %s", err)
+            raise HomeAssistantError(f"Failed to add item: {err}") from err
 
     async def async_check_item(call: ServiceCall) -> None:
         """Handle check_item service call."""
         coordinator = _get_coordinator()
         if not coordinator:
-            _LOGGER.error("No FamilyLists integration configured")
-            return
+            raise HomeAssistantError("No FamilyLists integration configured")
 
         list_name = call.data["list_name"]
         item_name = call.data["item"]
@@ -177,26 +178,23 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         try:
             lst = await coordinator.client.find_list_by_name(list_name)
             if not lst:
-                _LOGGER.error("List not found: %s", list_name)
-                return
+                raise HomeAssistantError(f"List not found: {list_name}")
 
             item = await coordinator.client.find_item_by_name(lst["id"], item_name)
             if not item:
-                _LOGGER.error("Item not found: %s in %s", item_name, list_name)
-                return
+                raise HomeAssistantError(f"Item not found: {item_name} in {list_name}")
 
             await coordinator.client.check_item(item["id"])
             await coordinator.async_request_refresh()
             _LOGGER.info("Checked %s in %s", item_name, list_name)
         except FamilyListsApiError as err:
-            _LOGGER.error("Failed to check item: %s", err)
+            raise HomeAssistantError(f"Failed to check item: {err}") from err
 
     async def async_uncheck_item(call: ServiceCall) -> None:
         """Handle uncheck_item service call."""
         coordinator = _get_coordinator()
         if not coordinator:
-            _LOGGER.error("No FamilyLists integration configured")
-            return
+            raise HomeAssistantError("No FamilyLists integration configured")
 
         list_name = call.data["list_name"]
         item_name = call.data["item"]
@@ -204,47 +202,65 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         try:
             lst = await coordinator.client.find_list_by_name(list_name)
             if not lst:
-                _LOGGER.error("List not found: %s", list_name)
-                return
+                raise HomeAssistantError(f"List not found: {list_name}")
 
             item = await coordinator.client.find_item_by_name(lst["id"], item_name)
             if not item:
-                _LOGGER.error("Item not found: %s in %s", item_name, list_name)
-                return
+                raise HomeAssistantError(f"Item not found: {item_name} in {list_name}")
 
             await coordinator.client.uncheck_item(item["id"])
             await coordinator.async_request_refresh()
             _LOGGER.info("Unchecked %s in %s", item_name, list_name)
         except FamilyListsApiError as err:
-            _LOGGER.error("Failed to uncheck item: %s", err)
+            raise HomeAssistantError(f"Failed to uncheck item: {err}") from err
 
     async def async_clear_completed(call: ServiceCall) -> None:
         """Handle clear_completed service call."""
         coordinator = _get_coordinator()
         if not coordinator:
-            _LOGGER.error("No FamilyLists integration configured")
-            return
+            raise HomeAssistantError("No FamilyLists integration configured")
 
         list_name = call.data["list_name"]
 
         try:
             lst = await coordinator.client.find_list_by_name(list_name)
             if not lst:
-                _LOGGER.error("List not found: %s", list_name)
-                return
+                raise HomeAssistantError(f"List not found: {list_name}")
 
             await coordinator.client.clear_completed(lst["id"])
             await coordinator.async_request_refresh()
             _LOGGER.info("Cleared completed items from %s", list_name)
         except FamilyListsApiError as err:
-            _LOGGER.error("Failed to clear completed: %s", err)
+            raise HomeAssistantError(f"Failed to clear completed: {err}") from err
+
+    async def async_restore_completed(call: ServiceCall) -> None:
+        """Handle restore_completed service call."""
+        coordinator = _get_coordinator()
+        if not coordinator:
+            raise HomeAssistantError("No FamilyLists integration configured")
+
+        list_name = call.data["list_name"]
+
+        try:
+            lst = await coordinator.client.find_list_by_name(list_name)
+            if not lst:
+                raise HomeAssistantError(f"List not found: {list_name}")
+
+            result = await coordinator.client.restore_completed(lst["id"])
+            await coordinator.async_request_refresh()
+            _LOGGER.info(
+                "Restored %s completed items to %s",
+                result.get("restored_count", 0),
+                list_name,
+            )
+        except FamilyListsApiError as err:
+            raise HomeAssistantError(f"Failed to restore completed: {err}") from err
 
     async def async_refresh(call: ServiceCall) -> None:
         """Handle refresh service call."""
         coordinator = _get_coordinator()
         if not coordinator:
-            _LOGGER.error("No FamilyLists integration configured")
-            return
+            raise HomeAssistantError("No FamilyLists integration configured")
 
         await coordinator.async_request_refresh()
         _LOGGER.info("Refreshed FamilyLists data")
@@ -261,5 +277,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_CLEAR_COMPLETED, async_clear_completed, schema=SERVICE_SCHEMA_LIST
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_RESTORE_COMPLETED, async_restore_completed, schema=SERVICE_SCHEMA_LIST
     )
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, async_refresh)

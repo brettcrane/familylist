@@ -78,6 +78,18 @@ clear_completed:
       selector:
         text:
 
+restore_completed:
+  name: Restore completed
+  description: Restore (uncheck) all completed items on a list.
+  fields:
+    list_name:
+      name: List name
+      description: Name of the list to restore.
+      required: true
+      example: "Grocery List"
+      selector:
+        text:
+
 refresh:
   name: Refresh
   description: Force refresh all list data from the backend.

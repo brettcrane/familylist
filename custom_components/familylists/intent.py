@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.helpers import intent
 
+from .api import FamilyListsApiError
 from .const import DOMAIN
 
 if TYPE_CHECKING:
@@ -20,6 +21,7 @@ INTENT_ADD_ITEM = "FamilyListsAddItem"
 INTENT_CHECK_ITEM = "FamilyListsCheckItem"
 INTENT_UNCHECK_ITEM = "FamilyListsUncheckItem"
 INTENT_CLEAR_COMPLETED = "FamilyListsClearCompleted"
+INTENT_RESTORE_COMPLETED = "FamilyListsRestoreCompleted"
 INTENT_GET_ITEMS = "FamilyListsGetItems"
 
 
@@ -64,7 +66,7 @@ class FamilyListsAddItemIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to add item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't add {item_name}") from err
 
@@ -107,7 +109,7 @@ class FamilyListsCheckItemIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to check item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't check off {item_name}") from err
 
@@ -150,7 +152,7 @@ class FamilyListsUncheckItemIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to uncheck item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't uncheck {item_name}") from err
 
@@ -191,9 +193,54 @@ class FamilyListsClearCompletedIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to clear completed via intent: %s", err)
             raise intent.IntentHandleError("Sorry, I couldn't clear the list") from err
+
+
+class FamilyListsRestoreCompletedIntent(intent.IntentHandler):
+    """Handle RestoreCompleted intent."""
+
+    intent_type = INTENT_RESTORE_COMPLETED
+    slot_schema = {
+        "list_name": str,
+    }
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        """Handle the intent."""
+        hass = intent_obj.hass
+        slots = self.async_validate_slots(intent_obj.slots)
+        list_name = slots["list_name"]["value"]
+
+        coordinator = _get_coordinator(hass)
+        if not coordinator:
+            raise intent.IntentHandleError("FamilyLists is not configured")
+
+        try:
+            lst = await coordinator.client.find_list_by_name(list_name)
+            if not lst:
+                raise intent.IntentHandleError(f"I couldn't find a list called {list_name}")
+
+            result = await coordinator.client.restore_completed(lst["id"])
+            await coordinator.async_request_refresh()
+
+            count = result.get("restored_count", 0)
+            response = intent_obj.create_response()
+            if count > 0:
+                response.async_set_speech(
+                    f"Restored {count} completed items to {lst['name']}"
+                )
+            else:
+                response.async_set_speech(
+                    f"There were no completed items to restore on {lst['name']}"
+                )
+            return response
+
+        except intent.IntentHandleError:
+            raise
+        except FamilyListsApiError as err:
+            _LOGGER.error("Failed to restore completed via intent: %s", err)
+            raise intent.IntentHandleError("Sorry, I couldn't restore the items") from err
 
 
 class FamilyListsGetItemsIntent(intent.IntentHandler):
@@ -241,7 +288,7 @@ class FamilyListsGetItemsIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to get items via intent: %s", err)
             raise intent.IntentHandleError("Sorry, I couldn't read the list") from err
 
@@ -252,4 +299,5 @@ async def async_register_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, FamilyListsCheckItemIntent())
     intent.async_register(hass, FamilyListsUncheckItemIntent())
     intent.async_register(hass, FamilyListsClearCompletedIntent())
+    intent.async_register(hass, FamilyListsRestoreCompletedIntent())
     intent.async_register(hass, FamilyListsGetItemsIntent())
