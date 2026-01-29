@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 
-from app.models import Category, Item, List, utc_now
+from app.models import Category, Item, List, ListShare, utc_now
 from app.schemas import ListCreate, ListType, ListUpdate
 
 # Default categories per list type
@@ -42,6 +42,91 @@ def get_all_lists(db: Session, include_templates: bool = False) -> list[List]:
     if not include_templates:
         query = query.filter(List.is_template == False)  # noqa: E712
     return query.order_by(List.created_at.desc()).all()
+
+
+def get_lists_for_user(
+    db: Session, user_id: str, include_templates: bool = False
+) -> list[List]:
+    """Get lists owned by or shared with a user.
+
+    Args:
+        db: Database session
+        user_id: The user's internal ID
+        include_templates: Whether to include template lists
+
+    Returns:
+        List of lists the user has access to (owned + shared)
+    """
+    # Get lists owned by the user
+    owned_query = db.query(List).filter(List.owner_id == user_id)
+    if not include_templates:
+        owned_query = owned_query.filter(List.is_template == False)  # noqa: E712
+
+    # Get lists shared with the user
+    shared_list_ids = (
+        db.query(ListShare.list_id).filter(ListShare.user_id == user_id).subquery()
+    )
+    shared_query = db.query(List).filter(List.id.in_(shared_list_ids))
+    if not include_templates:
+        shared_query = shared_query.filter(List.is_template == False)  # noqa: E712
+
+    # Combine and deduplicate
+    owned_lists = owned_query.all()
+    shared_lists = shared_query.all()
+
+    # Merge lists, avoiding duplicates
+    seen_ids = set()
+    result = []
+    for lst in owned_lists + shared_lists:
+        if lst.id not in seen_ids:
+            seen_ids.add(lst.id)
+            result.append(lst)
+
+    # Sort by created_at descending
+    result.sort(key=lambda x: x.created_at or "", reverse=True)
+    return result
+
+
+def user_can_access_list(db: Session, user_id: str, list_id: str) -> bool:
+    """Check if a user can access a list (owns it or has share permission)."""
+    lst = get_list_by_id(db, list_id)
+    if not lst:
+        return False
+
+    # Owner can access
+    if lst.owner_id == user_id:
+        return True
+
+    # Check for share permission
+    share = (
+        db.query(ListShare)
+        .filter(ListShare.list_id == list_id, ListShare.user_id == user_id)
+        .first()
+    )
+    return share is not None
+
+
+def user_can_edit_list(db: Session, user_id: str, list_id: str) -> bool:
+    """Check if a user can edit a list (owns it or has edit/admin permission)."""
+    lst = get_list_by_id(db, list_id)
+    if not lst:
+        return False
+
+    # Owner can edit
+    if lst.owner_id == user_id:
+        return True
+
+    # Check for edit/admin share permission
+    share = (
+        db.query(ListShare)
+        .filter(
+            ListShare.list_id == list_id,
+            ListShare.user_id == user_id,
+            ListShare.permission.in_(["edit", "admin"]),
+        )
+        .first()
+    )
+    return share is not None
 
 
 def get_list_by_id(db: Session, list_id: str) -> List | None:

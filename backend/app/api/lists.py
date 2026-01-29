@@ -3,8 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.auth import verify_api_key
+from app.auth import AuthResult, get_auth
 from app.database import get_db
+from app.dependencies import get_optional_user
+from app.models import User
 from app.schemas import (
     ListCreate,
     ListDuplicateRequest,
@@ -14,16 +16,29 @@ from app.schemas import (
 )
 from app.services import list_service
 
-router = APIRouter(prefix="/lists", tags=["lists"], dependencies=[Depends(verify_api_key)])
+router = APIRouter(prefix="/lists", tags=["lists"], dependencies=[Depends(get_auth)])
 
 
 @router.get("", response_model=list[ListResponse])
 def get_lists(
     include_templates: bool = Query(False, description="Include template lists"),
+    current_user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
-    """Get all lists with item counts."""
-    lists = list_service.get_all_lists(db, include_templates=include_templates)
+    """Get lists with item counts.
+
+    When using Clerk auth: returns lists owned by or shared with the user.
+    When using API key auth: returns all lists (backward compatible).
+    """
+    if current_user:
+        # User is Clerk-authenticated - return their lists
+        lists = list_service.get_lists_for_user(
+            db, current_user.id, include_templates=include_templates
+        )
+    else:
+        # API key auth - return all lists (backward compatible)
+        lists = list_service.get_all_lists(db, include_templates=include_templates)
+
     # Add item counts to each list
     result = []
     for lst in lists:
@@ -47,8 +62,20 @@ def get_lists(
 
 
 @router.post("", response_model=ListWithItemsResponse, status_code=201)
-def create_list(data: ListCreate, db: Session = Depends(get_db)):
-    """Create a new list with default categories."""
+def create_list(
+    data: ListCreate,
+    current_user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new list with default categories.
+
+    When using Clerk auth: sets owner_id to the current user.
+    When using API key auth: uses owner_id from request body if provided.
+    """
+    # Set owner_id from current user if Clerk-authenticated
+    if current_user and not data.owner_id:
+        data.owner_id = current_user.id
+
     new_list = list_service.create_list(db, data)
     return new_list
 

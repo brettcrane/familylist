@@ -21,20 +21,66 @@ class ListType(str, Enum):
 class UserBase(BaseModel):
     """Base user schema."""
 
-    ha_user_id: str
+    clerk_user_id: str
     display_name: str
+    email: str | None = None
+    avatar_url: str | None = None
 
 
-class UserCreate(UserBase):
-    """Schema for creating a user."""
+class UserCreate(BaseModel):
+    """Schema for creating a user from Clerk data."""
 
-    pass
+    clerk_user_id: str
+    display_name: str
+    email: str | None = None
+    avatar_url: str | None = None
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating a user."""
+
+    display_name: str | None = None
+    email: str | None = None
+    avatar_url: str | None = None
 
 
 class UserResponse(UserBase):
     """User response schema."""
 
     id: str
+    created_at: str
+    updated_at: str
+
+    model_config = {"from_attributes": True}
+
+
+# ============================================================================
+# List Share Schemas
+# ============================================================================
+
+
+class ListSharePermission(str, Enum):
+    """Valid list share permissions."""
+
+    VIEW = "view"
+    EDIT = "edit"
+    ADMIN = "admin"
+
+
+class ListShareCreate(BaseModel):
+    """Schema for sharing a list with a user."""
+
+    user_id: str
+    permission: ListSharePermission = ListSharePermission.VIEW
+
+
+class ListShareResponse(BaseModel):
+    """List share response schema."""
+
+    id: str
+    list_id: str
+    user_id: str
+    permission: str
     created_at: str
 
     model_config = {"from_attributes": True}

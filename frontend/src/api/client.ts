@@ -3,6 +3,27 @@ import type { ErrorResponse } from '../types/api';
 /** API configuration */
 const API_BASE_URL = '/api';
 
+/** Token getter function type */
+type TokenGetter = () => Promise<string | null>;
+
+/** Stored token getter */
+let tokenGetter: TokenGetter | null = null;
+
+/**
+ * Set the token getter function.
+ * This should be called once during app initialization with the Clerk getToken function.
+ */
+export function setTokenGetter(getter: TokenGetter): void {
+  tokenGetter = getter;
+}
+
+/**
+ * Clear the token getter (e.g., on sign out).
+ */
+export function clearTokenGetter(): void {
+  tokenGetter = null;
+}
+
 /** API error class */
 export class ApiError extends Error {
   status: number;
@@ -27,6 +48,8 @@ interface RequestOptions {
   body?: unknown;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /** Skip authentication headers */
+  skipAuth?: boolean;
 }
 
 /**
@@ -36,17 +59,33 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, headers = {}, signal } = options;
+  const { method = 'GET', body, headers = {}, signal, skipAuth = false } = options;
 
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headers,
   };
 
-  // Add API key if available (for production deployment)
-  const apiKey = import.meta.env.VITE_API_KEY;
-  if (apiKey) {
-    requestHeaders['X-API-Key'] = apiKey;
+  if (!skipAuth) {
+    // Try to get Bearer token from Clerk
+    if (tokenGetter) {
+      try {
+        const token = await tokenGetter();
+        if (token) {
+          requestHeaders['Authorization'] = `Bearer ${token}`;
+        }
+      } catch (error) {
+        console.warn('Failed to get auth token:', error);
+      }
+    }
+
+    // Fall back to API key if no Bearer token and API key is configured
+    if (!requestHeaders['Authorization']) {
+      const apiKey = import.meta.env.VITE_API_KEY;
+      if (apiKey) {
+        requestHeaders['X-API-Key'] = apiKey;
+      }
+    }
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
