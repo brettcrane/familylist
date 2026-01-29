@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.helpers import intent
 
+from .api import FamilyListsApiError
 from .const import DOMAIN
 
 if TYPE_CHECKING:
@@ -65,7 +66,7 @@ class FamilyListsAddItemIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to add item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't add {item_name}") from err
 
@@ -108,7 +109,7 @@ class FamilyListsCheckItemIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to check item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't check off {item_name}") from err
 
@@ -151,7 +152,7 @@ class FamilyListsUncheckItemIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to uncheck item via intent: %s", err)
             raise intent.IntentHandleError(f"Sorry, I couldn't uncheck {item_name}") from err
 
@@ -192,7 +193,7 @@ class FamilyListsClearCompletedIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to clear completed via intent: %s", err)
             raise intent.IntentHandleError("Sorry, I couldn't clear the list") from err
 
@@ -237,7 +238,7 @@ class FamilyListsRestoreCompletedIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to restore completed via intent: %s", err)
             raise intent.IntentHandleError("Sorry, I couldn't restore the items") from err
 
@@ -287,7 +288,7 @@ class FamilyListsGetItemsIntent(intent.IntentHandler):
 
         except intent.IntentHandleError:
             raise
-        except Exception as err:
+        except FamilyListsApiError as err:
             _LOGGER.error("Failed to get items via intent: %s", err)
             raise intent.IntentHandleError("Sorry, I couldn't read the list") from err
 
