@@ -83,6 +83,41 @@ Required for AI features:
 Frontend (optional):
 - `VITE_API_KEY` - Fallback API key when Clerk auth unavailable
 
+## CI/CD & Deployment
+
+**Stack:** GitHub Actions → ghcr.io → Portainer + Watchtower → Caddy → Cloudflare Tunnel
+
+**Key files:**
+- `.github/workflows/build.yml` - Builds Docker image, pushes to ghcr.io
+- `Dockerfile` - Multi-stage build (frontend + backend)
+- `docker-compose.yml` - Production stack config
+
+**Automatic deploy flow:**
+1. `git push master` triggers GitHub Actions
+2. Actions builds image with `VITE_CLERK_PUBLISHABLE_KEY` (GitHub secret, build-time)
+3. Image pushed to `ghcr.io/brettcrane/familylist:latest`
+4. Watchtower polls and auto-pulls new images
+5. Container recreated automatically
+
+**Manual deploy (when Watchtower hasn't picked up changes):**
+1. Portainer → **Images** → delete `ghcr.io/brettcrane/familylist` (forces fresh pull)
+2. Portainer → **Containers** → familylist-api → **Recreate** → ✅ "Pull latest image"
+3. Verify new image: container Image hash should match GitHub Actions build output
+4. **Cloudflare cache** → https://dash.cloudflare.com → domain → Caching → Configuration → **Purge Everything**
+5. Hard refresh browser (Ctrl+Shift+R) or clear PWA service worker
+
+**Troubleshooting deploy issues:**
+- Old JS file in browser? → PWA service worker cached. Clear site data + unregister SW
+- Container has old image hash? → Delete image in Portainer, then recreate with pull
+- Still old after pull? → Cloudflare CDN cached. Purge everything in Cloudflare dashboard
+
+**Portainer environment variables (runtime):**
+- `API_KEY`, `OPENAI_API_KEY` - Core config
+- `AUTH_MODE=hybrid`, `CLERK_JWT_ISSUER` - Clerk auth
+
+**GitHub secrets (build-time):**
+- `VITE_CLERK_PUBLISHABLE_KEY` - Baked into frontend at build
+
 ## Known Issues
 
 See [TODO.md](./TODO.md) for current bugs and tasks.
