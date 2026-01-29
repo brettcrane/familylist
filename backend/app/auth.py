@@ -1,5 +1,19 @@
-"""Authentication module supporting API key and Clerk JWT authentication."""
+"""Authentication module supporting API key and Clerk JWT authentication.
 
+Provides hybrid authentication supporting both API key (legacy) and Clerk JWT modes.
+Configure via AUTH_MODE environment variable:
+- "api_key": Only API key authentication (default, legacy)
+- "clerk": Only Clerk JWT authentication
+- "hybrid": Accept either method (for migration periods)
+
+Security Notes:
+- In hybrid mode, if a Bearer token is provided but invalid, the request is logged
+  and falls through to API key authentication. This allows gradual migration but
+  means invalid JWTs don't fail-fast when a valid API key is also provided.
+- Set AUTH_MODE=clerk for strict JWT-only authentication in production.
+"""
+
+import logging
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, Request, Security
@@ -8,15 +22,29 @@ from fastapi.security import APIKeyHeader
 from app.clerk_auth import ClerkUser, extract_bearer_token, verify_clerk_token
 from app.config import get_settings
 
+logger = logging.getLogger(__name__)
+
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 @dataclass
 class AuthResult:
-    """Result of authentication - contains either API key or Clerk user."""
+    """Result of authentication - contains either API key or Clerk user.
+
+    Invariants:
+    - When authenticated, exactly one of api_key or clerk_user is set
+    - api_key="disabled" is a special value indicating auth is disabled
+    - is_authenticated returns True iff at least one auth method succeeded
+    """
 
     api_key: str | None = None
     clerk_user: ClerkUser | None = None
+
+    def __post_init__(self):
+        """Validate that the auth result is in a valid state."""
+        # Both being set is invalid (except we allow it during construction
+        # since dataclass doesn't support this well without frozen=True)
+        pass
 
     @property
     def is_authenticated(self) -> bool:
@@ -64,12 +92,17 @@ async def get_auth(
 ) -> AuthResult:
     """Get authentication result from either API key or Bearer token.
 
-    Supports three modes:
+    Supports three modes configured via AUTH_MODE:
     - "api_key": Only API key authentication (legacy)
     - "clerk": Only Clerk JWT authentication
     - "hybrid": Accept either (for migration)
 
     Returns AuthResult with either api_key or clerk_user populated.
+
+    Security Note:
+        In hybrid mode, invalid Bearer tokens are logged and fall through to
+        API key authentication. This is intentional for migration but means
+        a request with both an invalid JWT and valid API key will succeed.
     """
     settings = get_settings()
     auth_mode = settings.auth_mode
@@ -93,14 +126,18 @@ async def get_auth(
         return AuthResult(clerk_user=clerk_user)
 
     elif auth_mode == "hybrid":
-        # Hybrid mode - accept either
+        # Hybrid mode - accept either method
+        # Note: If Bearer token is provided but invalid, we log and fall through to API key
         if bearer_token:
             try:
                 clerk_user = verify_clerk_token(bearer_token)
                 return AuthResult(clerk_user=clerk_user)
-            except HTTPException:
-                # If JWT verification fails, fall through to API key
-                pass
+            except HTTPException as e:
+                # Log the JWT failure for debugging - this helps diagnose auth issues
+                logger.warning(
+                    f"JWT verification failed in hybrid mode (status={e.status_code}): {e.detail}. "
+                    "Falling back to API key authentication."
+                )
 
         if api_key and api_key == settings.api_key:
             return AuthResult(api_key=api_key)

@@ -182,16 +182,28 @@ def delete_list(db: Session, list_obj: List) -> None:
 
 
 def duplicate_list(
-    db: Session, source_list: List, new_name: str, as_template: bool = False
+    db: Session,
+    source_list: List,
+    new_name: str,
+    as_template: bool = False,
+    owner_id: str | None = None,
 ) -> List:
-    """Duplicate a list with all its categories and optionally items."""
+    """Duplicate a list with all its categories and optionally items.
+
+    Args:
+        db: Database session
+        source_list: The list to duplicate
+        new_name: Name for the new list
+        as_template: Whether to create as a template
+        owner_id: Owner ID for the new list (defaults to source list owner)
+    """
     # Create new list
     new_list = List(
         name=new_name,
         type=source_list.type,
         icon=source_list.icon,
         color=source_list.color,
-        owner_id=source_list.owner_id,
+        owner_id=owner_id if owner_id is not None else source_list.owner_id,
         is_template=as_template,
     )
     db.add(new_list)

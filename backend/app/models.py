@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -65,6 +65,10 @@ class ListShare(Base):
 
     __table_args__ = (
         UniqueConstraint("list_id", "user_id", name="uq_list_share_list_user"),
+        CheckConstraint(
+            "permission IN ('view', 'edit', 'admin')",
+            name="ck_list_share_permission",
+        ),
         Index("idx_list_shares_user_id", "user_id"),
     )
 

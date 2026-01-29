@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import AuthResult, get_auth
 from app.database import get_db
-from app.dependencies import get_optional_user
+from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import (
     ListCreate,
@@ -19,10 +19,45 @@ from app.services import list_service
 router = APIRouter(prefix="/lists", tags=["lists"], dependencies=[Depends(get_auth)])
 
 
+def _check_list_access(
+    db: Session, list_id: str, current_user: User | None, require_edit: bool = False
+) -> None:
+    """Check if the current user can access a list.
+
+    For API key auth (current_user is None), all lists are accessible.
+    For Clerk auth, user must own the list or have appropriate share permission.
+
+    Args:
+        db: Database session
+        list_id: ID of the list to check
+        current_user: Current user or None for API key auth
+        require_edit: If True, require edit permission (not just view)
+
+    Raises:
+        HTTPException: 403 if user doesn't have access
+    """
+    if current_user is None:
+        # API key mode - allow all access for backward compatibility
+        return
+
+    if require_edit:
+        if not list_service.user_can_edit_list(db, current_user.id, list_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to modify this list",
+            )
+    else:
+        if not list_service.user_can_access_list(db, current_user.id, list_id):
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have access to this list",
+            )
+
+
 @router.get("", response_model=list[ListResponse])
 def get_lists(
     include_templates: bool = Query(False, description="Include template lists"),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get lists with item counts.
@@ -64,7 +99,7 @@ def get_lists(
 @router.post("", response_model=ListWithItemsResponse, status_code=201)
 def create_list(
     data: ListCreate,
-    current_user: User | None = Depends(get_optional_user),
+    current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Create a new list with default categories.
@@ -81,43 +116,77 @@ def create_list(
 
 
 @router.get("/{list_id}", response_model=ListWithItemsResponse)
-def get_list(list_id: str, db: Session = Depends(get_db)):
+def get_list(
+    list_id: str,
+    current_user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Get a list with its categories and items."""
     list_obj = list_service.get_list_by_id(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
+
+    # Check access permission
+    _check_list_access(db, list_id, current_user, require_edit=False)
+
     return list_obj
 
 
 @router.put("/{list_id}", response_model=ListResponse)
-def update_list(list_id: str, data: ListUpdate, db: Session = Depends(get_db)):
+def update_list(
+    list_id: str,
+    data: ListUpdate,
+    current_user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Update a list."""
     list_obj = list_service.get_list_by_id(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
+
+    # Check edit permission
+    _check_list_access(db, list_id, current_user, require_edit=True)
 
     updated = list_service.update_list(db, list_obj, data)
     return updated
 
 
 @router.delete("/{list_id}", status_code=204)
-def delete_list(list_id: str, db: Session = Depends(get_db)):
+def delete_list(
+    list_id: str,
+    current_user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Delete a list and all its items."""
     list_obj = list_service.get_list_by_id(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
+    # Check edit permission (delete requires edit access)
+    _check_list_access(db, list_id, current_user, require_edit=True)
+
     list_service.delete_list(db, list_obj)
 
 
 @router.post("/{list_id}/duplicate", response_model=ListWithItemsResponse, status_code=201)
-def duplicate_list(list_id: str, data: ListDuplicateRequest, db: Session = Depends(get_db)):
+def duplicate_list(
+    list_id: str,
+    data: ListDuplicateRequest,
+    current_user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Duplicate a list, optionally as a template."""
     list_obj = list_service.get_list_by_id(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
+    # Check view permission (need to see list to duplicate it)
+    _check_list_access(db, list_id, current_user, require_edit=False)
+
+    # Set owner of new list to current user if Clerk-authenticated
+    owner_id = current_user.id if current_user else list_obj.owner_id
+
     new_list = list_service.duplicate_list(
-        db, list_obj, new_name=data.name, as_template=data.as_template
+        db, list_obj, new_name=data.name, as_template=data.as_template, owner_id=owner_id
     )
     return new_list

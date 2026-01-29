@@ -33,7 +33,9 @@ interface AuthProviderProps {
 
 /**
  * Auth provider that wraps Clerk hooks for consistent API.
- * Only use this inside ClerkProvider.
+ *
+ * Must be rendered inside ClerkProvider - Clerk hooks will throw if used outside.
+ * For non-Clerk deployments (API key mode), use FallbackAuthProvider instead.
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const { isLoaded, isSignedIn, userId, getToken, signOut } = useClerkAuth();
@@ -84,7 +86,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getToken: async () => {
       try {
         return await getToken();
-      } catch {
+      } catch (error) {
+        // Log token acquisition failures for debugging
+        console.error('Failed to get authentication token from Clerk:', {
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          userId,
+          isSignedIn,
+        });
         return null;
       }
     },
@@ -111,16 +120,32 @@ export function useAuth(): AuthContextValue {
 
 /**
  * Fallback auth context for when Clerk is not configured.
- * Provides a consistent API but with no authentication.
+ *
+ * Provides a consistent API but with no authentication capability.
+ * Used when VITE_CLERK_PUBLISHABLE_KEY is not set - the app will work
+ * in API key mode instead.
+ *
+ * Note: If you expected Clerk to be configured, check that
+ * VITE_CLERK_PUBLISHABLE_KEY is set in your environment.
  */
 export function FallbackAuthProvider({ children }: AuthProviderProps) {
+  // Log a warning on mount so developers know Clerk is not configured
+  useEffect(() => {
+    console.warn(
+      '[FamilyList Auth] Clerk is not configured - using API key authentication mode. ' +
+        'To enable user authentication, set VITE_CLERK_PUBLISHABLE_KEY in your environment.'
+    );
+  }, []);
+
   const value: AuthContextValue = {
     isLoaded: true,
     isSignedIn: false,
     userId: null,
     user: null,
     getToken: async () => null,
-    signOut: async () => {},
+    signOut: async () => {
+      console.warn('signOut called but Clerk is not configured');
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,4 +1,25 @@
-"""FastAPI dependencies for authentication and user context."""
+"""FastAPI dependencies for authentication and user context.
+
+Provides dependency functions for injecting user context into endpoints:
+
+- get_current_user: Returns User for Clerk auth, None for API key auth.
+  Use this for endpoints that work with or without user context.
+
+- require_user: Requires Clerk authentication, raises 401 otherwise.
+  Use this for endpoints that need user context (e.g., /users/me).
+
+Usage:
+    @router.get("/items")
+    def get_items(user: User | None = Depends(get_current_user)):
+        if user:
+            # Filter by user
+        else:
+            # Return all (API key mode)
+
+    @router.get("/profile")
+    def get_profile(user: User = Depends(require_user)):
+        # user is guaranteed to be non-None
+"""
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -15,8 +36,13 @@ async def get_current_user(
 ) -> User | None:
     """Get the current user if authenticated with Clerk.
 
-    Returns None if using API key authentication (for backward compatibility).
-    Returns the User object if authenticated with Clerk JWT.
+    Returns:
+        User object if authenticated with Clerk JWT.
+        None if using API key authentication (for backward compatibility).
+
+    Note:
+        This dependency does NOT raise if not authenticated with Clerk.
+        Use require_user() if you need to enforce Clerk authentication.
     """
     if auth.clerk_user:
         # Sync user data from Clerk and return local user
@@ -32,8 +58,16 @@ async def require_user(
 ) -> User:
     """Require a Clerk-authenticated user.
 
-    Raises 401 if using API key authentication or not authenticated.
-    Use this for endpoints that require user context.
+    Returns:
+        User object from Clerk authentication.
+
+    Raises:
+        HTTPException: 401 if using API key authentication or not authenticated.
+
+    Use this for endpoints that require user context, such as:
+    - User profile endpoints
+    - User-specific settings
+    - Endpoints that must know who is making the request
     """
     if not auth.clerk_user:
         raise HTTPException(
@@ -42,17 +76,3 @@ async def require_user(
         )
 
     return user_service.get_or_create_user(db, auth.clerk_user)
-
-
-async def get_optional_user(
-    auth: AuthResult = Depends(get_auth),
-    db: Session = Depends(get_db),
-) -> User | None:
-    """Get user if available, but don't require it.
-
-    Returns User if Clerk authenticated, None if API key authenticated.
-    Unlike get_current_user, this doesn't raise if not authenticated.
-    """
-    if auth.clerk_user:
-        return user_service.get_or_create_user(db, auth.clerk_user)
-    return None

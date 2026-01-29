@@ -21,27 +21,27 @@ class ListType(str, Enum):
 class UserBase(BaseModel):
     """Base user schema."""
 
-    clerk_user_id: str
-    display_name: str
-    email: str | None = None
-    avatar_url: str | None = None
+    clerk_user_id: str = Field(..., min_length=1, max_length=255)
+    display_name: str = Field(..., min_length=1, max_length=255)
+    email: str | None = Field(None, max_length=255)
+    avatar_url: str | None = Field(None, max_length=2048)
 
 
 class UserCreate(BaseModel):
     """Schema for creating a user from Clerk data."""
 
-    clerk_user_id: str
-    display_name: str
-    email: str | None = None
-    avatar_url: str | None = None
+    clerk_user_id: str = Field(..., min_length=1, max_length=255)
+    display_name: str = Field(..., min_length=1, max_length=255)
+    email: str | None = Field(None, max_length=255)
+    avatar_url: str | None = Field(None, max_length=2048)
 
 
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
 
-    display_name: str | None = None
-    email: str | None = None
-    avatar_url: str | None = None
+    display_name: str | None = Field(None, min_length=1, max_length=255)
+    email: str | None = Field(None, max_length=255)
+    avatar_url: str | None = Field(None, max_length=2048)
 
 
 class UserResponse(UserBase):
