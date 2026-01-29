@@ -129,6 +129,31 @@ class FamilyListsClient:
         """Clear completed items from a list."""
         return await self._request("POST", f"/lists/{list_id}/clear")
 
+    async def update_item(
+        self,
+        item_id: str,
+        name: str | None = None,
+        quantity: int | None = None,
+        notes: str | None = None,
+        category_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Update an item's properties."""
+        data: dict[str, Any] = {}
+        if name is not None:
+            data["name"] = name
+        if quantity is not None:
+            data["quantity"] = quantity
+        if notes is not None:
+            data["notes"] = notes
+        if category_id is not None:
+            data["category_id"] = category_id
+
+        return await self._request("PUT", f"/items/{item_id}", data)
+
+    async def restore_completed(self, list_id: str) -> dict[str, Any]:
+        """Restore (uncheck) all completed items in a list."""
+        return await self._request("POST", f"/lists/{list_id}/restore")
+
     async def find_list_by_name(self, name: str) -> dict[str, Any] | None:
         """Find a list by name (case-insensitive)."""
         lists = await self.get_lists()

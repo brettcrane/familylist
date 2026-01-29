@@ -112,3 +112,15 @@ def clear_checked_items(list_id: str, db: Session = Depends(get_db)):
 
     count = item_service.clear_checked_items(db, list_id)
     return {"deleted_count": count}
+
+
+@router.post("/lists/{list_id}/restore", status_code=200)
+def restore_checked_items(list_id: str, db: Session = Depends(get_db)):
+    """Restore (uncheck) all checked items in a list."""
+    # Verify list exists
+    list_obj = list_service.get_list_by_id(db, list_id)
+    if not list_obj:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    count = item_service.restore_checked_items(db, list_id)
+    return {"restored_count": count}

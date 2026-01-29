@@ -165,6 +165,44 @@ class TestItemEndpoints:
         assert len(remaining) == 1
         assert remaining[0]["name"] == "Item 2"
 
+    def test_restore_checked_items(self, client, auth_headers, created_list):
+        """Test restoring (unchecking) all checked items in a list."""
+        list_id = created_list["id"]
+
+        # Create two items
+        batch_data = {"items": [{"name": "Item 1"}, {"name": "Item 2"}]}
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+        )
+        items = create_response.json()
+
+        # Check both items
+        client.post(f"/api/items/{items[0]['id']}/check", headers=auth_headers)
+        client.post(f"/api/items/{items[1]['id']}/check", headers=auth_headers)
+
+        # Verify both are checked
+        get_response = client.get(
+            f"/api/lists/{list_id}/items?status=checked", headers=auth_headers
+        )
+        assert len(get_response.json()) == 2
+
+        # Restore checked items
+        response = client.post(f"/api/lists/{list_id}/restore", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["restored_count"] == 2
+
+        # Verify all items are now unchecked
+        get_response = client.get(
+            f"/api/lists/{list_id}/items?status=unchecked", headers=auth_headers
+        )
+        assert len(get_response.json()) == 2
+
+        # Verify no items are checked
+        get_response = client.get(
+            f"/api/lists/{list_id}/items?status=checked", headers=auth_headers
+        )
+        assert len(get_response.json()) == 0
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""

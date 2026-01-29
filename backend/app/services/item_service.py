@@ -131,3 +131,22 @@ def clear_checked_items(db: Session, list_id: str) -> int:
     )
     db.commit()
     return count
+
+
+def restore_checked_items(db: Session, list_id: str) -> int:
+    """Restore (uncheck) all checked items in a list. Returns count of restored items."""
+    items = (
+        db.query(Item)
+        .filter(Item.list_id == list_id, Item.is_checked == True)  # noqa: E712
+        .all()
+    )
+
+    count = len(items)
+    for item in items:
+        item.is_checked = False
+        item.checked_at = None
+        item.checked_by = None
+        item.updated_at = utc_now()
+
+    db.commit()
+    return count
