@@ -93,11 +93,12 @@ Frontend (optional):
 - `docker-compose.yml` - Production stack config
 
 **Automatic deploy flow:**
-1. `git push master` triggers GitHub Actions
+1. `git push master` triggers GitHub Actions (~2-3 min build)
 2. Actions builds image with `VITE_CLERK_PUBLISHABLE_KEY` (GitHub secret, build-time)
 3. Image pushed to `ghcr.io/brettcrane/familylist:latest`
-4. Watchtower polls and auto-pulls new images
+4. Watchtower polls every 30 seconds, auto-pulls new images
 5. Container recreated automatically
+6. **Still need to purge Cloudflare cache** for frontend changes
 
 **Manual deploy (when Watchtower hasn't picked up changes):**
 1. Portainer → **Images** → delete `ghcr.io/brettcrane/familylist` (forces fresh pull)
