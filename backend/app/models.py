@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,18 +24,53 @@ def utc_now() -> str:
 
 
 class User(Base):
-    """User model (synced from Home Assistant)."""
+    """User model (synced from Clerk authentication)."""
 
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    ha_user_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    clerk_user_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(Text, default=utc_now)
+    updated_at: Mapped[str] = mapped_column(Text, default=utc_now, onupdate=utc_now)
 
     # Relationships
     owned_lists = relationship("List", back_populates="owner")
     checked_items = relationship("Item", back_populates="checked_by_user")
+    shared_lists = relationship("ListShare", back_populates="user")
+
+
+class ListShare(Base):
+    """Sharing permissions for lists between users."""
+
+    __tablename__ = "list_shares"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    list_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("lists.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    permission: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="view"
+    )  # "view" | "edit" | "admin"
+    created_at: Mapped[str] = mapped_column(Text, default=utc_now)
+
+    # Relationships
+    list = relationship("List", back_populates="shares")
+    user = relationship("User", back_populates="shared_lists")
+
+    __table_args__ = (
+        UniqueConstraint("list_id", "user_id", name="uq_list_share_list_user"),
+        CheckConstraint(
+            "permission IN ('view', 'edit', 'admin')",
+            name="ck_list_share_permission",
+        ),
+        Index("idx_list_shares_user_id", "user_id"),
+    )
 
 
 class List(Base):
@@ -60,6 +95,9 @@ class List(Base):
     )
     items = relationship(
         "Item", back_populates="list", cascade="all, delete-orphan", order_by="Item.sort_order"
+    )
+    shares = relationship(
+        "ListShare", back_populates="list", cascade="all, delete-orphan"
     )
 
 

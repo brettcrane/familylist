@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     # API Key for authentication
     api_key: str = "dev-key"
 
+    # Clerk authentication
+    clerk_publishable_key: str = ""
+    clerk_secret_key: str = ""
+    clerk_jwt_issuer: str = ""  # e.g., "https://your-domain.clerk.accounts.dev"
+    clerk_authorized_parties: list[str] = []  # e.g., ["https://yourapp.com"]
+    auth_mode: str = "api_key"  # "api_key" | "clerk" | "hybrid"
+
     # Database
     database_url: str = "sqlite:///./data/familylist.db"
 

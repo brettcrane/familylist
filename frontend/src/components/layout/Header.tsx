@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { SyncIndicator } from './SyncIndicator';
+import { UserButton } from './UserButton';
 import { useUIStore } from '../../stores/uiStore';
 import type { Theme } from '../../stores/uiStore';
 
@@ -129,6 +130,7 @@ export function Header({
           <SyncIndicator />
           <ThemeToggle />
           {actions}
+          <UserButton />
         </div>
       </div>
     </header>

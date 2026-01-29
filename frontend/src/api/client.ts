@@ -1,7 +1,27 @@
 import type { ErrorResponse } from '../types/api';
 
-/** API configuration */
 const API_BASE_URL = '/api';
+
+/** Token getter function type */
+type TokenGetter = () => Promise<string | null>;
+
+/** Stored token getter */
+let tokenGetter: TokenGetter | null = null;
+
+/**
+ * Set the token getter function.
+ * This should be called once during app initialization with the Clerk getToken function.
+ */
+export function setTokenGetter(getter: TokenGetter): void {
+  tokenGetter = getter;
+}
+
+/**
+ * Clear the token getter (e.g., on sign out).
+ */
+export function clearTokenGetter(): void {
+  tokenGetter = null;
+}
 
 /** API error class */
 export class ApiError extends Error {
@@ -27,26 +47,57 @@ interface RequestOptions {
   body?: unknown;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /** Skip authentication headers */
+  skipAuth?: boolean;
 }
 
 /**
- * Make an API request with automatic JSON handling
+ * Make an API request with automatic JSON handling and authentication.
+ *
+ * Authentication priority:
+ * 1. Bearer token from Clerk (if tokenGetter is set and returns a token)
+ * 2. API key from VITE_API_KEY environment variable
+ * 3. No authentication (will likely fail for protected endpoints)
  */
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, headers = {}, signal } = options;
+  const { method = 'GET', body, headers = {}, signal, skipAuth = false } = options;
 
   const requestHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headers,
   };
 
-  // Add API key if available (for production deployment)
-  const apiKey = import.meta.env.VITE_API_KEY;
-  if (apiKey) {
-    requestHeaders['X-API-Key'] = apiKey;
+  if (!skipAuth) {
+    // Try to get Bearer token from Clerk
+    if (tokenGetter) {
+      try {
+        const token = await tokenGetter();
+        if (token) {
+          requestHeaders['Authorization'] = `Bearer ${token}`;
+        }
+      } catch (error) {
+        // Log detailed error for debugging token acquisition issues
+        console.error('Failed to acquire auth token:', {
+          error,
+          endpoint,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        });
+        // Continue without token - request may fail with 401, but that's more
+        // informative than blocking the request entirely
+      }
+    }
+
+    // Fall back to API key if no Bearer token and API key is configured
+    if (!requestHeaders['Authorization']) {
+      const apiKey = import.meta.env.VITE_API_KEY;
+      if (apiKey) {
+        requestHeaders['X-API-Key'] = apiKey;
+      }
+    }
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -60,8 +111,15 @@ export async function apiRequest<T>(
     let errorData: ErrorResponse | undefined;
     try {
       errorData = await response.json();
-    } catch {
-      // Response may not be JSON
+    } catch (parseError) {
+      // Response may not be JSON (e.g., HTML error page from proxy)
+      const contentType = response.headers.get('content-type');
+      console.warn('Could not parse error response as JSON:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        endpoint,
+      });
     }
     throw new ApiError(response.status, response.statusText, errorData);
   }
