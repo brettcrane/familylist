@@ -217,6 +217,29 @@ class FamilyListsTodoEntity(CoordinatorEntity, TodoListEntity):
 - Implements `async_delete_todo_items` (maps to backend DELETE item)
 - Sets `supported_features = CREATE | UPDATE | DELETE | SET_DESCRIPTION`
 
+**API Client Addition Required:**
+
+The current `api.py` lacks an `update_item` method for renaming items. To fully
+support `async_update_todo_item`, add to `FamilyListsClient`:
+
+```python
+async def update_item(
+    self,
+    item_id: str,
+    name: str | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Update an item's name or notes."""
+    data = {}
+    if name is not None:
+        data["name"] = name
+    if notes is not None:
+        data["notes"] = notes
+    return await self._request("PATCH", f"/items/{item_id}", data)
+```
+
+This also requires a corresponding backend endpoint (`PATCH /items/{item_id}`).
+
 **Item Mapping:**
 
 | FamilyLists Field | TodoItem Field | Notes |
@@ -244,15 +267,23 @@ PLATFORMS = ["sensor", "todo"]  # Add todo platform
 
 Both platforms share the same coordinator instance and API client.
 
-#### Update: `custom_components/familylists/coordinator.py`
+#### No Change Needed: `custom_components/familylists/coordinator.py`
 
-The coordinator currently stores items as dicts with count summaries. It needs to
-also store the raw item data so the todo entity can construct `TodoItem` objects.
+The coordinator already stores raw item data alongside count summaries:
 
 ```python
-# Current: data[list_id] = {"name": ..., "total_items": 5, ...}
-# Updated: data[list_id] = {"name": ..., "total_items": 5, ..., "items": [...]}
+# Already implemented in coordinator.py:
+result[list_id] = {
+    **lst,
+    "items": items,  # Raw item list already available
+    "total_items": len(items),
+    "checked_items": checked,
+    "unchecked_items": unchecked,
+}
 ```
+
+No coordinator changes are required for read operations. The todo entity can
+directly access `self.coordinator.data[list_id]["items"]` to build `TodoItem` objects.
 
 #### Keep: Voice intent handlers
 
@@ -261,10 +292,11 @@ grocery list?", "Clear the grocery list"). The basic add/complete intents come f
 from the todo platform, but our custom handlers provide more natural phrasing and
 additional capabilities (get items, clear completed).
 
-Note: We need to verify that our custom `FamilyListsAddItemIntent` doesn't conflict
-with the built-in `ListAddItemIntent` when both target the same entity. If there's
-a conflict, we can either namespace our intents differently or remove the custom
-add/check intents and rely on the built-in ones.
+Note: Our custom intents use namespaced names (`FamilyListsAddItem`, `FamilyListsCheckItem`,
+etc.) which don't conflict with HA's built-in todo intents (`HassListAddItem`,
+`HassListCompleteItem`). Both can coexist -- the built-in intents provide basic
+functionality while our custom intents offer richer phrasing and additional
+capabilities like `FamilyListsGetItems` and `FamilyListsClearCompleted`.
 
 ### Phase 4B: Enhance Automations (After 4A is stable)
 
@@ -279,10 +311,8 @@ trigger:
     zone: zone.home
     event: leave
 condition:
-  - condition: state
-    entity_id: todo.familylists_grocery_list
-    state: "0"
-    match: "above"  # has unchecked items
+  - condition: template
+    value_template: "{{ states('todo.familylists_grocery_list') | int > 0 }}"
 action:
   - action: todo.get_items
     target:
@@ -319,17 +349,23 @@ action:
 ```
 
 **3. Auto-Clear Completed Items Nightly**
+
+Note: The standard todo platform doesn't provide a `remove_completed_items` service.
+We use the FamilyLists custom service instead, which is more efficient than fetching
+and deleting items individually.
+
 ```yaml
 alias: "Nightly list cleanup"
 trigger:
   - platform: time
     at: "03:00:00"
 action:
-  - action: todo.remove_completed_items
-    target:
-      entity_id:
-        - todo.familylists_grocery_list
-        - todo.familylists_to_do
+  - action: familylists.clear_completed
+    data:
+      list_name: "Grocery List"
+  - action: familylists.clear_completed
+    data:
+      list_name: "To Do"
 ```
 
 ### Phase 4C: Evaluate Sensor Deprecation
@@ -399,7 +435,7 @@ voice control, and automation hooks that make the lists useful in contexts where
 nobody is going to open an app -- a wall tablet, a voice command while cooking,
 an automated notification when leaving the house.
 
-The effort is moderate (one new file, minor coordinator changes, no backend changes)
+The effort is moderate (one new HA file, one new API method, one backend endpoint)
 and the payoff is meaningful for anyone running FamilyLists in a Home Assistant
 household.
 
@@ -411,9 +447,11 @@ household.
 |---|---|---|
 | `custom_components/familylists/todo.py` | **Create** | New `TodoListEntity` implementation |
 | `custom_components/familylists/__init__.py` | **Modify** | Add `"todo"` to `PLATFORMS` list |
-| `custom_components/familylists/coordinator.py` | **Modify** | Include raw item data in coordinator output |
+| `custom_components/familylists/api.py` | **Modify** | Add `update_item` method for item renaming |
+| `custom_components/familylists/coordinator.py` | **No change** | Already stores raw item data |
 | `custom_components/familylists/manifest.json` | **Modify** | Bump version to 1.1.0 |
 | `custom_components/familylists/README.md` | **Modify** | Document todo entities and new automation examples |
 | `custom_components/familylists/sensor.py` | **No change** | Kept for backwards compatibility |
 | `custom_components/familylists/intent.py` | **Review** | Check for conflicts with built-in todo intents |
 | `custom_components/familylists/services.yaml` | **No change** | Custom services still valid alongside standard todo services |
+| `backend/app/api/items.py` | **Modify** | Add `PATCH /items/{id}` endpoint for updates |
