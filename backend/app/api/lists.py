@@ -22,9 +22,28 @@ def get_lists(
     include_templates: bool = Query(False, description="Include template lists"),
     db: Session = Depends(get_db),
 ):
-    """Get all lists."""
+    """Get all lists with item counts."""
     lists = list_service.get_all_lists(db, include_templates=include_templates)
-    return lists
+    # Add item counts to each list
+    result = []
+    for lst in lists:
+        stats = list_service.get_list_stats(db, lst.id)
+        result.append(
+            ListResponse(
+                id=lst.id,
+                name=lst.name,
+                type=lst.type,
+                icon=lst.icon,
+                color=lst.color,
+                owner_id=lst.owner_id,
+                is_template=lst.is_template,
+                created_at=lst.created_at or "",
+                updated_at=lst.updated_at or "",
+                item_count=stats["total_items"],
+                checked_count=stats["checked_items"],
+            )
+        )
+    return result
 
 
 @router.post("", response_model=ListWithItemsResponse, status_code=201)

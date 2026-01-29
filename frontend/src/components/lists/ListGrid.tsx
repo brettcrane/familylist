@@ -81,7 +81,11 @@ export function ListGrid({ lists, isLoading }: ListGridProps) {
     >
       {lists.map((list) => (
         <motion.div key={list.id} variants={itemVariants}>
-          <ListCard list={list} />
+          <ListCard
+            list={list}
+            itemCount={list.item_count}
+            checkedCount={list.checked_count}
+          />
         </motion.div>
       ))}
     </motion.div>

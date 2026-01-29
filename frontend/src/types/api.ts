@@ -83,6 +83,8 @@ export interface List {
   is_template: boolean;
   created_at: string;
   updated_at: string;
+  item_count: number;
+  checked_count: number;
 }
 
 /** List response with items and categories */

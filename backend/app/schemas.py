@@ -173,6 +173,8 @@ class ListResponse(ListBase):
     is_template: bool
     created_at: str
     updated_at: str
+    item_count: int = 0
+    checked_count: int = 0
 
     model_config = {"from_attributes": True}
 
