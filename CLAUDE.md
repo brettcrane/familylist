@@ -19,16 +19,41 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 
 - **Backend**: FastAPI + SQLAlchemy + SQLite
 - **Frontend**: React + TypeScript + Tailwind CSS + Framer Motion
+- **Auth**: Clerk (optional) + API key fallback
 - **AI**: sentence-transformers for embeddings, OpenAI GPT-4o-mini for NL parsing
 - **State**: React Query (server) + Zustand (UI) + IndexedDB (offline)
 - **Deployment**: Docker via GitHub Actions CI/CD → Portainer
+
+## Authentication (Clerk + API Key Hybrid)
+
+Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant, etc.).
+
+**Key files:**
+- `frontend/src/main.tsx` - ClerkProvider (graceful fallback if key missing)
+- `frontend/src/contexts/AuthContext.tsx` - Auth context wrapping Clerk
+- `frontend/src/components/layout/UserButton.tsx` - Custom user menu
+- `backend/app/auth.py` - `get_auth()` accepts Bearer JWT or X-API-Key
+- `backend/app/clerk_auth.py` - JWT verification via JWKS (RS256)
+- `backend/app/dependencies.py` - `get_current_user`, `check_list_access`
+
+**Project-specific patterns (differ from generic Clerk docs):**
+- No error thrown if `VITE_CLERK_PUBLISHABLE_KEY` missing - app works in API key mode
+- Custom `UserButton` component (not Clerk's `<UserButton />`)
+- Backend uses PyJWT + JWKS directly (no clerk-backend-api SDK)
+- `check_list_access(db, list_id, user, require_edit=bool)` for authorization
+
+**Environment variables:**
+- Frontend: `VITE_CLERK_PUBLISHABLE_KEY` (optional)
+- Backend: `CLERK_JWT_ISSUER`, `AUTH_MODE` (api_key|clerk|hybrid)
+
+**Research:** `docs/research/clerk-authentication-research.md`
 
 ## Code Index
 
 ```
 |backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD,item_service=CRUD,category_service=CRUD+reorder}
 |backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse}
-|backend/app:{models=User+List+Category+Item+CategoryLearning,schemas=all-DTOs,auth=X-API-Key-header,config=env-settings}
+|backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings}
 |frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox}
 |frontend/src/components/lists:{ListGrid,ListCard,CreateListModal=type-selection}
 |frontend/src/components/layout:{Header,ListHeader=actions+sync,SyncIndicator}

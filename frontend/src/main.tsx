@@ -10,7 +10,7 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 // Conditionally wrap with ClerkProvider only if key is available
 const Root = clerkPubKey ? (
   <StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <ClerkProvider publishableKey={clerkPubKey} afterSignOutUrl="/">
       <App />
     </ClerkProvider>
   </StrictMode>
