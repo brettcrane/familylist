@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build, Push, and Deploy
 
 on:
   push:
@@ -43,3 +43,34 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            docker pull ghcr.io/${{ github.repository }}:latest
+            docker stop familylist-api || true
+            docker rm familylist-api || true
+            docker run -d \
+              --name familylist-api \
+              --restart unless-stopped \
+              -p 8001:8000 \
+              -v familylist-data:/app/data \
+              -e API_KEY=${{ secrets.API_KEY }} \
+              -e DATABASE_URL=sqlite:///./data/familylist.db \
+              -e ENVIRONMENT=production \
+              -e EMBEDDING_MODEL=all-MiniLM-L6-v2 \
+              -e ENABLE_LLM_PARSING=true \
+              -e LLM_BACKEND=openai \
+              -e LLM_OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+              -e LLM_OPENAI_MODEL=gpt-4o-mini \
+              ghcr.io/${{ github.repository }}:latest
