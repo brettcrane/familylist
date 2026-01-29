@@ -7,10 +7,10 @@
 
 ## Executive Summary
 
-Clerk is a strong fit for FamilyList's authentication needs. It would enable Google/Apple social logins with zero OAuth integration work, provide user management out-of-the-box, and support the shared vs. private list model you want. The integration is straightforward with existing FastAPI + React architecture, though it requires meaningful changes to the data model and API authorization layer.
+Clerk is a strong fit for FamilyList's authentication needs. It would enable Google social login with zero OAuth integration work, provide user management out-of-the-box, and support the shared vs. private list model you want. The integration is straightforward with existing FastAPI + React architecture, though it requires meaningful changes to the data model and API authorization layer.
 
 **Key Findings:**
-- ✅ Clerk handles Google/Apple OAuth entirely—no direct social provider integration needed
+- ✅ Clerk handles Google OAuth entirely—no direct social provider integration needed
 - ✅ Free tier (10,000 MAUs) is more than sufficient for family use
 - ✅ Official Python SDK and community FastAPI middleware available
 - ✅ Organizations feature could support family "households" for sharing
@@ -71,10 +71,17 @@ Given the v2 migration, prefer **manual JWT validation with the official SDK** o
 # backend/app/auth.py
 import jwt
 from jwt import PyJWKClient
+from app.config import settings
 
 # Clerk JWKS endpoint (get from Dashboard)
 CLERK_JWKS_URL = "https://your-instance.clerk.accounts.dev/.well-known/jwks.json"
 jwks_client = PyJWKClient(CLERK_JWKS_URL)
+
+# Authorized origins that can generate tokens (CSRF protection)
+AUTHORIZED_PARTIES = [
+    settings.frontend_url,  # e.g., "https://familylist.example.com"
+    "http://localhost:5173",  # Dev
+]
 
 async def verify_clerk_token(token: str) -> dict:
     """Verify Clerk JWT v2 token."""
@@ -91,6 +98,11 @@ async def verify_clerk_token(token: str) -> dict:
     # Verify it's a v2 token
     if decoded.get("v") != 2:
         raise ValueError("Expected JWT v2 token")
+
+    # Verify authorized party (CSRF protection)
+    azp = decoded.get("azp")
+    if azp and azp not in AUTHORIZED_PARTIES:
+        raise ValueError(f"Unauthorized party: {azp}")
 
     return decoded
 
@@ -181,7 +193,6 @@ async def verify_api_key(api_key: str | None = Security(api_key_header)) -> str:
 | Your Need | Clerk Solution |
 |-----------|----------------|
 | "Simple for my wife—Google login" | Pre-built `<SignIn/>` component with Google OAuth |
-| "Apple login as secondary" | Apple OAuth with same component |
 | "No social login integration work" | Clerk manages all OAuth credentials/flows |
 | "Secure authentication" | Industry-standard JWT tokens, MFA options |
 | "User management" | Dashboard to view/manage users |
@@ -189,19 +200,20 @@ async def verify_api_key(api_key: str | None = Security(api_key_header)) -> str:
 | "Private to-do list" | Per-user list ownership with auth checks |
 
 ### What Clerk Handles For You
-1. **OAuth complexity**: Clerk maintains Google/Apple credentials, handles token exchange, manages consent screens
+1. **OAuth complexity**: Clerk maintains Google credentials, handles token exchange, manages consent screens
 2. **User database**: Stores user profiles, emails, profile pictures
 3. **Session management**: Secure token issuance, refresh, expiration
 4. **Pre-built UI**: Drop-in React components for sign-in/sign-up
 5. **Account management**: Users can manage their own profiles
 
 ### Social Login Setup (It's Easy)
-For development, Clerk provides **shared OAuth credentials**—you can test Google/Apple login with zero configuration. For production, you just:
+For development, Clerk provides **shared OAuth credentials**—you can test Google login with zero configuration. For production, you just:
 1. Create a Google Cloud OAuth app
-2. Create an Apple Developer Sign-in configuration
-3. Paste credentials into Clerk Dashboard
+2. Paste credentials into Clerk Dashboard
 
 Clerk handles all redirect URIs, token exchange, and user creation.
+
+> **Note**: Apple Sign-In is available if needed later, but requires a $99/year Apple Developer Program membership to configure production credentials.
 
 ---
 
@@ -429,10 +441,13 @@ class List(Base):
 ```
 
 ### Migration Strategy
-1. Rename `ha_user_id` → `clerk_user_id` (or add new column)
-2. Add `email`, `avatar_url` columns to User
+
+Since there are no real users or data in production, we'll do a **fresh start**:
+
+1. Wipe existing database (no data to preserve)
+2. Update User model: rename `ha_user_id` → `clerk_user_id`, add `email`, `avatar_url`
 3. Create new `list_shares` table
-4. Ensure all lists have an `owner_id` (backfill existing)
+4. Deploy fresh schema with Alembic migration
 
 ---
 
@@ -525,7 +540,6 @@ Family Household (Clerk Org)
 |-----------|------|
 | 2-10 family users | **Free** (well under 10K MAU) |
 | Google OAuth | **Free** (included) |
-| Apple OAuth | **Free** (included) |
 | Pre-built UI | **Free** (included) |
 | Total | **$0/month** |
 
@@ -555,15 +569,15 @@ Family Household (Clerk Org)
 |-----------|------------|
 | **Token refresh** | Clerk SDK handles automatically |
 | **User sync** | Create local User on first API call with Clerk ID |
-| **Existing data migration** | Assign all current lists to "default" user initially |
-| **API backward compatibility** | Support both API key (legacy) and JWT (Clerk) temporarily |
+| **Database migration** | Fresh start—no existing users/data to migrate |
 
 ### Security Considerations
 
 1. **HTTPS Required**: Clerk tokens must be transmitted over HTTPS
-2. **Token Storage**: Frontend stores tokens in memory, not localStorage
+2. **Token Storage**: Frontend stores tokens in memory; for offline PWA support, cache user session in IndexedDB
 3. **CORS**: Backend needs proper CORS for Clerk's token requests
-4. **Webhook Signing**: Verify Clerk webhooks for user events
+4. **Authorized Parties (azp)**: Validate the `azp` claim in JWTs to prevent CSRF attacks (see code sample in [JWT v2 section](#recommended-backend-approach))
+5. **Webhook Signing**: Verify Clerk webhooks using SVIX signatures for user sync events
 
 ### User Experience Changes
 
@@ -578,7 +592,7 @@ Family Household (Clerk Org)
 
 1. **First-time UX**: Users must sign in before seeing any lists (could show onboarding)
 2. **Token expiration**: Need graceful handling when token expires during use
-3. **Clerk downtime**: App unusable if Clerk is down (rare but possible)
+3. **Clerk downtime**: If Clerk is unavailable, new sign-ins won't work. Mitigate by caching user sessions locally so existing sessions can continue viewing/editing cached data offline (see [PWA/Offline section](#9-pwaoffline-implications))
 4. **Email changes**: If user changes email in Clerk, need to sync to local DB
 
 ---
@@ -648,41 +662,39 @@ workbox.routing.registerRoute(
 
 ## 10. High-Level Migration Path
 
-### Phase 1: Foundation (Week 1)
+### Phase 1: Foundation
 - [ ] Create Clerk account and configure Google OAuth
 - [ ] Add Clerk React SDK to frontend
 - [ ] Wrap app in `ClerkProvider`
-- [ ] Add `fastapi-clerk-auth` to backend
-- [ ] Create JWT verification dependency
+- [ ] Create JWT verification dependency (PyJWT + JWKS)
 
-### Phase 2: Database (Week 1-2)
-- [ ] Migrate User model (add `clerk_user_id`, `email`)
+### Phase 2: Database
+- [ ] Wipe existing database (fresh start, no data to preserve)
+- [ ] Update User model (`clerk_user_id`, `email`, `avatar_url`)
 - [ ] Create `list_shares` table
 - [ ] Add user sync endpoint (creates local user from Clerk on first request)
-- [ ] Backfill existing data with default owner
 
-### Phase 3: Authorization (Week 2)
+### Phase 3: Authorization
 - [ ] Add `get_current_user` dependency to all routes
 - [ ] Implement ownership checks in list service
 - [ ] Update `get_lists` to filter by user access
 - [ ] Add sharing endpoints (`POST /lists/{id}/share`)
 
-### Phase 4: Frontend (Week 2-3)
+### Phase 4: Frontend
 - [ ] Add sign-in/sign-up flow
 - [ ] Update API client to use Bearer token
 - [ ] Add user profile/avatar to header
 - [ ] Create sharing UI in list settings
 - [ ] Handle signed-out state gracefully
 
-### Phase 5: Polish (Week 3)
-- [ ] Add Apple OAuth (requires Apple Developer account)
-- [ ] Implement offline auth caching
+### Phase 5: Polish
+- [ ] Implement offline auth caching (for Clerk downtime resilience)
 - [ ] Test PWA offline scenarios
 - [ ] Add user sync via Clerk webhooks (optional)
 
 ### Phase 6: Deployment
 - [ ] Set up Clerk production instance
-- [ ] Configure production OAuth credentials
+- [ ] Configure Google OAuth production credentials
 - [ ] Deploy backend with new auth
 - [ ] Deploy frontend with Clerk
 - [ ] Test end-to-end
@@ -693,7 +705,7 @@ workbox.routing.registerRoute(
 
 | Requirement | How Clerk Solves It |
 |-------------|---------------------|
-| Easy Google/Apple login | Pre-built `<SignIn/>` with social providers |
+| Easy Google login | Pre-built `<SignIn/>` with Google OAuth |
 | No OAuth integration work | Clerk manages all credentials and flows |
 | Secure authentication | Industry-standard JWTs, optional MFA |
 | User management | Dashboard + APIs for user CRUD |
@@ -706,8 +718,9 @@ workbox.routing.registerRoute(
 
 1. Create a Clerk account at [clerk.com](https://clerk.com)
 2. Create a new application and enable Google social login
-3. Copy the publishable key and secret key
-4. Start with Phase 1 above
+3. Copy the publishable key and JWKS URL
+4. Wipe existing database (fresh start)
+5. Start with Phase 1 above
 
 ---
 
@@ -715,7 +728,7 @@ workbox.routing.registerRoute(
 
 - [Clerk Official Documentation](https://clerk.com/docs)
 - [Clerk Google OAuth Setup](https://clerk.com/docs/guides/configure/auth-strategies/social-connections/google)
-- [Clerk Apple OAuth Setup](https://clerk.com/docs/guides/configure/auth-strategies/social-connections/apple)
+- [Clerk Manual JWT Verification](https://clerk.com/docs/guides/sessions/manual-jwt-verification)
 - [Clerk Organizations Overview](https://clerk.com/docs/guides/organizations/overview)
 - [Clerk Pricing](https://clerk.com/pricing)
 - [fastapi-clerk-auth PyPI](https://pypi.org/project/fastapi-clerk-auth/)
