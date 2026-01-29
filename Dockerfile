@@ -4,6 +4,10 @@
 # Stage 1: Build frontend
 FROM node:20-alpine AS frontend-builder
 
+# Build arg for Clerk (passed from GitHub Actions)
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+
 WORKDIR /app/frontend
 
 # Copy package files
@@ -15,7 +19,7 @@ RUN npm install
 # Copy frontend source
 COPY frontend/ ./
 
-# Build the PWA
+# Build the PWA (VITE_CLERK_PUBLISHABLE_KEY is available here)
 RUN npm run build
 
 # Stage 2: Build Python dependencies

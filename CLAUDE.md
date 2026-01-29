@@ -51,14 +51,14 @@ Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant
 ## Code Index
 
 ```
-|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD,item_service=CRUD,category_service=CRUD+reorder}
-|backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse}
+|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create}
+|backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup}
 |backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings}
 |frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox}
 |frontend/src/components/lists:{ListGrid,ListCard,CreateListModal=type-selection}
 |frontend/src/components/layout:{Header,ListHeader=actions+sync,SyncIndicator}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useOfflineQueue=IndexedDB-sync,useSwipe=gestures}
-|frontend/src/stores:{uiStore=Zustand+theme+collapse+modals}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection}
+|frontend/src/stores:{uiStore=Zustand+theme+collapse+modals,authStore=Zustand+cached-user+offline-persist}
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse}
 ```
 
@@ -69,6 +69,7 @@ AI-Categorization: ItemInput→api/ai.categorize()→ai_service.categorize_item(
 NL-Parsing: MealMode+input→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→useItems.batchCreate()
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
 Offline: useOfflineQueue→IndexedDB-queue→retry-on-reconnect→sync-indicator
+User-Sync: ClerkProvider→useAuthSetup→setTokenGetter→apiRequest(Bearer)→get_auth→get_current_user→user_service.get_or_create_user→local-DB
 ```
 
 ## Environment Variables
@@ -78,6 +79,9 @@ Required for AI features:
 - `ENABLE_LLM_PARSING=true` - Enable NL parsing
 - `LLM_BACKEND=openai` - Use OpenAI backend (also: ollama, local)
 - `LLM_OPENAI_MODEL=gpt-4o-mini` - Model to use
+
+Frontend (optional):
+- `VITE_API_KEY` - Fallback API key when Clerk auth unavailable
 
 ## Known Issues
 
