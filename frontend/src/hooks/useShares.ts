@@ -15,6 +15,8 @@ export const shareKeys = {
  * Hook to fetch shares for a list
  */
 export function useListShares(listId: string | undefined) {
+  const { isAuthReady } = useAuth();
+
   return useQuery({
     queryKey: shareKeys.list(listId ?? ''),
     queryFn: ({ signal }) => {
@@ -23,7 +25,7 @@ export function useListShares(listId: string | undefined) {
       }
       return api.getListShares(listId, signal);
     },
-    enabled: !!listId,
+    enabled: isAuthReady && !!listId,
   });
 }
 

@@ -10,24 +10,39 @@ export const listKeys = {
   detail: (id: string) => [...listKeys.list(id), 'detail'] as const,
 };
 
+interface UseListsOptions {
+  /** Whether to enable the query (defaults to true) */
+  enabled?: boolean;
+}
+
 /**
  * Hook to fetch all lists
  */
-export function useLists() {
+export function useLists(options: UseListsOptions = {}) {
+  const { enabled = true } = options;
+
   return useQuery({
     queryKey: listKeys.lists(),
     queryFn: ({ signal }) => api.getLists(signal),
+    enabled,
   });
+}
+
+interface UseListOptions {
+  /** Whether to enable the query (defaults to true if id is provided) */
+  enabled?: boolean;
 }
 
 /**
  * Hook to fetch a single list with items
  */
-export function useList(id: string) {
+export function useList(id: string, options: UseListOptions = {}) {
+  const { enabled = true } = options;
+
   return useQuery({
     queryKey: listKeys.detail(id),
     queryFn: ({ signal }) => api.getList(id, signal),
-    enabled: !!id,
+    enabled: !!id && enabled,
   });
 }
 

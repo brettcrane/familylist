@@ -12,6 +12,7 @@ import {
   useRevokeShare,
   useCurrentUser,
 } from '../../hooks/useShares';
+import { useAuth } from '../../contexts/AuthContext';
 import type { SharePermission, ListShare } from '../../types/api';
 
 const PERMISSION_OPTIONS: { value: SharePermission; label: string }[] = [
@@ -156,8 +157,9 @@ function ShareRow({
 export function ShareListModal() {
   const { open, listId } = useUIStore((state) => state.shareListModal);
   const closeModal = useUIStore((state) => state.closeShareListModal);
+  const { isAuthReady } = useAuth();
 
-  const { data: list } = useList(listId ?? '');
+  const { data: list } = useList(listId ?? '', { enabled: isAuthReady && !!listId });
   const { data: currentUser } = useCurrentUser();
   const { data: shares, isLoading: sharesLoading, isError: sharesError } = useListShares(listId ?? undefined);
 

@@ -8,9 +8,11 @@ import { DeleteListDialog } from '../components/lists/DeleteListDialog';
 import { ShareListModal } from '../components/lists/ShareListModal';
 import { useLists } from '../hooks/useLists';
 import { useUIStore } from '../stores/uiStore';
+import { useAuth } from '../contexts/AuthContext';
 
 export function HomePage() {
-  const { data: lists, isLoading, error, refetch } = useLists();
+  const { isAuthReady } = useAuth();
+  const { data: lists, isLoading, error, refetch } = useLists({ enabled: isAuthReady });
   const setCreateModalOpen = useUIStore((state) => state.setCreateListModalOpen);
 
   const handleRefresh = useCallback(async () => {

@@ -11,6 +11,7 @@ import { EditListModal } from '../components/lists/EditListModal';
 import { DeleteListDialog } from '../components/lists/DeleteListDialog';
 import { ShareListModal } from '../components/lists/ShareListModal';
 import { useList } from '../hooks/useLists';
+import { useAuth } from '../contexts/AuthContext';
 import {
   useCreateItem,
   useCheckItem,
@@ -33,7 +34,8 @@ interface CategorySuggestionState {
 
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
-  const { data: list, isLoading, error } = useList(id!);
+  const { isAuthReady } = useAuth();
+  const { data: list, isLoading, error } = useList(id!, { enabled: isAuthReady });
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);

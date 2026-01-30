@@ -10,11 +10,17 @@ import { setTokenGetter, clearTokenGetter } from '../api/client';
  * Queries that require auth should wait for this before firing.
  */
 export function useAuthSetup(): { isAuthReady: boolean } {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    console.log('[useAuthSetup] isSignedIn:', isSignedIn);
+    console.log('[useAuthSetup] isLoaded:', isLoaded, 'isSignedIn:', isSignedIn);
+
+    // Wait for Clerk to finish loading before checking auth state
+    // This prevents race conditions where isSignedIn is undefined during loading
+    if (!isLoaded) {
+      return;
+    }
 
     if (isSignedIn) {
       // Set up token getter for API requests
@@ -36,7 +42,7 @@ export function useAuthSetup(): { isAuthReady: boolean } {
     return () => {
       clearTokenGetter();
     };
-  }, [getToken, isSignedIn]);
+  }, [getToken, isSignedIn, isLoaded]);
 
   return { isAuthReady };
 }

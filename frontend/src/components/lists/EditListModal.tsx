@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useUpdateList, useList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ICON_OPTIONS = [
   '🛒', '🎒', '✅', '📝', '🏠', '🎁',
@@ -25,8 +26,9 @@ const COLOR_OPTIONS = [
 export function EditListModal() {
   const { open, listId } = useUIStore((state) => state.editListModal);
   const closeModal = useUIStore((state) => state.closeEditListModal);
+  const { isAuthReady } = useAuth();
 
-  const { data: list } = useList(listId || '');
+  const { data: list } = useList(listId || '', { enabled: isAuthReady && !!listId });
   const updateList = useUpdateList();
 
   const [name, setName] = useState('');
