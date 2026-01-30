@@ -1,6 +1,13 @@
 import { SignIn, SignUp } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import {
+  ShoppingCartIcon,
+  BriefcaseIcon,
+  CheckCircleIcon,
+  UserGroupIcon,
+} from '@heroicons/react/24/outline';
+import { ClipboardDocumentListIcon as ClipboardDocumentListIconSolid } from '@heroicons/react/24/solid';
 
 // Shared appearance configuration for Clerk components
 const clerkAppearance = {
@@ -51,33 +58,63 @@ const clerkAppearance = {
   },
 };
 
-// Animation variants
+// Animation variants - tightened timing for snappier feel
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.1,
+      staggerChildren: 0.06,
+      delayChildren: 0.05,
     },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 16 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring' as const, damping: 25, stiffness: 300 },
+    transition: { type: 'spring' as const, damping: 28, stiffness: 350 },
   },
 };
 
-// Feature item component
-function FeatureItem({ emoji, text }: { emoji: string; text: string }) {
+// Feature data with Heroicons
+const features = [
+  { icon: ShoppingCartIcon, text: 'Grocery lists with AI categorization' },
+  { icon: BriefcaseIcon, text: 'Packing lists for travel' },
+  { icon: CheckCircleIcon, text: 'Task lists to stay organized' },
+  { icon: UserGroupIcon, text: 'Share lists with family' },
+];
+
+// Feature item component with proper visual weight
+function FeatureItem({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xl">{emoji}</span>
-      <span className="text-sm lg:text-base">{text}</span>
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)]/10 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-5 h-5 text-[var(--color-accent)]" />
+      </div>
+      <span className="text-sm lg:text-base text-[var(--color-text-secondary)]">{text}</span>
+    </div>
+  );
+}
+
+// App logo component - consistent across pages
+function AppLogo({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
+  const sizeClasses = size === 'lg'
+    ? 'w-16 h-16 lg:w-20 lg:h-20'
+    : 'w-14 h-14';
+  const iconClasses = size === 'lg'
+    ? 'w-8 h-8 lg:w-10 lg:h-10'
+    : 'w-7 h-7';
+
+  return (
+    <div className={clsx(
+      sizeClasses,
+      'rounded-2xl bg-[var(--color-accent)] flex items-center justify-center',
+      'shadow-[var(--shadow-card)]'
+    )}>
+      <ClipboardDocumentListIconSolid className={clsx(iconClasses, 'text-white')} />
     </div>
   );
 }
@@ -86,16 +123,14 @@ function FeatureItem({ emoji, text }: { emoji: string; text: string }) {
 function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <motion.div
-      className="flex flex-col justify-center items-center lg:items-start text-center lg:text-left p-8 lg:p-12"
+      className="relative flex flex-col justify-center items-center lg:items-start text-center lg:text-left p-8 lg:p-12 w-full"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
       {/* Logo / App Icon */}
       <motion.div variants={itemVariants} className="mb-6">
-        <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-[var(--color-accent)] flex items-center justify-center shadow-lg">
-          <span className="text-3xl lg:text-4xl">📝</span>
-        </div>
+        <AppLogo size="lg" />
       </motion.div>
 
       {/* App Name */}
@@ -115,24 +150,44 @@ function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
       </motion.p>
 
       {/* Feature highlights */}
-      <motion.div
-        variants={itemVariants}
-        className="space-y-3 text-[var(--color-text-secondary)]"
-      >
-        <FeatureItem emoji="🛒" text="Grocery lists with AI categorization" />
-        <FeatureItem emoji="🧳" text="Packing lists for travel" />
-        <FeatureItem emoji="✅" text="Task lists to stay organized" />
-        <FeatureItem emoji="👨‍👩‍👧‍👦" text="Share lists with family" />
+      <motion.div variants={itemVariants} className="space-y-4">
+        {features.map((feature, index) => (
+          <FeatureItem key={index} icon={feature.icon} text={feature.text} />
+        ))}
       </motion.div>
 
       {/* Subtitle / CTA hint */}
       <motion.p
         variants={itemVariants}
-        className="mt-8 text-sm text-[var(--color-text-muted)]"
+        className="mt-10 text-sm text-[var(--color-text-muted)]"
       >
         {subtitle}
       </motion.p>
     </motion.div>
+  );
+}
+
+// Hero section wrapper with texture/atmosphere
+function HeroWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="hidden lg:flex lg:w-1/2 bg-[var(--color-bg-secondary)] relative overflow-hidden">
+      {/* Subtle gradient overlay for warmth */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
+
+      {/* Subtle dot pattern for texture */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: 'radial-gradient(circle, var(--color-text-primary) 1px, transparent 1px)',
+          backgroundSize: '20px 20px'
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 w-full">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -141,12 +196,12 @@ export function SignInPage() {
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)] flex flex-col lg:flex-row">
       {/* Hero section - hidden on mobile, shown on desktop left side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[var(--color-bg-secondary)]">
+      <HeroWrapper>
         <HeroSection
           title="Keep your family organized with smart, shareable lists."
           subtitle="Sign in to access your lists"
         />
-      </div>
+      </HeroWrapper>
 
       {/* Form section */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-12">
@@ -155,10 +210,10 @@ export function SignInPage() {
           className="lg:hidden text-center mb-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 350 }}
         >
-          <div className="w-14 h-14 rounded-xl bg-[var(--color-accent)] flex items-center justify-center shadow-md mx-auto mb-4">
-            <span className="text-2xl">📝</span>
+          <div className="mx-auto mb-4">
+            <AppLogo size="sm" />
           </div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">
             FamilyList
@@ -173,7 +228,7 @@ export function SignInPage() {
           className="w-full max-w-md"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 350, delay: 0.08 }}
         >
           <SignIn
             appearance={clerkAppearance}
@@ -193,12 +248,12 @@ export function SignUpPage() {
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)] flex flex-col lg:flex-row">
       {/* Hero section - hidden on mobile, shown on desktop left side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[var(--color-bg-secondary)]">
+      <HeroWrapper>
         <HeroSection
           title="Join your family in staying organized."
           subtitle="Create a free account to get started"
         />
-      </div>
+      </HeroWrapper>
 
       {/* Form section */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-12">
@@ -207,10 +262,10 @@ export function SignUpPage() {
           className="lg:hidden text-center mb-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 350 }}
         >
-          <div className="w-14 h-14 rounded-xl bg-[var(--color-accent)] flex items-center justify-center shadow-md mx-auto mb-4">
-            <span className="text-2xl">📝</span>
+          <div className="mx-auto mb-4">
+            <AppLogo size="sm" />
           </div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">
             FamilyList
@@ -225,7 +280,7 @@ export function SignUpPage() {
           className="w-full max-w-md"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 350, delay: 0.08 }}
         >
           <SignUp
             appearance={clerkAppearance}
