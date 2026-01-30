@@ -11,6 +11,7 @@ interface UseLongPressReturn {
   onMouseUp: (e: React.MouseEvent) => void;
   onMouseLeave: (e: React.MouseEvent) => void;
   onTouchStart: (e: React.TouchEvent) => void;
+  onTouchMove: (e: React.TouchEvent) => void;
   onTouchEnd: (e: React.TouchEvent) => void;
   onClick: (e: React.MouseEvent) => void;
 }
@@ -100,6 +101,21 @@ export function useLongPress({
     [start]
   );
 
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      // Cancel long press if finger moves more than 10px
+      if (startPosRef.current && e.touches.length > 0) {
+        const touch = e.touches[0];
+        const deltaX = Math.abs(touch.clientX - startPosRef.current.x);
+        const deltaY = Math.abs(touch.clientY - startPosRef.current.y);
+        if (deltaX > 10 || deltaY > 10) {
+          clear();
+        }
+      }
+    },
+    [clear]
+  );
+
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       clear();
@@ -117,6 +133,7 @@ export function useLongPress({
     onMouseUp: handleMouseUp,
     onMouseLeave: handleMouseLeave,
     onTouchStart: handleTouchStart,
+    onTouchMove: handleTouchMove,
     onTouchEnd: handleTouchEnd,
     onClick: handleClick,
   };

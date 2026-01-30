@@ -42,8 +42,8 @@ export function revokeShare(listId: string, shareId: string): Promise<void> {
 }
 
 /**
- * Look up a user by email
+ * Get the current authenticated user's info
  */
-export function lookupUserByEmail(email: string, signal?: AbortSignal): Promise<User> {
-  return get<User>(`/users/lookup?email=${encodeURIComponent(email)}`, signal);
+export function getCurrentUser(signal?: AbortSignal): Promise<User> {
+  return get<User>('/users/me', signal);
 }

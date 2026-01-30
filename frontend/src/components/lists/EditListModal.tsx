@@ -72,8 +72,11 @@ export function EditListModal() {
         },
       });
       handleClose();
-    } catch {
-      setError('Failed to update list. Please try again.');
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to update list. Please try again.';
+      console.error('Failed to update list:', { listId, error: err });
+      setError(errorMessage);
     }
   };
 

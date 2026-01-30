@@ -219,8 +219,12 @@ export function ListHeader({
                           data: { name: `${list.name} (Copy)` },
                         });
                         navigate(`/lists/${newList.id}`);
-                      } catch {
-                        // Error handling
+                      } catch (err: unknown) {
+                        const apiError = err as { message?: string; data?: { detail?: string } };
+                        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to duplicate list';
+                        console.error('Failed to duplicate list:', { listId: list.id, error: err, errorMessage });
+                        // Show error to user since menu is already closed
+                        alert(errorMessage);
                       }
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"

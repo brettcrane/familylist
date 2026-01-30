@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class ListType(str, Enum):
@@ -77,7 +77,7 @@ class ListShareCreate(BaseModel):
 class ListShareByEmailRequest(BaseModel):
     """Schema for sharing a list by email."""
 
-    email: str = Field(..., min_length=1, max_length=255)
+    email: EmailStr
     permission: ListSharePermission = ListSharePermission.VIEW
 
 
@@ -93,7 +93,7 @@ class ListShareResponse(BaseModel):
     id: str
     list_id: str
     user_id: str
-    permission: str
+    permission: ListSharePermission
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -105,7 +105,7 @@ class ListShareWithUserResponse(BaseModel):
     id: str
     list_id: str
     user: UserResponse
-    permission: str
+    permission: ListSharePermission
     created_at: str
 
     model_config = {"from_attributes": True}

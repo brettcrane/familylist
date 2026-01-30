@@ -10,6 +10,7 @@ import {
   useShareList,
   useUpdateShare,
   useRevokeShare,
+  useCurrentUser,
 } from '../../hooks/useShares';
 import type { SharePermission, ListShare } from '../../types/api';
 
@@ -20,11 +21,13 @@ const PERMISSION_OPTIONS: { value: SharePermission; label: string }[] = [
 ];
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
+  const trimmed = name.trim();
+  if (!trimmed) return '??';
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
-  return name.slice(0, 2).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
 }
 
 interface ShareRowProps {
@@ -33,6 +36,7 @@ interface ShareRowProps {
   onUpdatePermission: (shareId: string, permission: SharePermission) => void;
   onRevoke: (shareId: string) => void;
   isUpdating: boolean;
+  updateError: string | null;
 }
 
 function ShareRow({
@@ -41,6 +45,7 @@ function ShareRow({
   onUpdatePermission,
   onRevoke,
   isUpdating,
+  updateError,
 }: ShareRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -67,6 +72,9 @@ function ShareRow({
         <p className="text-xs text-[var(--color-text-muted)] truncate">
           {share.user.email}
         </p>
+        {updateError && (
+          <p className="text-xs text-[var(--color-destructive)] mt-0.5">{updateError}</p>
+        )}
       </div>
 
       {/* Permission dropdown */}
@@ -149,22 +157,25 @@ export function ShareListModal() {
   const { open, listId } = useUIStore((state) => state.shareListModal);
   const closeModal = useUIStore((state) => state.closeShareListModal);
 
-  const { data: list } = useList(listId || '');
-  const { data: shares, isLoading: sharesLoading } = useListShares(listId || '');
+  const { data: list } = useList(listId ?? '');
+  const { data: currentUser } = useCurrentUser();
+  const { data: shares, isLoading: sharesLoading, isError: sharesError } = useListShares(listId ?? undefined);
 
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState<SharePermission>('edit');
   const [error, setError] = useState('');
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
-  const shareList = useShareList(listId || '');
-  const updateShare = useUpdateShare(listId || '');
-  const revokeShare = useRevokeShare(listId || '');
+  const shareList = useShareList(listId ?? undefined);
+  const updateShare = useUpdateShare(listId ?? undefined);
+  const revokeShare = useRevokeShare(listId ?? undefined);
 
   const handleClose = () => {
     closeModal();
     setEmail('');
     setPermission('edit');
     setError('');
+    setUpdateError(null);
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -197,25 +208,34 @@ export function ShareListModal() {
   };
 
   const handleUpdatePermission = async (shareId: string, newPermission: SharePermission) => {
+    setUpdateError(null);
     try {
       await updateShare.mutateAsync({
         shareId,
         data: { permission: newPermission },
       });
-    } catch {
-      // Could add error handling/toast here
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to update permission';
+      console.error('Failed to update share permission:', { shareId, newPermission, error: err });
+      setUpdateError(errorMessage);
     }
   };
 
   const handleRevoke = async (shareId: string) => {
+    setUpdateError(null);
     try {
       await revokeShare.mutateAsync(shareId);
-    } catch {
-      // Could add error handling/toast here
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to remove user';
+      console.error('Failed to revoke share:', { shareId, error: err });
+      setUpdateError(errorMessage);
     }
   };
 
-  const isOwner = true; // TODO: Check if current user is owner
+  // Check if current user is the owner
+  const isOwner = currentUser && list ? currentUser.id === list.owner_id : false;
   const isUpdating = shareList.isPending || updateShare.isPending || revokeShare.isPending;
 
   return (
@@ -258,67 +278,76 @@ export function ShareListModal() {
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Invite form */}
-                <form onSubmit={handleInvite} className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="share-email"
-                      className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2"
-                    >
-                      Invite by Email
-                    </label>
-                    <Input
-                      id="share-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setError('');
-                      }}
-                      placeholder="email@example.com"
-                      error={error}
-                      icon={
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                          <polyline points="22,6 12,13 2,6" />
-                        </svg>
-                      }
-                    />
-                  </div>
-
-                  {/* Permission selector */}
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                      Permission
-                    </label>
-                    <div className="flex gap-1 p-1 bg-[var(--color-bg-secondary)] rounded-xl">
-                      {PERMISSION_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setPermission(option.value)}
-                          className={clsx(
-                            'flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-                            permission === option.value
-                              ? 'bg-[var(--color-accent)] text-white'
-                              : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                          )}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                {/* Invite form - only show for owner */}
+                {isOwner && (
+                  <form onSubmit={handleInvite} className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="share-email"
+                        className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2"
+                      >
+                        Invite by Email
+                      </label>
+                      <Input
+                        id="share-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setError('');
+                        }}
+                        placeholder="email@example.com"
+                        error={error}
+                        icon={
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                            <polyline points="22,6 12,13 2,6" />
+                          </svg>
+                        }
+                      />
                     </div>
-                  </div>
 
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={shareList.isPending}
-                    className="w-full"
-                  >
-                    Send Invite
-                  </Button>
-                </form>
+                    {/* Permission selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                        Permission
+                      </label>
+                      <div className="flex gap-1 p-1 bg-[var(--color-bg-secondary)] rounded-xl">
+                        {PERMISSION_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setPermission(option.value)}
+                            className={clsx(
+                              'flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                              permission === option.value
+                                ? 'bg-[var(--color-accent)] text-white'
+                                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                            )}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      isLoading={shareList.isPending}
+                      className="w-full"
+                    >
+                      Send Invite
+                    </Button>
+                  </form>
+                )}
+
+                {/* Non-owner message */}
+                {!isOwner && currentUser && (
+                  <div className="text-sm text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] rounded-lg p-3">
+                    Only the list owner can invite new users.
+                  </div>
+                )}
 
                 {/* Divider */}
                 <div className="h-px bg-[var(--color-text-muted)]/10" />
@@ -329,6 +358,13 @@ export function ShareListModal() {
                     Shared With {shares && shares.length > 0 && `(${shares.length})`}
                   </h3>
 
+                  {/* Update error banner */}
+                  {updateError && (
+                    <div className="mb-3 p-3 bg-[var(--color-destructive)]/10 border border-[var(--color-destructive)]/20 rounded-lg">
+                      <p className="text-sm text-[var(--color-destructive)]">{updateError}</p>
+                    </div>
+                  )}
+
                   {sharesLoading ? (
                     <div className="space-y-3">
                       {[1, 2].map((i) => (
@@ -337,6 +373,10 @@ export function ShareListModal() {
                           className="h-16 bg-[var(--color-bg-secondary)] rounded-xl animate-pulse"
                         />
                       ))}
+                    </div>
+                  ) : sharesError ? (
+                    <div className="text-sm text-[var(--color-destructive)] bg-[var(--color-destructive)]/10 rounded-lg p-3">
+                      Failed to load shares. Please try again.
                     </div>
                   ) : shares && shares.length > 0 ? (
                     <div className="space-y-2">
@@ -348,6 +388,7 @@ export function ShareListModal() {
                           onUpdatePermission={handleUpdatePermission}
                           onRevoke={handleRevoke}
                           isUpdating={isUpdating}
+                          updateError={null}
                         />
                       ))}
                     </div>

@@ -7,15 +7,21 @@ import { listKeys } from './useLists';
 export const shareKeys = {
   all: ['shares'] as const,
   list: (listId: string) => [...shareKeys.all, 'list', listId] as const,
+  currentUser: ['currentUser'] as const,
 };
 
 /**
  * Hook to fetch shares for a list
  */
-export function useListShares(listId: string) {
+export function useListShares(listId: string | undefined) {
   return useQuery({
-    queryKey: shareKeys.list(listId),
-    queryFn: ({ signal }) => api.getListShares(listId, signal),
+    queryKey: shareKeys.list(listId ?? ''),
+    queryFn: ({ signal }) => {
+      if (!listId) {
+        return Promise.reject(new Error('listId is required'));
+      }
+      return api.getListShares(listId, signal);
+    },
     enabled: !!listId,
   });
 }
@@ -23,16 +29,26 @@ export function useListShares(listId: string) {
 /**
  * Hook to share a list by email
  */
-export function useShareList(listId: string) {
+export function useShareList(listId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: ShareByEmailRequest) => api.shareListByEmail(listId, data),
+    mutationFn: (data: ShareByEmailRequest) => {
+      if (!listId) {
+        return Promise.reject(new Error('listId is required to share a list'));
+      }
+      return api.shareListByEmail(listId, data);
+    },
     onSuccess: () => {
-      // Invalidate shares for this list
-      queryClient.invalidateQueries({ queryKey: shareKeys.list(listId) });
-      // Invalidate lists to update share_count
-      queryClient.invalidateQueries({ queryKey: listKeys.lists() });
+      if (listId) {
+        // Invalidate shares for this list
+        queryClient.invalidateQueries({ queryKey: shareKeys.list(listId) });
+        // Invalidate lists to update share_count
+        queryClient.invalidateQueries({ queryKey: listKeys.lists() });
+      }
+    },
+    onError: (error) => {
+      console.error('useShareList mutation failed:', { listId, error });
     },
   });
 }
@@ -40,14 +56,23 @@ export function useShareList(listId: string) {
 /**
  * Hook to update a share's permission
  */
-export function useUpdateShare(listId: string) {
+export function useUpdateShare(listId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ shareId, data }: { shareId: string; data: ShareUpdateRequest }) =>
-      api.updateShare(listId, shareId, data),
+    mutationFn: ({ shareId, data }: { shareId: string; data: ShareUpdateRequest }) => {
+      if (!listId) {
+        return Promise.reject(new Error('listId is required to update a share'));
+      }
+      return api.updateShare(listId, shareId, data);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: shareKeys.list(listId) });
+      if (listId) {
+        queryClient.invalidateQueries({ queryKey: shareKeys.list(listId) });
+      }
+    },
+    onError: (error) => {
+      console.error('useUpdateShare mutation failed:', { listId, error });
     },
   });
 }
@@ -55,25 +80,38 @@ export function useUpdateShare(listId: string) {
 /**
  * Hook to revoke a share
  */
-export function useRevokeShare(listId: string) {
+export function useRevokeShare(listId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (shareId: string) => api.revokeShare(listId, shareId),
+    mutationFn: (shareId: string) => {
+      if (!listId) {
+        return Promise.reject(new Error('listId is required to revoke a share'));
+      }
+      return api.revokeShare(listId, shareId);
+    },
     onSuccess: () => {
-      // Invalidate shares for this list
-      queryClient.invalidateQueries({ queryKey: shareKeys.list(listId) });
-      // Invalidate lists to update share_count
-      queryClient.invalidateQueries({ queryKey: listKeys.lists() });
+      if (listId) {
+        // Invalidate shares for this list
+        queryClient.invalidateQueries({ queryKey: shareKeys.list(listId) });
+        // Invalidate lists to update share_count
+        queryClient.invalidateQueries({ queryKey: listKeys.lists() });
+      }
+    },
+    onError: (error) => {
+      console.error('useRevokeShare mutation failed:', { listId, error });
     },
   });
 }
 
 /**
- * Hook to look up a user by email
+ * Hook to get the current authenticated user's info from the backend
  */
-export function useLookupUser() {
-  return useMutation({
-    mutationFn: (email: string) => api.lookupUserByEmail(email),
+export function useCurrentUser() {
+  return useQuery({
+    queryKey: shareKeys.currentUser,
+    queryFn: ({ signal }) => api.getCurrentUser(signal),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 3, // Retry transient failures
   });
 }

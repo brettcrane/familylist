@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/Button';
@@ -11,17 +12,27 @@ export function DeleteListDialog() {
   );
   const closeDialog = useUIStore((state) => state.closeDeleteListDialog);
   const deleteList = useDeleteList();
+  const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!listId) return;
+    setError(null);
 
     try {
       await deleteList.mutateAsync(listId);
       closeDialog();
       navigate('/');
-    } catch {
-      // Error handling - could add toast here
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete list';
+      console.error('Failed to delete list:', { listId, error: err });
+      setError(errorMessage);
     }
+  };
+
+  const handleClose = () => {
+    setError(null);
+    closeDialog();
   };
 
   return (
@@ -33,7 +44,7 @@ export function DeleteListDialog() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={closeDialog}
+            onClick={handleClose}
             className="fixed inset-0 z-[var(--z-modal)] bg-black/50"
           />
 
@@ -78,16 +89,23 @@ export function DeleteListDialog() {
                 {itemCount > 0 && ` and all ${itemCount} item${itemCount !== 1 ? 's' : ''}`}.
               </p>
 
-              <p className="text-sm font-medium text-[var(--color-destructive)] text-center mb-6">
+              <p className="text-sm font-medium text-[var(--color-destructive)] text-center mb-4">
                 This cannot be undone.
               </p>
+
+              {/* Error message */}
+              {error && (
+                <div className="mb-4 p-3 bg-[var(--color-destructive)]/10 border border-[var(--color-destructive)]/20 rounded-lg">
+                  <p className="text-sm text-[var(--color-destructive)] text-center">{error}</p>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3">
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={closeDialog}
+                  onClick={handleClose}
                   className="flex-1"
                 >
                   Cancel

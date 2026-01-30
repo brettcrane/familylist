@@ -1,7 +1,11 @@
 """List sharing API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.dependencies import require_user
@@ -62,6 +66,12 @@ async def get_list_shares(
                     permission=share.permission,
                     created_at=share.created_at,
                 )
+            )
+        else:
+            logger.error(
+                "Orphaned share found: share_id=%s references non-existent user_id=%s (data integrity issue)",
+                share.id,
+                share.user_id,
             )
 
     return result
