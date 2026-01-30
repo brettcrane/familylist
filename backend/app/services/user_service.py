@@ -23,6 +23,11 @@ def get_user_by_clerk_id(db: Session, clerk_user_id: str) -> User | None:
     return db.query(User).filter(User.clerk_user_id == clerk_user_id).first()
 
 
+def get_user_by_email(db: Session, email: str) -> User | None:
+    """Get a user by email address."""
+    return db.query(User).filter(User.email == email).first()
+
+
 def create_user(db: Session, data: UserCreate) -> User:
     """Create a new user."""
     user = User(

@@ -167,3 +167,14 @@ export function put<T>(
 export function del<T>(endpoint: string, signal?: AbortSignal): Promise<T> {
   return apiRequest<T>(endpoint, { method: 'DELETE', signal });
 }
+
+/**
+ * PATCH request helper
+ */
+export function patch<T>(
+  endpoint: string,
+  body?: unknown,
+  signal?: AbortSignal
+): Promise<T> {
+  return apiRequest<T>(endpoint, { method: 'PATCH', body, signal });
+}

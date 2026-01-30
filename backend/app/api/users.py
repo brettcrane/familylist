@@ -7,7 +7,7 @@ from app.database import get_db
 from app.dependencies import require_user
 from app.models import ListShare, User
 from app.schemas import UserResponse
-from app.services import user_service
+from app.services import user_service  # Still needed for get_user_by_id
 
 router = APIRouter(prefix="/users", tags=["users"])
 

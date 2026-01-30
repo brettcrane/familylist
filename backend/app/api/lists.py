@@ -39,10 +39,11 @@ def get_lists(
         # API key auth - return all lists (backward compatible)
         lists = list_service.get_all_lists(db, include_templates=include_templates)
 
-    # Add item counts to each list
+    # Add item counts and share counts to each list
     result = []
     for lst in lists:
         stats = list_service.get_list_stats(db, lst.id)
+        share_count = list_service.get_list_share_count(db, lst.id)
         result.append(
             ListResponse(
                 id=lst.id,
@@ -56,6 +57,7 @@ def get_lists(
                 updated_at=lst.updated_at or "",
                 item_count=stats["total_items"],
                 checked_count=stats["checked_items"],
+                share_count=share_count,
             )
         )
     return result
@@ -94,7 +96,26 @@ def get_list(
     # Check access permission
     check_list_access(db, list_id, current_user, require_edit=False)
 
-    return list_obj
+    # Get stats and share count
+    stats = list_service.get_list_stats(db, list_id)
+    share_count = list_service.get_list_share_count(db, list_id)
+
+    return ListWithItemsResponse(
+        id=list_obj.id,
+        name=list_obj.name,
+        type=list_obj.type,
+        icon=list_obj.icon,
+        color=list_obj.color,
+        owner_id=list_obj.owner_id,
+        is_template=list_obj.is_template,
+        created_at=list_obj.created_at or "",
+        updated_at=list_obj.updated_at or "",
+        item_count=stats["total_items"],
+        checked_count=stats["checked_items"],
+        share_count=share_count,
+        categories=[c for c in list_obj.categories],
+        items=[i for i in list_obj.items],
+    )
 
 
 @router.put("/{list_id}", response_model=ListResponse)

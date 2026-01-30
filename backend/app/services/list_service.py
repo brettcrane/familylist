@@ -252,3 +252,68 @@ def get_list_stats(db: Session, list_id: str) -> dict:
         "checked_items": checked,
         "unchecked_items": total - checked,
     }
+
+
+def get_list_shares(db: Session, list_id: str) -> list[ListShare]:
+    """Get all shares for a list with user details eagerly loaded."""
+    return (
+        db.query(ListShare)
+        .filter(ListShare.list_id == list_id)
+        .all()
+    )
+
+
+def get_list_share_count(db: Session, list_id: str) -> int:
+    """Get the count of shares for a list."""
+    return db.query(ListShare).filter(ListShare.list_id == list_id).count()
+
+
+def get_share_by_id(db: Session, share_id: str) -> ListShare | None:
+    """Get a share by ID."""
+    return db.query(ListShare).filter(ListShare.id == share_id).first()
+
+
+def create_list_share(
+    db: Session, list_id: str, user_id: str, permission: str
+) -> ListShare:
+    """Create a new list share."""
+    share = ListShare(
+        list_id=list_id,
+        user_id=user_id,
+        permission=permission,
+    )
+    db.add(share)
+    db.commit()
+    db.refresh(share)
+    return share
+
+
+def update_list_share(
+    db: Session, share: ListShare, permission: str
+) -> ListShare:
+    """Update a list share's permission."""
+    share.permission = permission
+    db.commit()
+    db.refresh(share)
+    return share
+
+
+def delete_list_share(db: Session, share: ListShare) -> None:
+    """Delete a list share."""
+    db.delete(share)
+    db.commit()
+
+
+def get_existing_share(db: Session, list_id: str, user_id: str) -> ListShare | None:
+    """Check if a share already exists for this list and user."""
+    return (
+        db.query(ListShare)
+        .filter(ListShare.list_id == list_id, ListShare.user_id == user_id)
+        .first()
+    )
+
+
+def is_list_owner(db: Session, list_id: str, user_id: str) -> bool:
+    """Check if a user is the owner of a list."""
+    lst = get_list_by_id(db, list_id)
+    return lst is not None and lst.owner_id == user_id

@@ -7,6 +7,9 @@ import { CategorySection } from '../components/items';
 import { BottomInputBar } from '../components/items/BottomInputBar';
 import { NLParseModal } from '../components/items/NLParseModal';
 import { DoneList } from '../components/done';
+import { EditListModal } from '../components/lists/EditListModal';
+import { DeleteListDialog } from '../components/lists/DeleteListDialog';
+import { ShareListModal } from '../components/lists/ShareListModal';
 import { useList } from '../hooks/useLists';
 import {
   useCreateItem,
@@ -302,6 +305,7 @@ export function ListPage() {
     <Layout>
       <ListHeader
         title={list.name}
+        list={list}
         uncheckedCount={uncheckedCount}
         checkedCount={checkedCount}
         activeTab={activeTab}
@@ -395,6 +399,11 @@ export function ListPage() {
         onConfirm={handleNlConfirm}
         onCancel={handleNlCancel}
       />
+
+      {/* List management modals */}
+      <EditListModal />
+      <DeleteListDialog />
+      <ShareListModal />
     </Layout>
   );
 }

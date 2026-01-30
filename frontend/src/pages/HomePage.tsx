@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import { Layout, Main, Header } from '../components/layout';
 import { PullToRefresh } from '../components/ui';
 import { ListGrid, CreateListModal } from '../components/lists';
+import { EditListModal } from '../components/lists/EditListModal';
+import { DeleteListDialog } from '../components/lists/DeleteListDialog';
+import { ShareListModal } from '../components/lists/ShareListModal';
 import { useLists } from '../hooks/useLists';
 import { useUIStore } from '../stores/uiStore';
 
@@ -61,6 +64,9 @@ export function HomePage() {
       </Main>
 
       <CreateListModal />
+      <EditListModal />
+      <DeleteListDialog />
+      <ShareListModal />
     </Layout>
   );
 }
