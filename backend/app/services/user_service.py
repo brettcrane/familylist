@@ -114,19 +114,26 @@ def get_or_create_user(db: Session, clerk_user: ClerkUser) -> User:
         db.refresh(new_user)
         return new_user
 
-    except IntegrityError:
-        # Race condition: another request created the user between our check and insert
+    except IntegrityError as e:
+        # Log the actual constraint error for debugging
         db.rollback()
-        logger.info(
-            f"Race condition in user creation for clerk_id={clerk_user.clerk_user_id}, "
-            "re-fetching user"
+        logger.warning(
+            f"IntegrityError creating user for clerk_id={clerk_user.clerk_user_id}: {e}"
         )
+
+        # Try to re-fetch in case it was a race condition
         user = get_user_by_clerk_id(db, clerk_user.clerk_user_id)
         if user:
+            logger.info(f"Found user after IntegrityError (race condition resolved)")
             return user
-        # This shouldn't happen, but handle it gracefully
+
+        # Check if there are ANY users in the table (debugging)
+        from sqlalchemy import text
+        count_result = db.execute(text("SELECT COUNT(*) FROM users")).scalar()
         logger.error(
-            f"Failed to find user after IntegrityError for clerk_id={clerk_user.clerk_user_id}"
+            f"Failed to find user after IntegrityError. "
+            f"clerk_id={clerk_user.clerk_user_id}, total_users={count_result}, "
+            f"error_details={str(e.orig) if hasattr(e, 'orig') else str(e)}"
         )
         raise HTTPException(
             status_code=500,
