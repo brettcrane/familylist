@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api';
 import type { ShareByEmailRequest, ShareUpdateRequest } from '../types/api';
 import { listKeys } from './useLists';
+import { useAuth } from '../contexts/AuthContext';
 
 /** Query keys for shares */
 export const shareKeys = {
@@ -105,13 +106,28 @@ export function useRevokeShare(listId: string | undefined) {
 }
 
 /**
- * Hook to get the current authenticated user's info from the backend
+ * Hook to get the current authenticated user's info from the backend.
+ * Only fetches when user is signed in via Clerk - API key auth doesn't have a "current user".
  */
 export function useCurrentUser() {
+  const { isSignedIn, isLoaded } = useAuth();
+
   return useQuery({
     queryKey: shareKeys.currentUser,
     queryFn: ({ signal }) => api.getCurrentUser(signal),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    retry: 3, // Retry transient failures
+    // Only fetch when signed in via Clerk - API key mode doesn't have user identity
+    enabled: isLoaded && isSignedIn,
+    // Don't retry on auth errors - 401 means the endpoint requires Clerk auth
+    retry: (failureCount, error) => {
+      // Don't retry on 401/403 - these are authorization failures, not transient
+      if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as { status: number }).status;
+        if (status === 401 || status === 403) {
+          return false;
+        }
+      }
+      return failureCount < 3;
+    },
   });
 }
