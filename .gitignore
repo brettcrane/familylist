@@ -73,3 +73,9 @@ node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+
+# AI Agent Skills (reinstall with: npx skills add clerk/skills -y)
+.agents/
+.claude/skills/
+.cursor/
+.github/skills/

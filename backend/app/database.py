@@ -76,6 +76,60 @@ def get_db_context() -> Generator[Session, None, None]:
 def init_db() -> None:
     """Initialize database tables."""
     Base.metadata.create_all(bind=get_engine())
+    # Run migrations for schema changes
+    _run_migrations()
+
+
+def _run_migrations() -> None:
+    """Run schema migrations for existing databases.
+
+    This handles adding new columns to existing tables that create_all() won't update.
+    Uses IF NOT EXISTS patterns for idempotency.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        # Check if users table exists and has the right columns
+        result = conn.execute(text("PRAGMA table_info(users)"))
+        columns = {row[1] for row in result.fetchall()}
+
+        if columns:  # Table exists
+            # Add missing columns for Clerk integration
+            migrations = []
+
+            if "clerk_user_id" not in columns:
+                migrations.append(
+                    "ALTER TABLE users ADD COLUMN clerk_user_id VARCHAR(255)"
+                )
+            if "display_name" not in columns:
+                migrations.append(
+                    "ALTER TABLE users ADD COLUMN display_name VARCHAR(255) DEFAULT 'User'"
+                )
+            if "email" not in columns:
+                migrations.append(
+                    "ALTER TABLE users ADD COLUMN email VARCHAR(255)"
+                )
+            if "avatar_url" not in columns:
+                migrations.append(
+                    "ALTER TABLE users ADD COLUMN avatar_url TEXT"
+                )
+            if "updated_at" not in columns:
+                migrations.append(
+                    "ALTER TABLE users ADD COLUMN updated_at TEXT"
+                )
+
+            for migration in migrations:
+                try:
+                    conn.execute(text(migration))
+                    logger.info(f"Migration applied: {migration}")
+                except Exception as e:
+                    logger.warning(f"Migration skipped (may already exist): {e}")
+
+            if migrations:
+                conn.commit()
+                logger.info(f"Applied {len(migrations)} migrations to users table")
 
 
 def create_indexes(db: Session) -> None:
