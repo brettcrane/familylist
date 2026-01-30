@@ -58,7 +58,7 @@ const clerkAppearance = {
   },
 };
 
-// Animation variants - tightened timing for snappier feel
+// Animation variants
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -87,11 +87,11 @@ const features = [
   { icon: UserGroupIcon, text: 'Share lists with family' },
 ];
 
-// Feature item component with proper visual weight
+// Feature item component
 function FeatureItem({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) {
   return (
     <div className="flex items-center gap-4">
-      <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)]/10 flex items-center justify-center flex-shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-[var(--color-accent)]/10 flex items-center justify-center shrink-0">
         <Icon className="w-5 h-5 text-[var(--color-accent)]" />
       </div>
       <span className="text-sm lg:text-base text-[var(--color-text-secondary)]">{text}</span>
@@ -99,14 +99,10 @@ function FeatureItem({ icon: Icon, text }: { icon: React.ComponentType<{ classNa
   );
 }
 
-// App logo component - consistent across pages
+// App logo component
 function AppLogo({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
-  const sizeClasses = size === 'lg'
-    ? 'w-16 h-16 lg:w-20 lg:h-20'
-    : 'w-14 h-14';
-  const iconClasses = size === 'lg'
-    ? 'w-8 h-8 lg:w-10 lg:h-10'
-    : 'w-7 h-7';
+  const sizeClasses = size === 'lg' ? 'w-16 h-16 lg:w-20 lg:h-20' : 'w-14 h-14';
+  const iconClasses = size === 'lg' ? 'w-8 h-8 lg:w-10 lg:h-10' : 'w-7 h-7';
 
   return (
     <div className={clsx(
@@ -119,47 +115,42 @@ function AppLogo({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
   );
 }
 
-// Hero section component (left side on desktop)
-function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
+// Hero section content
+function HeroContent({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <motion.div
-      className="flex flex-col justify-center p-8 lg:p-12 lg:pl-16 w-full max-w-lg"
+      className="space-y-6"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Logo / App Icon */}
-      <motion.div variants={itemVariants} className="mb-6">
+      <motion.div variants={itemVariants}>
         <AppLogo size="lg" />
       </motion.div>
 
-      {/* App Name */}
       <motion.h1
         variants={itemVariants}
-        className="font-display text-3xl lg:text-4xl font-bold text-[var(--color-text-primary)] mb-3"
+        className="font-display text-3xl lg:text-4xl font-bold text-[var(--color-text-primary)]"
       >
         FamilyList
       </motion.h1>
 
-      {/* Tagline */}
       <motion.p
         variants={itemVariants}
-        className="text-lg lg:text-xl text-[var(--color-text-secondary)] mb-8"
+        className="text-lg lg:text-xl text-[var(--color-text-secondary)] max-w-md"
       >
         {title}
       </motion.p>
 
-      {/* Feature highlights */}
-      <motion.div variants={itemVariants} className="space-y-4">
+      <motion.div variants={itemVariants} className="space-y-4 pt-4">
         {features.map((feature, index) => (
           <FeatureItem key={index} icon={feature.icon} text={feature.text} />
         ))}
       </motion.div>
 
-      {/* Subtitle / CTA hint */}
       <motion.p
         variants={itemVariants}
-        className="mt-10 text-sm text-[var(--color-text-muted)]"
+        className="text-sm text-[var(--color-text-muted)] pt-4"
       >
         {subtitle}
       </motion.p>
@@ -167,77 +158,71 @@ function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
   );
 }
 
-// Hero section wrapper with texture/atmosphere
-function HeroWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="hidden lg:flex lg:w-1/2 bg-[var(--color-bg-secondary)] relative overflow-hidden items-center justify-center">
-      {/* Subtle gradient overlay for warmth */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
-
-      {/* Subtle dot pattern for texture */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: 'radial-gradient(circle, var(--color-text-primary) 1px, transparent 1px)',
-          backgroundSize: '20px 20px'
-        }}
-      />
-
-      {/* Content */}
-      <div className="relative z-10">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 // Main Sign In Page
 export function SignInPage() {
   return (
-    <div className="min-h-screen bg-[var(--color-bg-primary)] flex flex-col lg:flex-row">
-      {/* Hero section - hidden on mobile, shown on desktop left side */}
-      <HeroWrapper>
-        <HeroSection
-          title="Keep your family organized with smart, shareable lists."
-          subtitle="Sign in to access your lists"
-        />
-      </HeroWrapper>
+    <div className="min-h-screen bg-[var(--color-bg-primary)]">
+      {/* CSS Grid layout: 12 columns on desktop */}
+      <div className="grid lg:grid-cols-12 min-h-screen">
+        {/* Hero section - 7 columns on desktop, hidden on mobile */}
+        <div className="hidden lg:block lg:col-span-7 bg-[var(--color-bg-secondary)] relative overflow-hidden">
+          {/* Subtle gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
 
-      {/* Form section */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-12">
-        {/* Mobile hero (condensed) */}
-        <motion.div
-          className="lg:hidden text-center mb-8"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-        >
-          <div className="mx-auto mb-4">
-            <AppLogo size="sm" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">
-            FamilyList
-          </h1>
-          <p className="text-[var(--color-text-secondary)] mt-2">
-            Sign in to manage your lists
-          </p>
-        </motion.div>
-
-        {/* Sign In Form */}
-        <motion.div
-          className="w-full max-w-md"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 350, delay: 0.08 }}
-        >
-          <SignIn
-            appearance={clerkAppearance}
-            routing="path"
-            path="/sign-in"
-            signUpUrl="/sign-up"
-            fallbackRedirectUrl="/"
+          {/* Subtle dot pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, var(--color-text-primary) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }}
           />
-        </motion.div>
+
+          {/* Content */}
+          <div className="relative z-10 h-full flex items-center p-8 lg:p-12 xl:p-16">
+            <HeroContent
+              title="Keep your family organized with smart, shareable lists."
+              subtitle="Sign in to access your lists"
+            />
+          </div>
+        </div>
+
+        {/* Form section - 5 columns on desktop, full width on mobile */}
+        <div className="lg:col-span-5 flex flex-col justify-center items-center p-6 lg:p-12">
+          {/* Mobile hero (condensed) */}
+          <motion.div
+            className="lg:hidden text-center mb-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+          >
+            <div className="flex justify-center mb-4">
+              <AppLogo size="sm" />
+            </div>
+            <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">
+              FamilyList
+            </h1>
+            <p className="text-[var(--color-text-secondary)] mt-2">
+              Sign in to manage your lists
+            </p>
+          </motion.div>
+
+          {/* Sign In Form */}
+          <motion.div
+            className="w-full max-w-md"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350, delay: 0.08 }}
+          >
+            <SignIn
+              appearance={clerkAppearance}
+              routing="path"
+              path="/sign-in"
+              signUpUrl="/sign-up"
+              fallbackRedirectUrl="/"
+            />
+          </motion.div>
+        </div>
       </div>
     </div>
   );
@@ -246,50 +231,68 @@ export function SignInPage() {
 // Main Sign Up Page
 export function SignUpPage() {
   return (
-    <div className="min-h-screen bg-[var(--color-bg-primary)] flex flex-col lg:flex-row">
-      {/* Hero section - hidden on mobile, shown on desktop left side */}
-      <HeroWrapper>
-        <HeroSection
-          title="Join your family in staying organized."
-          subtitle="Create a free account to get started"
-        />
-      </HeroWrapper>
+    <div className="min-h-screen bg-[var(--color-bg-primary)]">
+      {/* CSS Grid layout: 12 columns on desktop */}
+      <div className="grid lg:grid-cols-12 min-h-screen">
+        {/* Hero section - 7 columns on desktop, hidden on mobile */}
+        <div className="hidden lg:block lg:col-span-7 bg-[var(--color-bg-secondary)] relative overflow-hidden">
+          {/* Subtle gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
 
-      {/* Form section */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 lg:p-12">
-        {/* Mobile hero (condensed) */}
-        <motion.div
-          className="lg:hidden text-center mb-8"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-        >
-          <div className="mx-auto mb-4">
-            <AppLogo size="sm" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">
-            FamilyList
-          </h1>
-          <p className="text-[var(--color-text-secondary)] mt-2">
-            Create an account to get started
-          </p>
-        </motion.div>
-
-        {/* Sign Up Form */}
-        <motion.div
-          className="w-full max-w-md"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 350, delay: 0.08 }}
-        >
-          <SignUp
-            appearance={clerkAppearance}
-            routing="path"
-            path="/sign-up"
-            signInUrl="/sign-in"
-            fallbackRedirectUrl="/"
+          {/* Subtle dot pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, var(--color-text-primary) 1px, transparent 1px)',
+              backgroundSize: '20px 20px'
+            }}
           />
-        </motion.div>
+
+          {/* Content */}
+          <div className="relative z-10 h-full flex items-center p-8 lg:p-12 xl:p-16">
+            <HeroContent
+              title="Join your family in staying organized."
+              subtitle="Create a free account to get started"
+            />
+          </div>
+        </div>
+
+        {/* Form section - 5 columns on desktop, full width on mobile */}
+        <div className="lg:col-span-5 flex flex-col justify-center items-center p-6 lg:p-12">
+          {/* Mobile hero (condensed) */}
+          <motion.div
+            className="lg:hidden text-center mb-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+          >
+            <div className="flex justify-center mb-4">
+              <AppLogo size="sm" />
+            </div>
+            <h1 className="font-display text-2xl font-bold text-[var(--color-text-primary)]">
+              FamilyList
+            </h1>
+            <p className="text-[var(--color-text-secondary)] mt-2">
+              Create an account to get started
+            </p>
+          </motion.div>
+
+          {/* Sign Up Form */}
+          <motion.div
+            className="w-full max-w-md"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350, delay: 0.08 }}
+          >
+            <SignUp
+              appearance={clerkAppearance}
+              routing="path"
+              path="/sign-up"
+              signInUrl="/sign-in"
+              fallbackRedirectUrl="/"
+            />
+          </motion.div>
+        </div>
       </div>
     </div>
   );
