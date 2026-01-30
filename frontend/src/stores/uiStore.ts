@@ -7,6 +7,26 @@ export type Theme = 'light' | 'dark' | 'system';
 /** Collapsed categories state */
 export type CollapsedCategories = Record<string, Set<string>>;
 
+/** Edit list modal state */
+export interface EditListModalState {
+  open: boolean;
+  listId: string | null;
+}
+
+/** Delete list dialog state */
+export interface DeleteListDialogState {
+  open: boolean;
+  listId: string | null;
+  listName: string;
+  itemCount: number;
+}
+
+/** Share list modal state */
+export interface ShareListModalState {
+  open: boolean;
+  listId: string | null;
+}
+
 /** UI Store state */
 interface UIState {
   // Theme
@@ -21,6 +41,22 @@ interface UIState {
   // Modal state
   isCreateListModalOpen: boolean;
   setCreateListModalOpen: (open: boolean) => void;
+
+  // List management modals
+  editListModal: EditListModalState;
+  openEditListModal: (listId: string) => void;
+  closeEditListModal: () => void;
+
+  deleteListDialog: DeleteListDialogState;
+  openDeleteListDialog: (listId: string, listName: string, itemCount: number) => void;
+  closeDeleteListDialog: () => void;
+
+  shareListModal: ShareListModalState;
+  openShareListModal: (listId: string) => void;
+  closeShareListModal: () => void;
+
+  // Close all modals at once
+  closeAllModals: () => void;
 
   // Current list tab
   activeTab: 'todo' | 'done';
@@ -65,6 +101,33 @@ export const useUIStore = create<UIState>()(
       // Modal state
       isCreateListModalOpen: false,
       setCreateListModalOpen: (open) => set({ isCreateListModalOpen: open }),
+
+      // List management modals
+      editListModal: { open: false, listId: null },
+      openEditListModal: (listId) =>
+        set({ editListModal: { open: true, listId } }),
+      closeEditListModal: () =>
+        set({ editListModal: { open: false, listId: null } }),
+
+      deleteListDialog: { open: false, listId: null, listName: '', itemCount: 0 },
+      openDeleteListDialog: (listId, listName, itemCount) =>
+        set({ deleteListDialog: { open: true, listId, listName, itemCount } }),
+      closeDeleteListDialog: () =>
+        set({ deleteListDialog: { open: false, listId: null, listName: '', itemCount: 0 } }),
+
+      shareListModal: { open: false, listId: null },
+      openShareListModal: (listId) =>
+        set({ shareListModal: { open: true, listId } }),
+      closeShareListModal: () =>
+        set({ shareListModal: { open: false, listId: null } }),
+
+      closeAllModals: () =>
+        set({
+          isCreateListModalOpen: false,
+          editListModal: { open: false, listId: null },
+          deleteListDialog: { open: false, listId: null, listName: '', itemCount: 0 },
+          shareListModal: { open: false, listId: null },
+        }),
 
       // Tab state
       activeTab: 'todo',

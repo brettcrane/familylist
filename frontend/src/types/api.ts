@@ -4,9 +4,12 @@ export type ListType = 'grocery' | 'packing' | 'tasks';
 /** User response from API */
 export interface User {
   id: string;
-  ha_user_id: string;
+  clerk_user_id: string;
   display_name: string;
+  email: string | null;
+  avatar_url: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 /** Category response from API */
@@ -85,6 +88,7 @@ export interface List {
   updated_at: string;
   item_count: number;
   checked_count: number;
+  share_count?: number;
 }
 
 /** List response with items and categories */
@@ -113,6 +117,29 @@ export interface ListUpdate {
 export interface ListDuplicateRequest {
   name: string;
   as_template?: boolean;
+}
+
+/** Share permission types */
+export type SharePermission = 'view' | 'edit' | 'admin';
+
+/** Share by email request */
+export interface ShareByEmailRequest {
+  email: string;
+  permission: SharePermission;
+}
+
+/** Share with user response */
+export interface ListShare {
+  id: string;
+  list_id: string;
+  user: User;
+  permission: SharePermission;
+  created_at: string;
+}
+
+/** Update share permission request */
+export interface ShareUpdateRequest {
+  permission: SharePermission;
 }
 
 /** AI categorize request */

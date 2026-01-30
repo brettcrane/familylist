@@ -74,12 +74,37 @@ class ListShareCreate(BaseModel):
     permission: ListSharePermission = ListSharePermission.VIEW
 
 
+class ListShareByEmailRequest(BaseModel):
+    """Schema for sharing a list by email."""
+
+    email: str = Field(..., min_length=1, max_length=255)
+    permission: ListSharePermission = ListSharePermission.VIEW
+
+
+class ListShareUpdate(BaseModel):
+    """Schema for updating a list share."""
+
+    permission: ListSharePermission
+
+
 class ListShareResponse(BaseModel):
-    """List share response schema."""
+    """List share response schema (basic)."""
 
     id: str
     list_id: str
     user_id: str
+    permission: str
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class ListShareWithUserResponse(BaseModel):
+    """List share response schema with user details."""
+
+    id: str
+    list_id: str
+    user: UserResponse
     permission: str
     created_at: str
 
@@ -221,6 +246,7 @@ class ListResponse(ListBase):
     updated_at: str
     item_count: int = 0
     checked_count: int = 0
+    share_count: int = 0
 
     model_config = {"from_attributes": True}
 

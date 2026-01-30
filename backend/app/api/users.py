@@ -23,6 +23,23 @@ async def get_current_user_info(
     return current_user
 
 
+@router.get("/lookup", response_model=UserResponse)
+async def lookup_user_by_email(
+    email: str,
+    current_user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Look up a user by email address.
+
+    Requires Clerk authentication. Returns the user if found, otherwise 404.
+    Used for sharing lists with other users.
+    """
+    user = user_service.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: str,

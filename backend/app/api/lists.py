@@ -39,10 +39,11 @@ def get_lists(
         # API key auth - return all lists (backward compatible)
         lists = list_service.get_all_lists(db, include_templates=include_templates)
 
-    # Add item counts to each list
+    # Add item counts and share counts to each list
     result = []
     for lst in lists:
         stats = list_service.get_list_stats(db, lst.id)
+        share_count = list_service.get_list_share_count(db, lst.id)
         result.append(
             ListResponse(
                 id=lst.id,
@@ -56,6 +57,7 @@ def get_lists(
                 updated_at=lst.updated_at or "",
                 item_count=stats["total_items"],
                 checked_count=stats["checked_items"],
+                share_count=share_count,
             )
         )
     return result
