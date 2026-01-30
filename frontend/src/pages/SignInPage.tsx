@@ -13,7 +13,9 @@ import { ClipboardDocumentListIcon as ClipboardDocumentListIconSolid } from '@he
 const clerkAppearance = {
   elements: {
     rootBox: 'w-full',
+    cardBox: 'w-full',
     card: clsx(
+      'w-full',
       'bg-[var(--color-bg-card)]',
       'shadow-[var(--shadow-card)]',
       'border border-[var(--color-text-muted)]/10',
@@ -119,7 +121,7 @@ function AppLogo({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
 function HeroContent({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <motion.div
-      className="space-y-6"
+      className="w-full max-w-xl space-y-6"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -137,7 +139,7 @@ function HeroContent({ title, subtitle }: { title: string; subtitle: string }) {
 
       <motion.p
         variants={itemVariants}
-        className="text-lg lg:text-xl text-[var(--color-text-secondary)] max-w-md"
+        className="text-lg lg:text-xl text-[var(--color-text-secondary)]"
       >
         {title}
       </motion.p>
@@ -165,7 +167,7 @@ export function SignInPage() {
       {/* CSS Grid layout: 12 columns on desktop */}
       <div className="grid lg:grid-cols-12 min-h-screen">
         {/* Hero section - 7 columns on desktop, hidden on mobile */}
-        <div className="hidden lg:block lg:col-span-7 bg-[var(--color-bg-secondary)] relative overflow-hidden">
+        <div className="hidden lg:flex lg:col-span-7 bg-[var(--color-bg-secondary)] relative overflow-hidden">
           {/* Subtle gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
 
@@ -178,8 +180,8 @@ export function SignInPage() {
             }}
           />
 
-          {/* Content */}
-          <div className="relative z-10 h-full flex items-center p-8 lg:p-12 xl:p-16">
+          {/* Content - min-w-0 prevents flex child from overflowing */}
+          <div className="relative z-10 flex items-center min-w-0 w-full p-8 lg:p-12 xl:p-16">
             <HeroContent
               title="Keep your family organized with smart, shareable lists."
               subtitle="Sign in to access your lists"
@@ -235,7 +237,7 @@ export function SignUpPage() {
       {/* CSS Grid layout: 12 columns on desktop */}
       <div className="grid lg:grid-cols-12 min-h-screen">
         {/* Hero section - 7 columns on desktop, hidden on mobile */}
-        <div className="hidden lg:block lg:col-span-7 bg-[var(--color-bg-secondary)] relative overflow-hidden">
+        <div className="hidden lg:flex lg:col-span-7 bg-[var(--color-bg-secondary)] relative overflow-hidden">
           {/* Subtle gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
 
@@ -248,8 +250,8 @@ export function SignUpPage() {
             }}
           />
 
-          {/* Content */}
-          <div className="relative z-10 h-full flex items-center p-8 lg:p-12 xl:p-16">
+          {/* Content - min-w-0 prevents flex child from overflowing */}
+          <div className="relative z-10 flex items-center min-w-0 w-full p-8 lg:p-12 xl:p-16">
             <HeroContent
               title="Join your family in staying organized."
               subtitle="Create a free account to get started"
