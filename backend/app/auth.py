@@ -110,6 +110,14 @@ async def get_auth(
     # Check for Bearer token first (Clerk JWT)
     bearer_token = extract_bearer_token(request)
 
+    # Debug logging for auth troubleshooting
+    logger.info(
+        f"Auth attempt: mode={auth_mode}, "
+        f"has_bearer={bearer_token is not None}, "
+        f"has_api_key={api_key is not None}, "
+        f"api_key_disabled={settings.api_key == 'disabled'}"
+    )
+
     # API key disabled mode
     if settings.api_key == "disabled":
         return AuthResult(api_key="disabled")
@@ -129,8 +137,10 @@ async def get_auth(
         # Hybrid mode - accept either method
         # Note: If Bearer token is provided but invalid, we log and fall through to API key
         if bearer_token:
+            logger.info("Hybrid mode: attempting JWT verification")
             try:
                 clerk_user = verify_clerk_token(bearer_token)
+                logger.info(f"JWT verification succeeded for user: {clerk_user.clerk_user_id}")
                 return AuthResult(clerk_user=clerk_user)
             except HTTPException as e:
                 # Log the JWT failure for debugging - this helps diagnose auth issues
@@ -138,11 +148,16 @@ async def get_auth(
                     f"JWT verification failed in hybrid mode (status={e.status_code}): {e.detail}. "
                     "Falling back to API key authentication."
                 )
+            except Exception as e:
+                # Catch any unexpected exceptions
+                logger.error(f"Unexpected error during JWT verification: {type(e).__name__}: {e}")
 
         if api_key and api_key == settings.api_key:
+            logger.info("Hybrid mode: API key authentication succeeded")
             return AuthResult(api_key=api_key)
 
         # Neither worked
+        logger.warning("Hybrid mode: both JWT and API key authentication failed")
         raise HTTPException(
             status_code=401,
             detail="Invalid authentication. Provide valid API key or Bearer token.",
