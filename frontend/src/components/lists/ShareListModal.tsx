@@ -257,7 +257,7 @@ export function ShareListModal() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-[var(--z-modal)] bg-[var(--color-bg-primary)] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:max-w-md sm:w-full sm:max-h-[90vh] sm:shadow-xl"
+            className="fixed inset-0 z-[var(--z-modal)] bg-[var(--color-bg-primary)] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:w-[min(28rem,calc(100vw-2rem))] sm:max-h-[90vh] sm:shadow-xl"
           >
             <div className="flex flex-col h-full sm:max-h-[90vh]">
               {/* Header */}
