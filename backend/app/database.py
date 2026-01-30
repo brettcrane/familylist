@@ -84,7 +84,7 @@ def _run_migrations() -> None:
     """Run schema migrations for existing databases.
 
     This handles adding new columns to existing tables that create_all() won't update.
-    Uses IF NOT EXISTS patterns for idempotency.
+    SQLite doesn't support ALTER COLUMN, so we recreate tables when needed.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -93,43 +93,88 @@ def _run_migrations() -> None:
     with engine.connect() as conn:
         # Check if users table exists and has the right columns
         result = conn.execute(text("PRAGMA table_info(users)"))
-        columns = {row[1] for row in result.fetchall()}
+        columns_info = {row[1]: {"type": row[2], "notnull": row[3]} for row in result.fetchall()}
+        columns = set(columns_info.keys())
 
-        if columns:  # Table exists
-            # Add missing columns for Clerk integration
-            migrations = []
+        if not columns:
+            return  # Table doesn't exist yet, create_all will handle it
 
-            if "clerk_user_id" not in columns:
-                migrations.append(
-                    "ALTER TABLE users ADD COLUMN clerk_user_id VARCHAR(255)"
-                )
-            if "display_name" not in columns:
-                migrations.append(
-                    "ALTER TABLE users ADD COLUMN display_name VARCHAR(255) DEFAULT 'User'"
-                )
-            if "email" not in columns:
-                migrations.append(
-                    "ALTER TABLE users ADD COLUMN email VARCHAR(255)"
-                )
-            if "avatar_url" not in columns:
-                migrations.append(
-                    "ALTER TABLE users ADD COLUMN avatar_url TEXT"
-                )
-            if "updated_at" not in columns:
-                migrations.append(
-                    "ALTER TABLE users ADD COLUMN updated_at TEXT"
-                )
+        # Check if we have the old ha_user_id column with NOT NULL constraint
+        # This requires recreating the table since SQLite doesn't support DROP COLUMN NOT NULL
+        if "ha_user_id" in columns and columns_info["ha_user_id"]["notnull"]:
+            logger.info("Migrating users table: removing ha_user_id NOT NULL constraint")
+            try:
+                # SQLite migration: create new table, copy data, drop old, rename
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS users_new (
+                        id VARCHAR(36) PRIMARY KEY,
+                        clerk_user_id VARCHAR(255) UNIQUE,
+                        display_name VARCHAR(255) NOT NULL DEFAULT 'User',
+                        email VARCHAR(255),
+                        avatar_url TEXT,
+                        created_at TEXT,
+                        updated_at TEXT
+                    )
+                """))
 
-            for migration in migrations:
-                try:
-                    conn.execute(text(migration))
-                    logger.info(f"Migration applied: {migration}")
-                except Exception as e:
-                    logger.warning(f"Migration skipped (may already exist): {e}")
+                # Copy data from old table (only columns that exist in both)
+                conn.execute(text("""
+                    INSERT OR IGNORE INTO users_new (id, clerk_user_id, display_name, email, avatar_url, created_at, updated_at)
+                    SELECT id,
+                           COALESCE(clerk_user_id, ha_user_id),
+                           COALESCE(display_name, 'User'),
+                           email,
+                           avatar_url,
+                           created_at,
+                           updated_at
+                    FROM users
+                """))
 
-            if migrations:
+                conn.execute(text("DROP TABLE users"))
+                conn.execute(text("ALTER TABLE users_new RENAME TO users"))
                 conn.commit()
-                logger.info(f"Applied {len(migrations)} migrations to users table")
+                logger.info("Successfully migrated users table to new schema")
+                return  # Migration complete
+
+            except Exception as e:
+                logger.error(f"Failed to migrate users table: {e}")
+                conn.rollback()
+                raise
+
+        # Standard column additions for tables without ha_user_id issue
+        migrations = []
+
+        if "clerk_user_id" not in columns:
+            migrations.append(
+                "ALTER TABLE users ADD COLUMN clerk_user_id VARCHAR(255)"
+            )
+        if "display_name" not in columns:
+            migrations.append(
+                "ALTER TABLE users ADD COLUMN display_name VARCHAR(255) DEFAULT 'User'"
+            )
+        if "email" not in columns:
+            migrations.append(
+                "ALTER TABLE users ADD COLUMN email VARCHAR(255)"
+            )
+        if "avatar_url" not in columns:
+            migrations.append(
+                "ALTER TABLE users ADD COLUMN avatar_url TEXT"
+            )
+        if "updated_at" not in columns:
+            migrations.append(
+                "ALTER TABLE users ADD COLUMN updated_at TEXT"
+            )
+
+        for migration in migrations:
+            try:
+                conn.execute(text(migration))
+                logger.info(f"Migration applied: {migration}")
+            except Exception as e:
+                logger.warning(f"Migration skipped (may already exist): {e}")
+
+        if migrations:
+            conn.commit()
+            logger.info(f"Applied {len(migrations)} migrations to users table")
 
 
 def create_indexes(db: Session) -> None:
