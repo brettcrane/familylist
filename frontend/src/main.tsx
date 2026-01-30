@@ -10,7 +10,14 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 // Conditionally wrap with ClerkProvider only if key is available
 const Root = clerkPubKey ? (
   <StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey} afterSignOutUrl="/">
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      afterSignOutUrl="/"
+      appearance={{
+        // Place Clerk styles in the 'clerk' CSS layer for Tailwind v4 compatibility
+        cssLayerName: 'clerk',
+      }}
+    >
       <App />
     </ClerkProvider>
   </StrictMode>
