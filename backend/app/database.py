@@ -91,6 +91,32 @@ def _run_migrations() -> None:
 
     engine = get_engine()
     with engine.connect() as conn:
+        # ONE-TIME MIGRATION: Clear old data for fresh Clerk auth setup
+        # Check if we need to do this (migration marker)
+        result = conn.execute(text(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='_migration_clerk_reset_done'"
+        ))
+        if not result.fetchone():
+            logger.info("Running one-time data reset for Clerk auth migration...")
+            try:
+                # Clear all data from tables (order matters due to foreign keys)
+                conn.execute(text("DELETE FROM items"))
+                conn.execute(text("DELETE FROM categories"))
+                conn.execute(text("DELETE FROM list_shares"))
+                conn.execute(text("DELETE FROM lists"))
+                conn.execute(text("DELETE FROM users"))
+                conn.execute(text("DELETE FROM category_learnings"))
+
+                # Mark migration as done
+                conn.execute(text("CREATE TABLE _migration_clerk_reset_done (done INTEGER)"))
+                conn.execute(text("INSERT INTO _migration_clerk_reset_done VALUES (1)"))
+                conn.commit()
+                logger.info("Data reset complete - ready for fresh Clerk auth")
+            except Exception as e:
+                logger.error(f"Failed to reset data: {e}")
+                conn.rollback()
+                # Don't raise - continue with other migrations
+
         # Check if users table exists and has the right columns
         result = conn.execute(text("PRAGMA table_info(users)"))
         columns_info = {row[1]: {"type": row[2], "notnull": row[3]} for row in result.fetchall()}
