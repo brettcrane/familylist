@@ -10,9 +10,17 @@ export function useAuthSetup(): void {
   const { getToken, isSignedIn } = useAuth();
 
   useEffect(() => {
+    console.log('[useAuthSetup] isSignedIn:', isSignedIn);
+
     if (isSignedIn) {
       // Set up token getter for API requests
-      setTokenGetter(getToken);
+      // Wrap getToken with logging to debug token issues
+      const wrappedGetToken = async () => {
+        const token = await getToken();
+        console.log('[useAuthSetup] getToken result:', token ? `${token.slice(0, 20)}...` : null);
+        return token;
+      };
+      setTokenGetter(wrappedGetToken);
     } else {
       // Clear token getter when signed out
       clearTokenGetter();
