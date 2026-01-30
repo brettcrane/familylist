@@ -50,7 +50,7 @@ function LoadingScreen() {
  */
 function ClerkAppContent() {
   // Set up auth token injection for API requests
-  useAuthSetup();
+  const { isAuthReady } = useAuthSetup();
 
   // Initialize offline sync
   useOfflineSync();
@@ -61,7 +61,7 @@ function ClerkAppContent() {
   }, []);
 
   return (
-    <AuthProvider>
+    <AuthProvider isAuthReady={isAuthReady}>
       <Routes>
         {/* Public routes */}
         <Route path="/sign-in/*" element={<SignInPage />} />

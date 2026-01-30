@@ -14,6 +14,8 @@ import { useOfflineQueueStore } from '../hooks/useOfflineQueue';
 interface AuthContextValue {
   isLoaded: boolean;
   isSignedIn: boolean;
+  /** True when the auth token getter has been configured and queries can fire */
+  isAuthReady: boolean;
   userId: string | null;
   user: {
     id: string;
@@ -29,6 +31,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 interface AuthProviderProps {
   children: ReactNode;
+  /** Whether the auth token getter has been set up */
+  isAuthReady?: boolean;
 }
 
 /**
@@ -37,7 +41,7 @@ interface AuthProviderProps {
  * Must be rendered inside ClerkProvider - Clerk hooks will throw if used outside.
  * For non-Clerk deployments (API key mode), use FallbackAuthProvider instead.
  */
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children, isAuthReady = false }: AuthProviderProps) {
   const { isLoaded, isSignedIn, userId, getToken, signOut } = useClerkAuth();
   const { user } = useClerkUser();
   const { setCachedUser, clearCachedUser, cachedUser } = useAuthStore();
@@ -81,6 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextValue = {
     isLoaded,
     isSignedIn: isSignedIn ?? false,
+    isAuthReady,
     userId: userId ?? null,
     user: currentUser,
     getToken: async () => {
@@ -140,6 +145,7 @@ export function FallbackAuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextValue = {
     isLoaded: true,
     isSignedIn: false,
+    isAuthReady: true, // Always ready in API key mode
     userId: null,
     user: null,
     getToken: async () => null,

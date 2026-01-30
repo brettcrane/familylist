@@ -110,14 +110,15 @@ export function useRevokeShare(listId: string | undefined) {
  * Only fetches when user is signed in via Clerk - API key auth doesn't have a "current user".
  */
 export function useCurrentUser() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, isAuthReady } = useAuth();
 
   return useQuery({
     queryKey: shareKeys.currentUser,
     queryFn: ({ signal }) => api.getCurrentUser(signal),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    // Only fetch when signed in via Clerk - API key mode doesn't have user identity
-    enabled: isLoaded && isSignedIn,
+    // Only fetch when signed in via Clerk AND auth token getter is ready
+    // This prevents a race condition where the query fires before the token is available
+    enabled: isLoaded && isSignedIn && isAuthReady,
     // Don't retry on auth errors - 401 means the endpoint requires Clerk auth
     retry: (failureCount, error) => {
       // Don't retry on 401/403 - these are authorization failures, not transient
