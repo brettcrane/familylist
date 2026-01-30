@@ -118,8 +118,8 @@ async def get_auth(
         f"api_key_disabled={settings.api_key == 'disabled'}"
     )
 
-    # API key disabled mode
-    if settings.api_key == "disabled":
+    # API key disabled mode - but still allow JWT auth in hybrid/clerk modes
+    if settings.api_key == "disabled" and auth_mode == "api_key":
         return AuthResult(api_key="disabled")
 
     # Handle based on auth mode
@@ -152,9 +152,15 @@ async def get_auth(
                 # Catch any unexpected exceptions
                 logger.error(f"Unexpected error during JWT verification: {type(e).__name__}: {e}")
 
-        if api_key and api_key == settings.api_key:
+        # Fall back to API key if configured (not disabled)
+        if settings.api_key != "disabled" and api_key and api_key == settings.api_key:
             logger.info("Hybrid mode: API key authentication succeeded")
             return AuthResult(api_key=api_key)
+
+        # If API key is disabled, allow unauthenticated access (for home deployments)
+        if settings.api_key == "disabled":
+            logger.info("Hybrid mode: API key disabled, allowing unauthenticated access")
+            return AuthResult(api_key="disabled")
 
         # Neither worked
         logger.warning("Hybrid mode: both JWT and API key authentication failed")
