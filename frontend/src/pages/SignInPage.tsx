@@ -123,7 +123,7 @@ function AppLogo({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
 function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <motion.div
-      className="relative flex flex-col justify-center items-center lg:items-start text-center lg:text-left p-8 lg:p-12 w-full"
+      className="flex flex-col justify-center p-8 lg:p-12 lg:pl-16 w-full max-w-lg"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -144,7 +144,7 @@ function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
       {/* Tagline */}
       <motion.p
         variants={itemVariants}
-        className="text-lg lg:text-xl text-[var(--color-text-secondary)] mb-8 max-w-md"
+        className="text-lg lg:text-xl text-[var(--color-text-secondary)] mb-8"
       >
         {title}
       </motion.p>
@@ -170,7 +170,7 @@ function HeroSection({ title, subtitle }: { title: string; subtitle: string }) {
 // Hero section wrapper with texture/atmosphere
 function HeroWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="hidden lg:flex lg:w-1/2 bg-[var(--color-bg-secondary)] relative overflow-hidden">
+    <div className="hidden lg:flex lg:w-1/2 bg-[var(--color-bg-secondary)] relative overflow-hidden items-center justify-center">
       {/* Subtle gradient overlay for warmth */}
       <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-accent)]/5 via-transparent to-[var(--color-cat-bakery)]/5" />
 
@@ -184,7 +184,7 @@ function HeroWrapper({ children }: { children: React.ReactNode }) {
       />
 
       {/* Content */}
-      <div className="relative z-10 w-full">
+      <div className="relative z-10">
         {children}
       </div>
     </div>
