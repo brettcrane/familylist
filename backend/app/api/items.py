@@ -105,6 +105,7 @@ def create_items(
 def update_item(
     item_id: str,
     data: ItemUpdate,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -116,6 +117,20 @@ def update_item(
     check_list_access(db, item.list_id, current_user, require_edit=True)
 
     updated = item_service.update_item(db, item, data)
+
+    # Publish update event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="item_updated",
+            list_id=item.list_id,
+            item_id=item_id,
+            item_name=updated.name,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
+
     return item_to_response(updated)
 
 

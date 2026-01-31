@@ -184,6 +184,7 @@ export function useListStream(
     eventSource.addEventListener('item_checked', handleEvent('item_checked'));
     eventSource.addEventListener('item_unchecked', handleEvent('item_unchecked'));
     eventSource.addEventListener('item_created', handleEvent('item_created'));
+    eventSource.addEventListener('item_updated', handleEvent('item_updated'));
     eventSource.addEventListener('item_deleted', handleEvent('item_deleted'));
     eventSource.addEventListener('items_cleared', handleEvent('items_cleared'));
     eventSource.addEventListener('items_restored', handleEvent('items_restored'));
