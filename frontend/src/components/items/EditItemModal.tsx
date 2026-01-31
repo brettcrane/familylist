@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
+import { ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { getCategoryEmoji } from '../icons/CategoryIcons';
 import type { Item, Category, ItemUpdate } from '../../types/api';
@@ -24,6 +25,8 @@ export function EditItemModal({
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   // Reset state when item changes
   useEffect(() => {
@@ -32,6 +35,7 @@ export function EditItemModal({
       setQuantity(item.quantity);
       setNotes(item.notes || '');
       setHasChanges(false);
+      setCategoryDropdownOpen(false);
     }
   }, [item]);
 
@@ -49,11 +53,38 @@ export function EditItemModal({
   useEffect(() => {
     if (!item) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (categoryDropdownOpen) {
+          setCategoryDropdownOpen(false);
+        } else {
+          onClose();
+        }
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, onClose]);
+  }, [item, onClose, categoryDropdownOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [categoryDropdownOpen]);
+
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Close if dragged down more than 100px or with enough velocity
+    if (info.offset.y > 100 || info.velocity.y > 500) {
+      onClose();
+    }
+  };
 
   const handleSave = () => {
     if (!item || !hasChanges) return;
@@ -78,6 +109,7 @@ export function EditItemModal({
 
   // Sort categories, putting "Uncategorized" option first
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
+  const selectedCategory = sortedCategories.find(c => c.id === selectedCategoryId);
 
   return (
     <AnimatePresence>
@@ -92,7 +124,7 @@ export function EditItemModal({
             className="fixed inset-0 z-[var(--z-modal)] bg-black/50 backdrop-blur-sm"
           />
 
-          {/* Bottom Sheet */}
+          {/* Bottom Sheet with drag-to-dismiss */}
           <motion.div
             role="dialog"
             aria-modal="true"
@@ -101,137 +133,184 @@ export function EditItemModal({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-            className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] bg-[var(--color-bg-primary)] rounded-t-3xl shadow-2xl max-h-[85vh] overflow-hidden"
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={handleDragEnd}
+            className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] bg-[var(--color-bg-primary)] rounded-t-3xl shadow-2xl max-h-[70vh] overflow-hidden"
           >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 bg-[var(--color-text-muted)]/30 rounded-full" />
+            {/* Drag handle - larger touch target, touch-none to prevent pull-to-refresh */}
+            <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
+              <div className="w-10 h-1.5 bg-[var(--color-text-muted)]/40 rounded-full" />
             </div>
 
             {/* Header */}
-            <div className="px-5 pb-4 border-b border-[var(--color-text-muted)]/10">
-              <h2 id="edit-item-title" className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+            <div className="px-5 pb-3 border-b border-[var(--color-text-muted)]/10">
+              <h2 id="edit-item-title" className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
                 Edit Item
               </h2>
-              <p className="mt-1 text-[var(--color-text-secondary)] font-medium truncate">
+              <p className="mt-0.5 text-sm text-[var(--color-text-secondary)] font-medium truncate">
                 {item.name}
               </p>
             </div>
 
-            {/* Content */}
-            <div className="overflow-y-auto p-5 space-y-6" style={{ maxHeight: 'calc(85vh - 160px)' }}>
-              {/* Category Selection */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3">
-                  Category
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Uncategorized option */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCategoryId(null)}
-                    className={clsx(
-                      'flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all',
-                      'border-2',
-                      selectedCategoryId === null
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                        : 'border-transparent bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-card)]'
-                    )}
-                  >
-                    <span className="text-lg">{getCategoryEmoji('Uncategorized')}</span>
-                    <span
-                      className={clsx(
-                        'text-sm font-medium truncate',
-                        selectedCategoryId === null
-                          ? 'text-[var(--color-accent)]'
-                          : 'text-[var(--color-text-primary)]'
-                      )}
-                    >
-                      Uncategorized
-                    </span>
-                  </button>
-
-                  {sortedCategories.map((category) => (
+            {/* Content - compact layout */}
+            <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: 'calc(70vh - 140px)' }}>
+              {/* Category and Quantity row - side by side */}
+              <div className="flex gap-3 items-start">
+                {/* Category Dropdown */}
+                <div className="flex-1" ref={categoryDropdownRef}>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                    Category
+                  </label>
+                  <div className="relative">
                     <button
-                      key={category.id}
                       type="button"
-                      onClick={() => setSelectedCategoryId(category.id)}
+                      onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                      aria-expanded={categoryDropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-label="Select category"
                       className={clsx(
-                        'flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all',
-                        'border-2',
-                        selectedCategoryId === category.id
-                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                          : 'border-transparent bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-card)]'
+                        'w-full h-11 px-3 rounded-xl border-2 transition-all',
+                        'flex items-center justify-between gap-2',
+                        'bg-[var(--color-bg-secondary)]',
+                        categoryDropdownOpen
+                          ? 'border-[var(--color-accent)]'
+                          : 'border-transparent hover:border-[var(--color-text-muted)]/30'
                       )}
                     >
-                      <span className="text-lg">{getCategoryEmoji(category.name)}</span>
-                      <span
-                        className={clsx(
-                          'text-sm font-medium truncate',
-                          selectedCategoryId === category.id
-                            ? 'text-[var(--color-accent)]'
-                            : 'text-[var(--color-text-primary)]'
-                        )}
-                      >
-                        {category.name}
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg flex-shrink-0">
+                          {getCategoryEmoji(selectedCategory?.name || 'Uncategorized')}
+                        </span>
+                        <span className="text-sm text-[var(--color-text-primary)] truncate">
+                          {selectedCategory?.name || 'Uncategorized'}
+                        </span>
+                      </div>
+                      <ChevronDownIcon className={clsx(
+                        'w-4 h-4 text-[var(--color-text-muted)] transition-transform flex-shrink-0',
+                        categoryDropdownOpen && 'rotate-180'
+                      )} />
                     </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Quantity */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3">
-                  Quantity
-                </label>
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(-1)}
-                    disabled={quantity <= 1}
-                    className={clsx(
-                      'w-12 h-12 rounded-full flex items-center justify-center transition-all',
-                      'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]',
-                      'hover:bg-[var(--color-bg-card)] active:scale-95',
-                      'disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
-                    )}
-                  >
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </button>
+                    {/* Dropdown menu */}
+                    <AnimatePresence>
+                      {categoryDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          role="listbox"
+                          aria-label="Category options"
+                          className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden max-h-52 overflow-y-auto"
+                        >
+                          {/* Uncategorized option */}
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={selectedCategoryId === null}
+                            onClick={() => {
+                              setSelectedCategoryId(null);
+                              setCategoryDropdownOpen(false);
+                            }}
+                            className={clsx(
+                              'w-full px-3 py-2.5 flex items-center justify-between',
+                              'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                              selectedCategoryId === null && 'bg-[var(--color-accent)]/5'
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{getCategoryEmoji('Uncategorized')}</span>
+                              <span className="text-sm text-[var(--color-text-primary)]">Uncategorized</span>
+                            </div>
+                            {selectedCategoryId === null && (
+                              <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                            )}
+                          </button>
 
-                  <div className="w-20 text-center">
-                    <span className="font-display text-4xl font-bold text-[var(--color-text-primary)]">
-                      {quantity}
-                    </span>
+                          {sortedCategories.map((category) => (
+                            <button
+                              key={category.id}
+                              type="button"
+                              role="option"
+                              aria-selected={selectedCategoryId === category.id}
+                              onClick={() => {
+                                setSelectedCategoryId(category.id);
+                                setCategoryDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                selectedCategoryId === category.id && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{getCategoryEmoji(category.name)}</span>
+                                <span className="text-sm text-[var(--color-text-primary)]">{category.name}</span>
+                              </div>
+                              {selectedCategoryId === category.id && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= 99}
-                    className={clsx(
-                      'w-12 h-12 rounded-full flex items-center justify-center transition-all',
-                      'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]',
-                      'hover:bg-[var(--color-bg-card)] active:scale-95',
-                      'disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
-                    )}
-                  >
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </button>
+                {/* Quantity - compact stepper */}
+                <div className="w-28">
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                    Qty
+                  </label>
+                  <div className="flex items-center h-11 bg-[var(--color-bg-secondary)] rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={quantity <= 1}
+                      className={clsx(
+                        'w-9 h-full flex items-center justify-center transition-colors rounded-l-xl',
+                        'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
+                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                    </button>
+
+                    <div className="flex-1 text-center">
+                      <span className="font-display text-xl font-bold text-[var(--color-text-primary)]">
+                        {quantity}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={quantity >= 99}
+                      className={clsx(
+                        'w-9 h-full flex items-center justify-center transition-colors rounded-r-xl',
+                        'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
+                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Notes */}
+              {/* Notes - more compact */}
               <div>
                 <label
                   htmlFor="item-notes"
-                  className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3"
+                  className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5"
                 >
                   Notes
                 </label>
@@ -240,12 +319,12 @@ export function EditItemModal({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add a note..."
-                  rows={3}
+                  rows={2}
                   className={clsx(
-                    'w-full px-4 py-3 rounded-xl resize-none',
+                    'w-full px-3 py-2.5 rounded-xl resize-none',
                     'bg-[var(--color-bg-card)] border border-[var(--color-text-muted)]/20',
                     'text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]',
-                    'transition-all duration-200',
+                    'transition-all duration-200 text-sm',
                     'focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20'
                   )}
                 />
@@ -253,7 +332,7 @@ export function EditItemModal({
             </div>
 
             {/* Footer */}
-            <div className="p-5 pt-4 border-t border-[var(--color-text-muted)]/10 safe-bottom">
+            <div className="p-5 pt-3 border-t border-[var(--color-text-muted)]/10 safe-bottom">
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -272,7 +351,7 @@ export function EditItemModal({
                   isLoading={isSaving}
                   className="flex-1"
                 >
-                  Save Changes
+                  Save
                 </Button>
               </div>
             </div>

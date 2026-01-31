@@ -3,6 +3,7 @@ import { useQueryClient, onlineManager } from '@tanstack/react-query';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiRequest } from '../api/client';
+import { useUIStore } from '../stores/uiStore';
 
 /** Pending mutation type */
 export interface PendingMutation {
@@ -130,11 +131,13 @@ export function useOfflineSync() {
             // Auth failed - pause sync until user re-authenticates
             console.warn('Auth token expired during sync. Pausing queue.');
             setSyncPaused(true);
+            useUIStore.getState().showToast('Please sign in again to sync your changes', 'error');
             break;
           }
         }
 
-        // For other errors, stop syncing and retry later
+        // For other errors, notify user and retry later
+        useUIStore.getState().showToast('Some changes couldn\'t be saved. Will retry shortly.', 'error');
         break;
       }
     }

@@ -210,15 +210,20 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, onNameChange, showCat
           )}
         </div>
 
-        {/* Edit button (pencil icon) for modal */}
+        {/* Edit button (pencil icon) for modal - min 44px tap target for mobile accessibility */}
         {onEdit && !isEditing && (
           <button
             type="button"
-            onClick={onEdit}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
             className={clsx(
-              'p-2 -mr-2 rounded-lg flex-shrink-0',
+              'w-11 h-11 -mr-2 rounded-xl flex-shrink-0',
+              'flex items-center justify-center',
               'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]',
-              'hover:bg-[var(--color-bg-secondary)] transition-colors',
+              'hover:bg-[var(--color-bg-secondary)] active:bg-[var(--color-bg-secondary)]',
+              'transition-colors touch-manipulation',
               'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30'
             )}
             aria-label={`Edit details for ${item.name}`}

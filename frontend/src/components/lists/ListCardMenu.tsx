@@ -19,6 +19,7 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
   const openEditListModal = useUIStore((state) => state.openEditListModal);
   const openDeleteListDialog = useUIStore((state) => state.openDeleteListDialog);
   const openShareListModal = useUIStore((state) => state.openShareListModal);
+  const showToast = useUIStore((state) => state.showToast);
 
   const duplicateList = useDuplicateList();
 
@@ -78,8 +79,7 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
       const apiError = err as { message?: string; data?: { detail?: string } };
       const errorMessage = apiError.data?.detail || apiError.message || 'Failed to duplicate list';
       console.error('Failed to duplicate list:', { listId: list.id, error: err, errorMessage });
-      // Show error to user since menu is already closed
-      alert(errorMessage);
+      showToast(errorMessage, 'error');
     }
   };
 

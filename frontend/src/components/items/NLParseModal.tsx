@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
@@ -68,8 +68,13 @@ export function NLParseModal({
         item_name: item.name,
         list_type: listType,
         correct_category: category,
-      }).catch(() => {
-        // Silently ignore feedback errors - non-critical
+      }).catch((err) => {
+        // Non-critical: user action succeeds regardless, but log for debugging
+        console.warn('Category feedback submission failed:', {
+          itemName: item.name,
+          category,
+          error: err
+        });
       });
     }
 
@@ -89,6 +94,13 @@ export function NLParseModal({
     onConfirm(selectedItems);
   };
 
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Close if dragged down more than 100px or with enough velocity
+    if (info.offset.y > 100 || info.velocity.y > 500) {
+      onCancel();
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -102,17 +114,21 @@ export function NLParseModal({
             onClick={onCancel}
           />
 
-          {/* Bottom sheet */}
+          {/* Bottom sheet with drag-to-dismiss */}
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={handleDragEnd}
             className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--color-bg-card)] rounded-t-2xl shadow-xl max-h-[80vh] flex flex-col"
           >
-            {/* Drag handle */}
-            <div className="flex justify-center py-3">
-              <div className="w-10 h-1 rounded-full bg-[var(--color-text-muted)]/30" />
+            {/* Drag handle - larger touch target, touch-none to prevent pull-to-refresh */}
+            <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
+              <div className="w-10 h-1.5 rounded-full bg-[var(--color-text-muted)]/40" />
             </div>
 
             {/* Header */}

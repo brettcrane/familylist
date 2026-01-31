@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -31,6 +31,13 @@ export function CreateListModal() {
     setError('');
   };
 
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Close if dragged down more than 100px or with enough velocity
+    if (info.offset.y > 100 || info.velocity.y > 500) {
+      handleClose();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -42,8 +49,11 @@ export function CreateListModal() {
     try {
       await createList.mutateAsync({ name: name.trim(), type });
       handleClose();
-    } catch {
-      setError('Failed to create list. Please try again.');
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to create list. Please try again.';
+      console.error('Failed to create list:', { name: name.trim(), type, error: err });
+      setError(errorMessage);
     }
   };
 
@@ -60,32 +70,36 @@ export function CreateListModal() {
             className="fixed inset-0 z-[var(--z-modal)] bg-black/50"
           />
 
-          {/* Modal */}
+          {/* Modal with drag-to-dismiss */}
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={handleDragEnd}
             className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] safe-bottom"
           >
             <div className="bg-[var(--color-bg-card)] rounded-t-2xl shadow-lg">
-              {/* Drag handle */}
-              <div className="flex justify-center py-3">
-                <div className="w-10 h-1 bg-[var(--color-text-muted)]/30 rounded-full" />
+              {/* Drag handle - larger touch target, touch-none to prevent pull-to-refresh */}
+              <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
+                <div className="w-10 h-1.5 bg-[var(--color-text-muted)]/40 rounded-full" />
               </div>
 
-              <form onSubmit={handleSubmit} className="px-6 pb-6">
-                <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-6">
+              <form onSubmit={handleSubmit} className="px-5 pb-5">
+                <h2 className="font-display text-lg font-semibold text-[var(--color-text-primary)] mb-4">
                   Create New List
                 </h2>
 
                 {/* Name input */}
-                <div className="mb-6">
+                <div className="mb-4">
                   <label
                     htmlFor="list-name"
-                    className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2"
+                    className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5"
                   >
-                    List Name
+                    Name
                   </label>
                   <Input
                     id="list-name"
@@ -100,28 +114,28 @@ export function CreateListModal() {
                   />
                 </div>
 
-                {/* Type selection */}
-                <div className="mb-8">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3">
-                    List Type
+                {/* Type selection - more compact */}
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                    Type
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {listTypes.map((item) => (
                       <button
                         key={item.type}
                         type="button"
                         onClick={() => setType(item.type)}
                         className={clsx(
-                          'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all',
+                          'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all',
                           type === item.type
                             ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
                             : 'border-[var(--color-text-muted)]/20 hover:border-[var(--color-text-muted)]/40'
                         )}
                       >
-                        <ListTypeIcon type={item.type} className="w-7 h-7" />
+                        <ListTypeIcon type={item.type} className="w-6 h-6" />
                         <span
                           className={clsx(
-                            'text-sm font-medium',
+                            'text-xs font-medium',
                             type === item.type
                               ? 'text-[var(--color-accent)]'
                               : 'text-[var(--color-text-secondary)]'
@@ -150,7 +164,7 @@ export function CreateListModal() {
                     isLoading={createList.isPending}
                     className="flex-1"
                   >
-                    Create List
+                    Create
                   </Button>
                 </div>
               </form>

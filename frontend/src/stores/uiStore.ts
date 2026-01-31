@@ -27,6 +27,14 @@ export interface ShareListModalState {
   listId: string | null;
 }
 
+/** Toast state */
+export interface Toast {
+  id: string;
+  message: string;
+  type: 'error' | 'success' | 'info';
+  duration?: number;
+}
+
 /** UI Store state */
 interface UIState {
   // Theme
@@ -61,6 +69,11 @@ interface UIState {
   // Current list tab
   activeTab: 'todo' | 'done';
   setActiveTab: (tab: 'todo' | 'done') => void;
+
+  // Toast notifications
+  toasts: Toast[];
+  showToast: (message: string, type?: Toast['type'], duration?: number) => void;
+  dismissToast: (id: string) => void;
 }
 
 /**
@@ -132,6 +145,27 @@ export const useUIStore = create<UIState>()(
       // Tab state
       activeTab: 'todo',
       setActiveTab: (tab) => set({ activeTab: tab }),
+
+      // Toast notifications
+      toasts: [],
+      showToast: (message, type = 'error', duration = 4000) => {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        set((state) => ({
+          toasts: [...state.toasts, { id, message, type, duration }],
+        }));
+        // Auto-dismiss after duration
+        if (duration > 0) {
+          setTimeout(() => {
+            set((state) => ({
+              toasts: state.toasts.filter((t) => t.id !== id),
+            }));
+          }, duration);
+        }
+      },
+      dismissToast: (id) =>
+        set((state) => ({
+          toasts: state.toasts.filter((t) => t.id !== id),
+        })),
     }),
     {
       name: 'familylists-ui',

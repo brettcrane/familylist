@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
-import { DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { DocumentDuplicateIcon, TrashIcon, ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useUpdateList, useList, useDuplicateList } from '../../hooks/useLists';
@@ -14,15 +14,14 @@ const ICON_OPTIONS = [
   '🌟', '❤️', '🎯', '📌', '✏️', '📋',
 ];
 
+// 6 distinct colors with good differentiation - warm, cool, and neutral tones
 const COLOR_OPTIONS = [
-  '#FF6B6B', // Coral
-  '#4ECDC4', // Teal
-  '#45B7D1', // Sky Blue
-  '#96CEB4', // Sage
-  '#FFEAA7', // Yellow
-  '#DDA0DD', // Plum
-  '#98D8C8', // Mint
-  '#F7DC6F', // Gold
+  { hex: '#E85D75', name: 'Rose' },
+  { hex: '#F5A623', name: 'Amber' },
+  { hex: '#7CB067', name: 'Sage' },
+  { hex: '#4A90D9', name: 'Ocean' },
+  { hex: '#9B6BC4', name: 'Violet' },
+  { hex: '#6B7B8A', name: 'Slate' },
 ];
 
 export function EditListModal() {
@@ -41,6 +40,8 @@ export function EditListModal() {
   const [color, setColor] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
+  const colorDropdownRef = useRef<HTMLDivElement>(null);
 
   // Sync form with list data when modal opens
   useEffect(() => {
@@ -49,8 +50,23 @@ export function EditListModal() {
       setIcon(list.icon);
       setColor(list.color);
       setError('');
+      setColorDropdownOpen(false);
     }
   }, [open, list]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!colorDropdownOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (colorDropdownRef.current && !colorDropdownRef.current.contains(e.target as Node)) {
+        setColorDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [colorDropdownOpen]);
 
   const handleClose = () => {
     closeModal();
@@ -58,6 +74,14 @@ export function EditListModal() {
     setIcon(null);
     setColor(null);
     setError('');
+    setColorDropdownOpen(false);
+  };
+
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Close if dragged down more than 100px or with enough velocity
+    if (info.offset.y > 100 || info.velocity.y > 500) {
+      handleClose();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,6 +139,8 @@ export function EditListModal() {
     openDeleteListDialog(listId, list.name, list.items?.length || 0);
   };
 
+  const selectedColor = COLOR_OPTIONS.find(c => c.hex === color);
+
   return (
     <AnimatePresence>
       {open && (
@@ -128,32 +154,36 @@ export function EditListModal() {
             className="fixed inset-0 z-[var(--z-modal)] bg-black/50"
           />
 
-          {/* Modal */}
+          {/* Modal with drag-to-dismiss */}
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={handleDragEnd}
             className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] safe-bottom"
           >
-            <div className="bg-[var(--color-bg-card)] rounded-t-2xl shadow-lg max-h-[85vh] overflow-y-auto">
-              {/* Drag handle */}
-              <div className="flex justify-center py-3 sticky top-0 bg-[var(--color-bg-card)]">
-                <div className="w-10 h-1 bg-[var(--color-text-muted)]/30 rounded-full" />
+            <div className="bg-[var(--color-bg-card)] rounded-t-2xl shadow-lg max-h-[80vh] overflow-hidden flex flex-col">
+              {/* Drag handle - larger touch target, touch-none to prevent pull-to-refresh */}
+              <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
+                <div className="w-10 h-1.5 bg-[var(--color-text-muted)]/40 rounded-full" />
               </div>
 
-              <form onSubmit={handleSubmit} className="px-6 pb-6">
-                <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-6">
+              <form onSubmit={handleSubmit} className="px-5 pb-5 overflow-y-auto flex-1">
+                <h2 className="font-display text-lg font-semibold text-[var(--color-text-primary)] mb-4">
                   List Settings
                 </h2>
 
                 {/* Name input */}
-                <div className="mb-6">
+                <div className="mb-4">
                   <label
                     htmlFor="edit-list-name"
-                    className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2"
+                    className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5"
                   >
-                    List Name
+                    Name
                   </label>
                   <Input
                     id="edit-list-name"
@@ -168,55 +198,146 @@ export function EditListModal() {
                   />
                 </div>
 
-                {/* Icon selection */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3">
-                    Icon (optional)
-                  </label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {ICON_OPTIONS.map((iconOption) => (
+                {/* Icon and Color row - compact side by side */}
+                <div className="flex gap-4 mb-4">
+                  {/* Icon selection - compact grid */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                      Icon
+                    </label>
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {ICON_OPTIONS.map((iconOption) => (
+                        <button
+                          key={iconOption}
+                          type="button"
+                          onClick={() => setIcon(icon === iconOption ? null : iconOption)}
+                          className={clsx(
+                            'aspect-square flex items-center justify-center text-lg rounded-lg border-2 transition-all',
+                            icon === iconOption
+                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                              : 'border-[var(--color-text-muted)]/20 hover:border-[var(--color-text-muted)]/40'
+                          )}
+                        >
+                          {iconOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Color dropdown */}
+                  <div className="w-28" ref={colorDropdownRef}>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                      Color
+                    </label>
+                    <div className="relative">
                       <button
-                        key={iconOption}
                         type="button"
-                        onClick={() => setIcon(icon === iconOption ? null : iconOption)}
+                        onClick={() => setColorDropdownOpen(!colorDropdownOpen)}
+                        aria-expanded={colorDropdownOpen}
+                        aria-haspopup="listbox"
+                        aria-label="Select color"
                         className={clsx(
-                          'aspect-square flex items-center justify-center text-2xl rounded-xl border-2 transition-all',
-                          icon === iconOption
-                            ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                          'w-full h-10 px-3 rounded-xl border-2 transition-all',
+                          'flex items-center justify-between gap-2',
+                          'bg-[var(--color-bg-secondary)]',
+                          colorDropdownOpen
+                            ? 'border-[var(--color-accent)]'
                             : 'border-[var(--color-text-muted)]/20 hover:border-[var(--color-text-muted)]/40'
                         )}
                       >
-                        {iconOption}
+                        <div className="flex items-center gap-2">
+                          {color ? (
+                            <>
+                              <div
+                                className="w-5 h-5 rounded-full ring-1 ring-black/10"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="text-sm text-[var(--color-text-primary)]">
+                                {selectedColor?.name}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm text-[var(--color-text-muted)]">None</span>
+                          )}
+                        </div>
+                        <ChevronDownIcon className={clsx(
+                          'w-4 h-4 text-[var(--color-text-muted)] transition-transform',
+                          colorDropdownOpen && 'rotate-180'
+                        )} />
                       </button>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Color selection */}
-                <div className="mb-8">
-                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3">
-                    Color (optional)
-                  </label>
-                  <div className="flex gap-3 flex-wrap">
-                    {COLOR_OPTIONS.map((colorOption) => (
-                      <button
-                        key={colorOption}
-                        type="button"
-                        onClick={() => setColor(color === colorOption ? null : colorOption)}
-                        className={clsx(
-                          'w-10 h-10 rounded-full transition-all',
-                          color === colorOption &&
-                            'ring-2 ring-offset-2 ring-[var(--color-text-primary)]'
+                      {/* Dropdown menu */}
+                      <AnimatePresence>
+                        {colorDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            role="listbox"
+                            aria-label="Color options"
+                            className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden"
+                          >
+                            {/* None option */}
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={color === null}
+                              onClick={() => {
+                                setColor(null);
+                                setColorDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                color === null && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <span className="text-sm text-[var(--color-text-secondary)]">None</span>
+                              {color === null && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+
+                            {COLOR_OPTIONS.map((colorOption) => (
+                              <button
+                                key={colorOption.hex}
+                                type="button"
+                                role="option"
+                                aria-selected={color === colorOption.hex}
+                                onClick={() => {
+                                  setColor(colorOption.hex);
+                                  setColorDropdownOpen(false);
+                                }}
+                                className={clsx(
+                                  'w-full px-3 py-2.5 flex items-center justify-between',
+                                  'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                  color === colorOption.hex && 'bg-[var(--color-accent)]/5'
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-5 h-5 rounded-full ring-1 ring-black/10"
+                                    style={{ backgroundColor: colorOption.hex }}
+                                  />
+                                  <span className="text-sm text-[var(--color-text-primary)]">
+                                    {colorOption.name}
+                                  </span>
+                                </div>
+                                {color === colorOption.hex && (
+                                  <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                                )}
+                              </button>
+                            ))}
+                          </motion.div>
                         )}
-                        style={{ backgroundColor: colorOption }}
-                        aria-label={`Select color ${colorOption}`}
-                      />
-                    ))}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </div>
 
                 {/* Save actions */}
-                <div className="flex gap-3 mb-6">
+                <div className="flex gap-3 mb-4">
                   <Button
                     type="button"
                     variant="secondary"
@@ -231,12 +352,12 @@ export function EditListModal() {
                     isLoading={updateList.isPending}
                     className="flex-1"
                   >
-                    Save Changes
+                    Save
                   </Button>
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-[var(--color-text-muted)]/10 my-4" />
+                <div className="h-px bg-[var(--color-text-muted)]/10 my-3" />
 
                 {/* List actions - side by side */}
                 <div className="flex items-center justify-between">

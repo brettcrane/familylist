@@ -9,6 +9,7 @@ import {
 } from '@clerk/clerk-react';
 import { HomePage, ListPage, SignInPage, SignUpPage } from './pages';
 import { ErrorBoundary } from './components/ui';
+import { ToastContainer } from './components/ui/Toast';
 import { initializeTheme } from './stores/uiStore';
 import { useOfflineSync } from './hooks/useOfflineQueue';
 import { useAuthSetup } from './hooks/useAuthSetup';
@@ -95,6 +96,7 @@ function ClerkAppContent() {
           }
         />
       </Routes>
+      <ToastContainer />
     </AuthProvider>
   );
 }
@@ -120,6 +122,7 @@ function FallbackAppContent() {
         <Route path="/sign-in/*" element={<Navigate to="/" replace />} />
         <Route path="/sign-up/*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ToastContainer />
     </FallbackAuthProvider>
   );
 }

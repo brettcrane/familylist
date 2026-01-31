@@ -46,6 +46,7 @@ export function ListPage() {
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
+  const showToast = useUIStore((state) => state.showToast);
 
   const createItem = useCreateItem(id!);
   const checkItem = useCheckItem(id!);
@@ -152,7 +153,7 @@ export function ListPage() {
           console.error('Failed to update item:', error);
           const apiError = error as { message?: string; data?: { detail?: string } };
           const errorMessage = apiError.data?.detail || apiError.message || 'Failed to save changes. Please try again.';
-          alert(errorMessage);
+          showToast(errorMessage, 'error');
           setEditingItem(null);
         },
       }
@@ -167,7 +168,7 @@ export function ListPage() {
           console.error('Failed to update item name:', error);
           const apiError = error as { message?: string; data?: { detail?: string } };
           const errorMessage = apiError.data?.detail || apiError.message || 'Failed to save item name. Please try again.';
-          alert(errorMessage);
+          showToast(errorMessage, 'error');
         },
       }
     );

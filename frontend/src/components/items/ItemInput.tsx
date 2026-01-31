@@ -153,8 +153,13 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
           item_name: suggestion.itemName,
           list_type: listType,
           correct_category: selectedCategoryName,
-        }).catch(() => {
-          // Silently ignore feedback errors - non-critical
+        }).catch((err) => {
+          // Non-critical: user action succeeds regardless, but log for debugging
+          console.warn('Category feedback submission failed:', {
+            itemName: suggestion.itemName,
+            category: selectedCategoryName,
+            error: err
+          });
         });
       }
 
