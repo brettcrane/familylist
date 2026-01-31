@@ -5,6 +5,7 @@ import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outlin
 import { Button } from '../ui/Button';
 import { getCategoryEmoji } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
+import { useUIStore } from '../../stores/uiStore';
 import type { Item, Category, ItemUpdate } from '../../types/api';
 
 interface EditItemModalProps {
@@ -31,9 +32,12 @@ export function EditItemModal({
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newlyCreatedCategory, setNewlyCreatedCategory] = useState<{ id: string; name: string } | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const newCategoryInputRef = useRef<HTMLInputElement>(null);
 
+  const showToast = useUIStore((state) => state.showToast);
   const createCategory = useCreateCategory(listId);
 
   // Reset state when item changes
@@ -46,6 +50,8 @@ export function EditItemModal({
       setCategoryDropdownOpen(false);
       setIsCreatingCategory(false);
       setNewCategoryName('');
+      setNewlyCreatedCategory(null);
+      setCategoryError(null);
     }
   }, [item]);
 
@@ -66,12 +72,17 @@ export function EditItemModal({
     }
   }, [item, selectedCategoryId, quantity, notes]);
 
-  // Handle Escape key to close modal
+  // Handle Escape key to close modal (with proper state sequence)
   useEffect(() => {
     if (!item) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (categoryDropdownOpen) {
+        // Close in sequence: category creation -> dropdown -> modal
+        if (isCreatingCategory) {
+          setIsCreatingCategory(false);
+          setNewCategoryName('');
+          setCategoryError(null);
+        } else if (categoryDropdownOpen) {
           setCategoryDropdownOpen(false);
         } else {
           onClose();
@@ -80,7 +91,7 @@ export function EditItemModal({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, onClose, categoryDropdownOpen]);
+  }, [item, onClose, categoryDropdownOpen, isCreatingCategory]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -128,21 +139,40 @@ export function EditItemModal({
     const trimmedName = newCategoryName.trim();
     if (!trimmedName) return;
 
+    // Check for duplicate category names (case-insensitive)
+    const isDuplicate = categories.some(
+      (cat) => cat.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (isDuplicate) {
+      setCategoryError(`Category "${trimmedName}" already exists`);
+      return;
+    }
+
+    setCategoryError(null);
+
     try {
       const newCategory = await createCategory.mutateAsync({ name: trimmedName });
+      // Store newly created category to handle race condition with query refresh
+      setNewlyCreatedCategory({ id: newCategory.id, name: newCategory.name });
       setSelectedCategoryId(newCategory.id);
       setIsCreatingCategory(false);
       setNewCategoryName('');
       setCategoryDropdownOpen(false);
     } catch (err) {
       console.error('Failed to create category:', err);
-      // Error will show in the UI via createCategory.error
+      // Extract error message properly (API errors have different structure)
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to create category';
+      setCategoryError(errorMessage);
+      showToast(errorMessage, 'error');
     }
   };
 
   // Sort categories, putting "Uncategorized" option first
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
-  const selectedCategory = sortedCategories.find(c => c.id === selectedCategoryId);
+  // Handle newly created category that may not be in the list yet (race condition)
+  const selectedCategory = sortedCategories.find(c => c.id === selectedCategoryId)
+    || (newlyCreatedCategory?.id === selectedCategoryId ? newlyCreatedCategory as Category : null);
 
   return (
     <AnimatePresence>
@@ -305,8 +335,10 @@ export function EditItemModal({
                                       e.preventDefault();
                                       handleCreateCategory();
                                     } else if (e.key === 'Escape') {
+                                      e.stopPropagation(); // Prevent global handler from also firing
                                       setIsCreatingCategory(false);
                                       setNewCategoryName('');
+                                      setCategoryError(null);
                                     }
                                   }}
                                   placeholder="Category name..."
@@ -330,9 +362,9 @@ export function EditItemModal({
                                   {createCategory.isPending ? '...' : 'Add'}
                                 </button>
                               </div>
-                              {createCategory.isError && (
+                              {categoryError && (
                                 <p className="mt-1 text-xs text-[var(--color-destructive)]">
-                                  {(createCategory.error as Error)?.message || 'Failed to create category'}
+                                  {categoryError}
                                 </p>
                               )}
                             </div>
