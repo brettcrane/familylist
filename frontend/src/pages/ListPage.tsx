@@ -150,8 +150,24 @@ export function ListPage() {
         },
         onError: (error) => {
           console.error('Failed to update item:', error);
-          // Close modal anyway since optimistic update will be rolled back
+          const apiError = error as { message?: string; data?: { detail?: string } };
+          const errorMessage = apiError.data?.detail || apiError.message || 'Failed to save changes. Please try again.';
+          alert(errorMessage);
           setEditingItem(null);
+        },
+      }
+    );
+  };
+
+  const handleNameChange = (itemId: string, newName: string) => {
+    updateItem.mutate(
+      { id: itemId, data: { name: newName } },
+      {
+        onError: (error) => {
+          console.error('Failed to update item name:', error);
+          const apiError = error as { message?: string; data?: { detail?: string } };
+          const errorMessage = apiError.data?.detail || apiError.message || 'Failed to save item name. Please try again.';
+          alert(errorMessage);
         },
       }
     );
@@ -384,6 +400,7 @@ export function ListPage() {
                       onCheckItem={handleCheckItem}
                       onDeleteItem={handleDeleteItem}
                       onEditItem={handleEditItem}
+                      onNameChange={handleNameChange}
                     />
                   )}
 
@@ -399,6 +416,7 @@ export function ListPage() {
                         onCheckItem={handleCheckItem}
                         onDeleteItem={handleDeleteItem}
                         onEditItem={handleEditItem}
+                        onNameChange={handleNameChange}
                       />
                     );
                   })}
