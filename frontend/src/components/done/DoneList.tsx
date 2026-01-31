@@ -115,7 +115,7 @@ export function DoneList({
           Nothing done yet
         </h3>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Swipe items left to check them off
+          Tap the checkbox to mark items as done
         </p>
       </div>
     );

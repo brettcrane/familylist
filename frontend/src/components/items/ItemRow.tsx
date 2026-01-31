@@ -145,7 +145,6 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange, showCategory }: I
         </div>
 
         {/* Edit button (pencil icon) for modal - min 44px tap target for mobile accessibility */}
-        {/* useSwipe hook ignores touches on buttons via target.closest() check */}
         {onEdit && !isEditing && (
           <button
             type="button"
