@@ -224,13 +224,13 @@ class TestShareEndpoints:
         share_id = share_response.json()["id"]
 
         # Update permission
-        update_data = {"permission": "admin"}
+        update_data = {"permission": "edit"}
         response = user_client.patch(
             f"/api/lists/{list_id}/shares/{share_id}",
             json=update_data,
         )
         assert response.status_code == 200
-        assert response.json()["permission"] == "admin"
+        assert response.json()["permission"] == "edit"
 
     def test_revoke_share(
         self, user_client, sample_list_data, other_user
@@ -336,7 +336,7 @@ class TestSharePermissions:
         list_id = create_response.json()["id"]
 
         # Test all permission levels
-        for permission in ["view", "edit", "admin"]:
+        for permission in ["view", "edit"]:
             # Delete any existing shares first (cleanup)
             shares_response = user_client.get(
                 f"/api/lists/{list_id}/shares"

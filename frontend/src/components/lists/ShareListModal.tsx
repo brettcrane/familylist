@@ -18,7 +18,6 @@ import type { SharePermission, ListShare } from '../../types/api';
 const PERMISSION_OPTIONS: { value: SharePermission; label: string }[] = [
   { value: 'view', label: 'View' },
   { value: 'edit', label: 'Edit' },
-  { value: 'admin', label: 'Admin' },
 ];
 
 function getInitials(name: string): string {

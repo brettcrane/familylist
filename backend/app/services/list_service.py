@@ -122,7 +122,7 @@ def user_can_edit_list(db: Session, user_id: str, list_id: str) -> bool:
         .filter(
             ListShare.list_id == list_id,
             ListShare.user_id == user_id,
-            ListShare.permission.in_(["edit", "admin"]),
+            ListShare.permission == "edit",
         )
         .first()
     )

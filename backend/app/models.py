@@ -56,7 +56,7 @@ class ListShare(Base):
     )
     permission: Mapped[str] = mapped_column(
         String(20), nullable=False, default="view"
-    )  # "view" | "edit" | "admin"
+    )  # "view" | "edit"
     created_at: Mapped[str] = mapped_column(Text, default=utc_now)
 
     # Relationships
@@ -66,7 +66,7 @@ class ListShare(Base):
     __table_args__ = (
         UniqueConstraint("list_id", "user_id", name="uq_list_share_list_user"),
         CheckConstraint(
-            "permission IN ('view', 'edit', 'admin')",
+            "permission IN ('view', 'edit')",
             name="ck_list_share_permission",
         ),
         Index("idx_list_shares_user_id", "user_id"),

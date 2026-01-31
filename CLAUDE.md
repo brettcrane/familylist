@@ -24,6 +24,15 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 - **State**: React Query (server) + Zustand (UI) + IndexedDB (offline)
 - **Deployment**: Docker via GitHub Actions CI/CD → Portainer
 
+## UI Patterns
+
+**Modal/Dialog widths:** Never use `w-full` or percentage-based widths for centered modals. When a modal is rendered inside a transformed/animated parent (common with Framer Motion), percentage widths can collapse to near-zero. Always use explicit widths:
+- Centered dialogs: `w-[min(24rem,calc(100vw-2rem))]`
+- Bottom sheets: `fixed inset-x-0 bottom-0` (full width is fine)
+- Side modals: Use explicit `sm:w-[28rem]` style patterns
+
+See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
+
 ## Authentication (Clerk + API Key Hybrid)
 
 Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant, etc.).

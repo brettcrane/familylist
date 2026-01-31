@@ -64,7 +64,6 @@ class ListSharePermission(str, Enum):
 
     VIEW = "view"
     EDIT = "edit"
-    ADMIN = "admin"
 
 
 class ListShareCreate(BaseModel):

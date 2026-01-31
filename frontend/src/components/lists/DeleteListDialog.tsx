@@ -56,7 +56,7 @@ export function DeleteListDialog() {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4"
           >
-            <div className="bg-[var(--color-bg-card)] rounded-2xl shadow-lg max-w-sm w-full p-6">
+            <div className="bg-[var(--color-bg-card)] rounded-2xl shadow-lg w-[min(24rem,calc(100vw-2rem))] p-6">
               {/* Trash icon with animated scale-in */}
               <motion.div
                 initial={{ scale: 0 }}

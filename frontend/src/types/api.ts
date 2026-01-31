@@ -120,7 +120,7 @@ export interface ListDuplicateRequest {
 }
 
 /** Share permission types */
-export type SharePermission = 'view' | 'edit' | 'admin';
+export type SharePermission = 'view' | 'edit';
 
 /** Share by email request */
 export interface ShareByEmailRequest {

@@ -28,20 +28,18 @@ async def get_list_shares(
 ):
     """Get all shares for a list.
 
-    Only the owner or users with admin permission can see all shares.
+    Only the owner can see all shares.
     """
     # Check list exists
     lst = list_service.get_list_by_id(db, list_id)
     if not lst:
         raise HTTPException(status_code=404, detail="List not found")
 
-    # Check if user has permission to view shares (owner or admin)
+    # Only owner can view shares
     if lst.owner_id != current_user.id:
-        share = list_service.get_existing_share(db, list_id, current_user.id)
-        if not share or share.permission != "admin":
-            raise HTTPException(
-                status_code=403, detail="Only owners and admins can view shares"
-            )
+        raise HTTPException(
+            status_code=403, detail="Only the owner can view shares"
+        )
 
     shares = list_service.get_list_shares(db, list_id)
 
