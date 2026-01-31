@@ -374,6 +374,7 @@ export function ListPage() {
       {/* Bottom input bar - always visible, thumb-friendly */}
       <BottomInputBar
         ref={inputRef}
+        listType={list.type}
         inputValue={inputValue}
         onInputChange={setInputValue}
         onInputSubmit={handleInputSubmit}

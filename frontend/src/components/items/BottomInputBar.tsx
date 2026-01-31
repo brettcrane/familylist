@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import type { Category } from '../../types/api';
+import type { Category, ListType } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 
 interface CategorySuggestionState {
@@ -12,6 +12,7 @@ interface CategorySuggestionState {
 }
 
 interface BottomInputBarProps {
+  listType: ListType;
   inputValue: string;
   onInputChange: (value: string) => void;
   onInputSubmit: (e: React.FormEvent) => void;
@@ -59,6 +60,7 @@ function getCategoryEmoji(category: string): string {
 export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
   function BottomInputBar(
     {
+      listType,
       inputValue,
       onInputChange,
       onInputSubmit,
@@ -77,6 +79,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
     },
     ref
   ) {
+    const showMealMode = listType === 'grocery';
     const placeholder = mealMode
       ? "What's cooking? (e.g., tacos)"
       : 'Add item...';
@@ -256,63 +259,65 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
         {/* Input row */}
         <div className="px-4 py-3">
           <form onSubmit={onInputSubmit} className="flex gap-2 items-center">
-            {/* Meal Mode Toggle */}
-            <motion.button
-              type="button"
-              onClick={onMealModeToggle}
-              disabled={inputDisabled}
-              className={clsx(
-                'relative flex-shrink-0 w-11 h-11 rounded-xl',
-                'flex items-center justify-center',
-                'transition-all duration-200',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                mealMode
-                  ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                  : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)]'
-              )}
-              whileTap={{ scale: 0.95 }}
-              aria-label={mealMode ? 'Recipe mode on' : 'Recipe mode off'}
-            >
-              <motion.svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                animate={{ rotate: mealMode ? [0, -5, 5, 0] : 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Steam lines */}
-                {mealMode && (
-                  <>
-                    <motion.path
-                      d="M8 5c0-1 .5-2 2-2"
-                      initial={{ opacity: 0, y: 2 }}
-                      animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
-                    />
-                    <motion.path
-                      d="M12 4c0-1.5.5-2.5 2-2.5"
-                      initial={{ opacity: 0, y: 2 }}
-                      animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
-                    />
-                    <motion.path
-                      d="M16 5c0-1 .5-2 2-2"
-                      initial={{ opacity: 0, y: 2 }}
-                      animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
-                    />
-                  </>
+            {/* Meal Mode Toggle - only shown for grocery lists */}
+            {showMealMode && (
+              <motion.button
+                type="button"
+                onClick={onMealModeToggle}
+                disabled={inputDisabled}
+                className={clsx(
+                  'relative flex-shrink-0 w-11 h-11 rounded-xl',
+                  'flex items-center justify-center',
+                  'transition-all duration-200',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  mealMode
+                    ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                    : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)]'
                 )}
-                <path d="M3 12h18" />
-                <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
-                <path d="M5 12a2 2 0 0 1-2-2 2 2 0 0 1 2-2" />
-                <path d="M19 12a2 2 0 0 0 2-2 2 2 0 0 0-2-2" />
-              </motion.svg>
-            </motion.button>
+                whileTap={{ scale: 0.95 }}
+                aria-label={mealMode ? 'Recipe mode on' : 'Recipe mode off'}
+              >
+                <motion.svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  animate={{ rotate: mealMode ? [0, -5, 5, 0] : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* Steam lines */}
+                  {mealMode && (
+                    <>
+                      <motion.path
+                        d="M8 5c0-1 .5-2 2-2"
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
+                        transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
+                      />
+                      <motion.path
+                        d="M12 4c0-1.5.5-2.5 2-2.5"
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
+                        transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                      />
+                      <motion.path
+                        d="M16 5c0-1 .5-2 2-2"
+                        initial={{ opacity: 0, y: 2 }}
+                        animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
+                        transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
+                      />
+                    </>
+                  )}
+                  <path d="M3 12h18" />
+                  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+                  <path d="M5 12a2 2 0 0 1-2-2 2 2 0 0 1 2-2" />
+                  <path d="M19 12a2 2 0 0 0 2-2 2 2 0 0 0-2-2" />
+                </motion.svg>
+              </motion.button>
+            )}
 
             {/* Input field */}
             <div className="flex-1 relative">
@@ -363,9 +368,9 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
             </div>
           </form>
 
-          {/* Meal mode hint */}
+          {/* Meal mode hint - only shown for grocery lists */}
           <AnimatePresence>
-            {mealMode && !inputDisabled && (
+            {showMealMode && mealMode && !inputDisabled && (
               <motion.p
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
