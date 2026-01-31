@@ -38,18 +38,29 @@ export function useSwipe(callbacks: SwipeCallbacks) {
   const holdStartTime = useRef(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
   const elementRef = useRef<HTMLDivElement>(null);
+  // Use ref for isDragging to avoid stale closure in callbacks
+  const isDraggingRef = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Don't start swipe gesture if touching an interactive element (buttons, inputs, etc.)
+    // This prevents state getting stuck when touch ends on a child that stops propagation
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, a, [role="button"], [data-no-swipe]')) {
+      return;
+    }
+
     const touch = e.touches[0];
     startX.current = touch.clientX;
     startY.current = touch.clientY;
     holdStartTime.current = 0;
     isHorizontalSwipe.current = null;
+    isDraggingRef.current = true;
     setState((prev) => ({ ...prev, isDragging: true }));
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!state.isDragging) return;
+    // Use ref to avoid stale closure issues
+    if (!isDraggingRef.current) return;
 
     const touch = e.touches[0];
     const deltaX = touch.clientX - startX.current;
@@ -64,6 +75,7 @@ export function useSwipe(callbacks: SwipeCallbacks) {
 
     // If vertical scroll, don't interfere
     if (isHorizontalSwipe.current === false) {
+      isDraggingRef.current = false;
       setState((prev) => ({
         ...prev,
         isDragging: false,
@@ -109,7 +121,7 @@ export function useSwipe(callbacks: SwipeCallbacks) {
       isDragging: true,
       isOverThreshold,
     });
-  }, [state.isDragging]);
+  }, []);
 
   const handleTouchEnd = useCallback(() => {
     const { direction, isOverThreshold, offsetX } = state;
@@ -125,6 +137,7 @@ export function useSwipe(callbacks: SwipeCallbacks) {
     }
 
     // Reset state
+    isDraggingRef.current = false;
     setState({
       offsetX: 0,
       direction: null,
@@ -136,6 +149,7 @@ export function useSwipe(callbacks: SwipeCallbacks) {
   }, [state, callbacks]);
 
   const handleTouchCancel = useCallback(() => {
+    isDraggingRef.current = false;
     setState({
       offsetX: 0,
       direction: null,

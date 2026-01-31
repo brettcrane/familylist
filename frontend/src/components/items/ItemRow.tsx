@@ -211,7 +211,7 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, onNameChange, showCat
         </div>
 
         {/* Edit button (pencil icon) for modal - min 44px tap target for mobile accessibility */}
-        {/* Touch events stop propagation to prevent swipe gesture interference */}
+        {/* useSwipe hook ignores touches on buttons via target.closest() check */}
         {onEdit && !isEditing && (
           <button
             type="button"
@@ -219,9 +219,6 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, onNameChange, showCat
               e.stopPropagation();
               onEdit();
             }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
             className={clsx(
               'w-12 h-12 -mr-3 rounded-xl flex-shrink-0',
               'flex items-center justify-center',
