@@ -18,22 +18,57 @@ from app.schemas import (
     ItemUpdate,
 )
 from app.serializers import item_to_response
+from app.models import ListShare
 from app.services import item_service, list_service
 from app.services.event_broadcaster import ListEvent, event_broadcaster
+from app.services.notification_queue import notification_queue
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["items"], dependencies=[Depends(get_auth)])
 
 
-async def publish_event_async(event: ListEvent) -> None:
-    """Publish an event to the broadcaster asynchronously.
+def get_notification_recipients(db: Session, list_id: str) -> list[str]:
+    """Get all user IDs who should receive notifications for a list.
+
+    Returns list of user IDs (owner + shared users).
+    Must be called before the request ends (while db session is active).
+    """
+    list_obj = list_service.get_list_by_id(db, list_id)
+    if not list_obj:
+        return []
+
+    recipient_ids: list[str] = []
+
+    # Add owner
+    if list_obj.owner_id:
+        recipient_ids.append(list_obj.owner_id)
+
+    # Add shared users
+    shares = db.query(ListShare).filter(ListShare.list_id == list_id).all()
+    for share in shares:
+        if share.user_id not in recipient_ids:
+            recipient_ids.append(share.user_id)
+
+    return recipient_ids
+
+
+async def publish_event_async(
+    event: ListEvent,
+    list_name: str,
+    recipient_user_ids: list[str],
+) -> None:
+    """Publish an event to SSE broadcaster and queue push notification.
 
     This function is designed to be used with BackgroundTasks.add_task().
-    Properly handles and logs any errors during event publishing.
-    Distinguishes between expected failures (queue full, timeout) and
-    unexpected bugs for better debugging.
+    It handles both real-time SSE updates and background push notifications.
+
+    Args:
+        event: The list event to publish
+        list_name: Name of the list (for notification message)
+        recipient_user_ids: Users to potentially notify (gathered before task started)
     """
+    # Publish to SSE for live sync
     try:
         await event_broadcaster.publish(event)
         logger.debug(
@@ -47,12 +82,29 @@ async def publish_event_async(event: ListEvent) -> None:
         )
     except Exception as e:
         # Unexpected failures - these indicate potential bugs
-        # Log with full stack trace for debugging
         logger.error(
             f"UNEXPECTED event publish failure: event_type={event.event_type}, "
             f"list_id={event.list_id}, item_id={event.item_id}, error={type(e).__name__}: {e}",
             exc_info=True,
         )
+
+    # Queue push notification for background users
+    if recipient_user_ids:
+        try:
+            await notification_queue.queue_event(
+                list_id=event.list_id,
+                list_name=list_name,
+                event_type=event.event_type,
+                item_name=event.item_name,
+                actor_user_id=event.user_id or "",
+                actor_name=event.user_name or "Someone",
+                recipient_user_ids=recipient_user_ids,
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to queue push notification: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
 
 
 @router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
@@ -93,6 +145,10 @@ def create_items(
     else:
         items = [item_service.create_item(db, list_id, data)]
 
+    # Get notification context before returning (db session still active)
+    recipient_ids = get_notification_recipients(db, list_id)
+    list_name = list_obj.name
+
     # Publish events for created items
     for item in items:
         background_tasks.add_task(
@@ -105,6 +161,8 @@ def create_items(
                 user_id=current_user.id if current_user else None,
                 user_name=current_user.display_name if current_user else None,
             ),
+            list_name,
+            recipient_ids,
         )
 
     return [item_to_response(item) for item in items]
@@ -127,6 +185,11 @@ def update_item(
 
     updated = item_service.update_item(db, item, data)
 
+    # Get notification context
+    list_obj = list_service.get_list_by_id(db, item.list_id)
+    recipient_ids = get_notification_recipients(db, item.list_id)
+    list_name = list_obj.name if list_obj else "List"
+
     # Publish update event
     background_tasks.add_task(
         publish_event_async,
@@ -138,6 +201,8 @@ def update_item(
             user_id=current_user.id if current_user else None,
             user_name=current_user.display_name if current_user else None,
         ),
+        list_name,
+        recipient_ids,
     )
 
     return item_to_response(updated)
@@ -161,6 +226,11 @@ def delete_item(
     list_id = item.list_id
     item_name = item.name
 
+    # Get notification context before deletion
+    list_obj = list_service.get_list_by_id(db, list_id)
+    recipient_ids = get_notification_recipients(db, list_id)
+    list_name = list_obj.name if list_obj else "List"
+
     item_service.delete_item(db, item)
 
     # Publish delete event
@@ -174,6 +244,8 @@ def delete_item(
             user_id=current_user.id if current_user else None,
             user_name=current_user.display_name if current_user else None,
         ),
+        list_name,
+        recipient_ids,
     )
 
 
@@ -196,6 +268,11 @@ def check_item(
     user_id = data.user_id if data and data.user_id else (current_user.id if current_user else None)
     checked = item_service.check_item(db, item, user_id=user_id)
 
+    # Get notification context
+    list_obj = list_service.get_list_by_id(db, item.list_id)
+    recipient_ids = get_notification_recipients(db, item.list_id)
+    list_name = list_obj.name if list_obj else "List"
+
     # Publish check event
     background_tasks.add_task(
         publish_event_async,
@@ -207,6 +284,8 @@ def check_item(
             user_id=current_user.id if current_user else None,
             user_name=current_user.display_name if current_user else None,
         ),
+        list_name,
+        recipient_ids,
     )
 
     return item_to_response(checked)
@@ -228,6 +307,11 @@ def uncheck_item(
 
     unchecked = item_service.uncheck_item(db, item)
 
+    # Get notification context
+    list_obj = list_service.get_list_by_id(db, item.list_id)
+    recipient_ids = get_notification_recipients(db, item.list_id)
+    list_name = list_obj.name if list_obj else "List"
+
     # Publish uncheck event
     background_tasks.add_task(
         publish_event_async,
@@ -239,6 +323,8 @@ def uncheck_item(
             user_id=current_user.id if current_user else None,
             user_name=current_user.display_name if current_user else None,
         ),
+        list_name,
+        recipient_ids,
     )
 
     return item_to_response(unchecked)
@@ -260,6 +346,10 @@ def clear_checked_items(
 
     count = item_service.clear_checked_items(db, list_id)
 
+    # Get notification context
+    recipient_ids = get_notification_recipients(db, list_id)
+    list_name = list_obj.name
+
     # Publish clear event
     background_tasks.add_task(
         publish_event_async,
@@ -269,6 +359,8 @@ def clear_checked_items(
             user_id=current_user.id if current_user else None,
             user_name=current_user.display_name if current_user else None,
         ),
+        list_name,
+        recipient_ids,
     )
 
     return {"deleted_count": count}
@@ -290,6 +382,10 @@ def restore_checked_items(
 
     count = item_service.restore_checked_items(db, list_id)
 
+    # Get notification context
+    recipient_ids = get_notification_recipients(db, list_id)
+    list_name = list_obj.name
+
     # Publish restore event
     background_tasks.add_task(
         publish_event_async,
@@ -299,6 +395,8 @@ def restore_checked_items(
             user_id=current_user.id if current_user else None,
             user_name=current_user.display_name if current_user else None,
         ),
+        list_name,
+        recipient_ids,
     )
 
     return {"restored_count": count}

@@ -42,7 +42,7 @@ See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
 ## Authentication (Clerk + API Key Hybrid)
 
-Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant, etc.).
+Hybrid auth supporting both Clerk user auth and API key auth.
 
 **Key files:**
 - `frontend/src/main.tsx` - ClerkProvider (graceful fallback if key missing)
@@ -67,8 +67,8 @@ Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant
 ## Code Index
 
 ```
-|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create}
-|backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions}
+|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
+|backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
 |backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings}
 |frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox,CategorySection=collapsible-group}
 |frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete}
@@ -76,9 +76,9 @@ Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant
 |frontend/src/components/icons:{CategoryIcons=ListTypeIcon+getCategoryEmoji}
 |frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh}
 |frontend/src/components/done:{DoneList=checked-items-section}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals,authStore=Zustand+cached-user+offline-persist}
-|frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke}
+|frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke,push=subscribe+preferences}
 ```
 
 ## Key Flows
@@ -87,6 +87,8 @@ Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant
 AI-Categorization: ItemInput→api/ai.categorize()→ai_service.categorize_item()→embedding-similarity→CategorySuggestion(2s-auto-accept)→user-override?→api/ai.feedback()→CategoryLearning-boost
 NL-Parsing: MealMode+input→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→useItems.batchCreate()
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
+Real-Time-Sync: useListStream→EventSource(SSE)→event_broadcaster→publish_event_async→query-invalidation
+Push-Notifications: item-change→notification_queue.queue_event()→30s-2min-batching→push_service.send_push()→pywebpush→browser-push-service→sw.ts-handler
 Offline: useOfflineQueue→IndexedDB-queue→retry-on-reconnect→sync-indicator
 User-Sync: ClerkProvider→useAuthSetup→setTokenGetter→apiRequest(Bearer)→get_auth→get_current_user→user_service.get_or_create_user→local-DB
 ```
@@ -98,6 +100,11 @@ Required for AI features:
 - `ENABLE_LLM_PARSING=true` - Enable NL parsing
 - `LLM_BACKEND=openai` - Use OpenAI backend (also: ollama, local)
 - `LLM_OPENAI_MODEL=gpt-4o-mini` - Model to use
+
+Optional for push notifications:
+- `VAPID_PRIVATE_KEY` - Base64-encoded VAPID private key
+- `VAPID_PUBLIC_KEY` - Base64-encoded VAPID public key
+- `VAPID_MAILTO` - Contact email for push service (e.g., mailto:admin@example.com)
 
 Frontend (optional):
 - `VITE_API_KEY` - Fallback API key when Clerk auth unavailable
@@ -143,10 +150,6 @@ Frontend (optional):
 ## Known Issues
 
 See [TODO.md](./TODO.md) for current bugs and tasks.
-
-## Development Plans
-
-- Phase 4 (Home Assistant Integration): `~/.claude/plans/phase-4-home-assistant-integration.md`
 
 ## Development & Testing
 

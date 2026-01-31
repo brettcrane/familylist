@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class ListType(str, Enum):
@@ -345,3 +345,92 @@ class ErrorResponse(BaseModel):
     """Standard error response."""
 
     detail: str
+
+
+# ============================================================================
+# Push Notification Schemas
+# ============================================================================
+
+
+class PushSubscriptionKeys(BaseModel):
+    """Web Push subscription keys from browser."""
+
+    p256dh: str = Field(..., description="P-256 ECDH public key")
+    auth: str = Field(..., description="Authentication secret")
+
+
+class PushSubscriptionCreate(BaseModel):
+    """Schema for registering a push subscription."""
+
+    endpoint: str = Field(..., description="Push service endpoint URL")
+    keys: PushSubscriptionKeys
+
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint_url(cls, v: str) -> str:
+        """Validate that endpoint is a valid HTTPS push service URL."""
+        if not v.startswith("https://"):
+            raise ValueError("Push endpoint must use HTTPS")
+        # Allow known push service domains
+        allowed_domains = [
+            "push.services.mozilla.com",
+            "fcm.googleapis.com",
+            "updates.push.services.mozilla.com",
+            "android.googleapis.com",
+            "notify.windows.com",
+            "wns.windows.com",
+            "web.push.apple.com",
+        ]
+        from urllib.parse import urlparse
+
+        parsed = urlparse(v)
+        hostname = parsed.hostname or ""
+        if not any(hostname.endswith(domain) for domain in allowed_domains):
+            raise ValueError(
+                f"Push endpoint must be from a known push service provider"
+            )
+        return v
+
+
+class PushSubscriptionDelete(BaseModel):
+    """Schema for unsubscribing from push notifications."""
+
+    endpoint: str = Field(..., description="Push service endpoint URL to remove")
+
+
+class PushSubscriptionResponse(BaseModel):
+    """Push subscription response."""
+
+    id: str
+    endpoint: str
+    created_at: str
+    last_used_at: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class VapidPublicKeyResponse(BaseModel):
+    """VAPID public key response for frontend."""
+
+    public_key: str
+    enabled: bool = True
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    """Schema for updating notification preferences."""
+
+    list_updates: str | None = Field(None, pattern="^(always|batched|off)$")
+    list_sharing: str | None = Field(None, pattern="^(always|off)$")
+    quiet_start: str | None = Field(None, pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$")
+    quiet_end: str | None = Field(None, pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$")
+
+
+class NotificationPreferencesResponse(BaseModel):
+    """Notification preferences response."""
+
+    list_updates: str = "batched"
+    list_sharing: str = "always"
+    quiet_start: str | None = None
+    quiet_end: str | None = None
+
+    model_config = {"from_attributes": True}
