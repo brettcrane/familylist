@@ -28,13 +28,22 @@ export function useAuthSetup(): { isAuthReady: boolean } {
 
     if (isSignedIn) {
       // Set up token getter for API requests
-      // Wrap getToken with logging to debug token issues (dev only)
       const wrappedGetToken = async () => {
-        const token = await getToken();
-        if (DEBUG_AUTH) {
-          console.log('[useAuthSetup] getToken result:', token ? `${token.slice(0, 20)}...` : null);
+        try {
+          const token = await getToken();
+          if (DEBUG_AUTH) {
+            console.log('[useAuthSetup] getToken result:', token ? `${token.slice(0, 20)}...` : null);
+          }
+          // Log anomalous state: signed in but no token (even in production)
+          if (!token) {
+            console.warn('[useAuthSetup] User signed in but getToken returned null');
+          }
+          return token;
+        } catch (error) {
+          // Always log token retrieval errors for debugging auth issues
+          console.error('[useAuthSetup] getToken failed:', error);
+          throw error;
         }
-        return token;
       };
       setTokenGetter(wrappedGetToken);
       setIsAuthReady(true);

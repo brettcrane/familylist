@@ -163,8 +163,10 @@ def verify_clerk_token(token: str) -> ClerkUser:
     Performs full JWT verification including:
     - RS256 signature verification using Clerk's JWKS
     - Issuer validation against CLERK_JWT_ISSUER
-    - Expiration (exp) and issued-at (iat) validation
-    - Optional authorized party (azp) validation
+    - Expiration (exp), issued-at (iat), and not-before (nbf) validation
+    - Authorized party (azp) validation when CLERK_AUTHORIZED_PARTIES configured
+    - JWT v2 format verification (rejects explicit non-v2 tokens)
+    - 5-second clock skew tolerance
 
     Args:
         token: The JWT token (without 'Bearer ' prefix)
@@ -213,12 +215,17 @@ def verify_clerk_token(token: str) -> ClerkUser:
                 raise HTTPException(status_code=401, detail="Token not authorized for this application")
         elif azp:
             # azp exists but no authorized parties configured - log security warning
+            # Include azp value for debugging and monitoring
             logger.warning(
                 "SECURITY: Token has azp claim but CLERK_AUTHORIZED_PARTIES not configured. "
-                "Configure this setting to prevent CSRF attacks in production."
+                "Configure this setting to prevent CSRF attacks in production. "
+                f"(azp={azp})"
             )
 
         # Verify JWT v2 format (Clerk deprecated v1 in April 2025)
+        # Note: Tokens without a "v" claim are allowed for backwards compatibility.
+        # Clerk v2 tokens include v=2; older tokens may lack this claim entirely.
+        # We only reject tokens with an explicit non-v2 version.
         token_version = payload.get("v")
         if token_version is not None and token_version != 2:
             logger.warning(f"Unexpected JWT version: {token_version}, expected v2")
