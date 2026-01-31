@@ -33,6 +33,13 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 
 See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
+**Icons:** Use Heroicons (`@heroicons/react`) for UI elements, emojis for category indicators.
+- UI buttons/actions: Import from `@heroicons/react/24/outline`
+- List type icons: Use `ListTypeIcon` from `components/icons/CategoryIcons.tsx`
+- Category emojis: Use `getCategoryEmoji()` from `components/icons/CategoryIcons.tsx`
+- Never duplicate emoji/icon mappings - always use the centralized file
+- Theme toggle is in the user menu (`UserButton.tsx`), not in the header
+
 ## Authentication (Clerk + API Key Hybrid)
 
 Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant, etc.).
@@ -60,15 +67,18 @@ Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant
 ## Code Index
 
 ```
-|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create}
-|backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup}
+|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create}
+|backend/app/api:{lists=CRUD+duplicate,items=CRUD+check+batch,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions}
 |backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings}
-|frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox}
-|frontend/src/components/lists:{ListGrid,ListCard,CreateListModal=type-selection}
-|frontend/src/components/layout:{Header,ListHeader=actions+sync,SyncIndicator}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection}
+|frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox,CategorySection=collapsible-group}
+|frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete}
+|frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
+|frontend/src/components/icons:{CategoryIcons=ListTypeIcon+getCategoryEmoji}
+|frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh}
+|frontend/src/components/done:{DoneList=checked-items-section}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals,authStore=Zustand+cached-user+offline-persist}
-|frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse}
+|frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke}
 ```
 
 ## Key Flows

@@ -6,7 +6,7 @@ import { Input } from '../ui/Input';
 import { useCreateList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
 import type { ListType } from '../../types/api';
-import { LIST_TYPE_ICONS } from '../../types/api';
+import { ListTypeIcon } from '../icons/CategoryIcons';
 
 const listTypes: { type: ListType; label: string }[] = [
   { type: 'grocery', label: 'Grocery' },
@@ -118,9 +118,7 @@ export function CreateListModal() {
                             : 'border-[var(--color-text-muted)]/20 hover:border-[var(--color-text-muted)]/40'
                         )}
                       >
-                        <span className="text-2xl">
-                          {LIST_TYPE_ICONS[item.type]}
-                        </span>
+                        <ListTypeIcon type={item.type} className="w-7 h-7" />
                         <span
                           className={clsx(
                             'text-sm font-medium',

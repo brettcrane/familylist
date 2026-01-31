@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { CheckIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import type { Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
+import { getCategoryEmoji } from '../icons/CategoryIcons';
 
 interface CategorySuggestionProps {
   suggestion: {
@@ -17,32 +19,6 @@ interface CategorySuggestionProps {
   onChangeCategory: () => void;
   onSelectCategory: (categoryId: string | null) => void;
   onDismiss: () => void;
-}
-
-const emojiMap: Record<string, string> = {
-  Produce: '🥬',
-  Dairy: '🥛',
-  'Meat & Seafood': '🥩',
-  Bakery: '🍞',
-  Pantry: '🥫',
-  Frozen: '🧊',
-  Beverages: '🥤',
-  Snacks: '🍪',
-  Household: '🧹',
-  'Personal Care': '🧴',
-  Clothing: '👕',
-  Toiletries: '🧼',
-  Electronics: '📱',
-  Documents: '📄',
-  "Kids' Items": '🧸',
-  Miscellaneous: '📦',
-  Today: '📅',
-  'This Week': '📆',
-  Later: '⏰',
-};
-
-function getCategoryEmoji(category: string): string {
-  return emojiMap[category] || '📝';
 }
 
 export function CategorySuggestion({
@@ -113,18 +89,7 @@ export function CategorySuggestion({
                     transition={{ duration: autoAcceptDelay / 1000, ease: 'linear' }}
                   />
                 </svg>
-                <svg
-                  className="w-4 h-4 relative z-10"
-                  style={{ color: categoryColor }}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                <CheckIcon className="w-4 h-4 relative z-10" style={{ color: categoryColor }} />
               </button>
 
               {/* Change button */}
@@ -133,16 +98,7 @@ export function CategorySuggestion({
                 className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
                 aria-label="Change category"
               >
-                <svg
-                  className="w-4 h-4 text-[var(--color-text-muted)]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
+                <PencilSquareIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
               </button>
             </div>
           </motion.div>
@@ -162,16 +118,7 @@ export function CategorySuggestion({
                 onClick={onDismiss}
                 className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-secondary)]"
               >
-                <svg
-                  className="w-4 h-4 text-[var(--color-text-muted)]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
               </button>
             </div>
             <div className="grid grid-cols-2 gap-0.5 p-1.5 max-h-52 overflow-y-auto">
@@ -203,7 +150,7 @@ export function CategorySuggestion({
                 onClick={() => onSelectCategory(null)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <span className="text-base">❓</span>
+                <span className="text-base">{getCategoryEmoji('Uncategorized')}</span>
                 <span className="text-sm font-medium text-[var(--color-text-muted)]">
                   Uncategorized
                 </span>

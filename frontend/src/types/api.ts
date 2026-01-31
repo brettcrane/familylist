@@ -238,9 +238,3 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'Personal Care': 'var(--color-cat-personal)',
 };
 
-/** List type icons */
-export const LIST_TYPE_ICONS: Record<ListType, string> = {
-  grocery: '🛒',
-  packing: '🧳',
-  tasks: '✅',
-};

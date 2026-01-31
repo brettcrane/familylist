@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { List } from '../../types/api';
-import { LIST_TYPE_ICONS } from '../../types/api';
 import { useLongPress } from '../../hooks/useLongPress';
 import { ListCardMenu } from './ListCardMenu';
+import { ListTypeIcon } from '../icons/CategoryIcons';
 
 interface ListCardProps {
   list: List;
@@ -39,7 +39,6 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
   const uncheckedCount = itemCount - checkedCount;
-  const icon = list.icon || LIST_TYPE_ICONS[list.type];
   const shareCount = list.share_count || 0;
 
   const longPressHandlers = useLongPress({
@@ -75,7 +74,9 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
         >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{icon}</span>
+              <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center text-[var(--color-accent)]">
+                <ListTypeIcon type={list.type} className="w-5 h-5" />
+              </div>
               <div>
                 <h3 className="font-semibold text-[var(--color-text-primary)]">
                   {list.name}

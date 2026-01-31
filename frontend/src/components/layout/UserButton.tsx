@@ -1,12 +1,30 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowRightStartOnRectangleIcon,
+  SunIcon,
+  MoonIcon,
+  ComputerDesktopIcon,
+  ChevronDownIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUIStore, type Theme } from '../../stores/uiStore';
+
+const THEME_OPTIONS: { value: Theme; label: string; Icon: typeof SunIcon }[] = [
+  { value: 'light', label: 'Light', Icon: SunIcon },
+  { value: 'dark', label: 'Dark', Icon: MoonIcon },
+  { value: 'system', label: 'System', Icon: ComputerDesktopIcon },
+];
 
 export function UserButton() {
   const { user, signOut, isSignedIn } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const theme = useUIStore((state) => state.theme);
+  const setTheme = useUIStore((state) => state.setTheme);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -18,6 +36,7 @@ export function UserButton() {
         !buttonRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
+        setThemeMenuOpen(false);
       }
     }
 
@@ -32,6 +51,7 @@ export function UserButton() {
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsOpen(false);
+        setThemeMenuOpen(false);
       }
     }
 
@@ -58,6 +78,9 @@ export function UserButton() {
     setIsOpen(false);
     await signOut();
   };
+
+  const currentTheme = THEME_OPTIONS.find((t) => t.value === theme) || THEME_OPTIONS[0];
+  const CurrentThemeIcon = currentTheme.Icon;
 
   return (
     <div className="relative">
@@ -90,7 +113,7 @@ export function UserButton() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute right-0 top-full mt-2 w-64 bg-[var(--color-bg-secondary)] rounded-lg shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-72 bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden z-50"
           >
             {/* User info section */}
             <div className="p-4 border-b border-[var(--color-text-muted)]/10">
@@ -99,10 +122,10 @@ export function UserButton() {
                   <img
                     src={user.imageUrl}
                     alt={user.displayName ?? 'User avatar'}
-                    className="w-10 h-10 rounded-full object-cover"
+                    className="w-11 h-11 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-white font-medium">
+                  <div className="w-11 h-11 rounded-full bg-[var(--color-accent)] flex items-center justify-center text-white text-base font-medium">
                     {initials}
                   </div>
                 )}
@@ -121,25 +144,64 @@ export function UserButton() {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Theme selector */}
+            <div className="p-2 border-b border-[var(--color-text-muted)]/10">
+              <button
+                onClick={() => setThemeMenuOpen(!themeMenuOpen)}
+                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <CurrentThemeIcon className="w-5 h-5 text-[var(--color-text-secondary)]" />
+                  <span className="text-[var(--color-text-primary)]">Theme</span>
+                </div>
+                <div className="flex items-center gap-1 text-[var(--color-text-secondary)]">
+                  <span className="text-sm">{currentTheme.label}</span>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 transition-transform ${themeMenuOpen ? 'rotate-180' : ''}`}
+                  />
+                </div>
+              </button>
+
+              <AnimatePresence>
+                {themeMenuOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-1 pl-8 space-y-1">
+                      {THEME_OPTIONS.map(({ value, label, Icon }) => (
+                        <button
+                          key={value}
+                          onClick={() => {
+                            setTheme(value);
+                            setThemeMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors ${
+                            theme === value
+                              ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                              : 'hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="text-sm">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Sign out */}
             <div className="p-2">
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-md hover:bg-[var(--color-bg-primary)] transition-colors text-[var(--color-text-primary)]"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors text-[var(--color-text-primary)]"
               >
-                <svg
-                  className="w-5 h-5 text-[var(--color-text-secondary)]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
+                <ArrowRightStartOnRectangleIcon className="w-5 h-5 text-[var(--color-text-secondary)]" />
                 Sign out
               </button>
             </div>

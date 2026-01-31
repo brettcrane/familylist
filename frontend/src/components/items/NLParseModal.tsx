@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
 import { submitFeedback } from '../../api/ai';
 import type { ParsedItem, Category, ListType } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
+import { getCategoryEmoji } from '../icons/CategoryIcons';
 
 interface NLParseModalProps {
   isOpen: boolean;
@@ -87,28 +89,6 @@ export function NLParseModal({
     onConfirm(selectedItems);
   };
 
-  const getCategoryEmoji = (category: string): string => {
-    const emojiMap: Record<string, string> = {
-      Produce: '🥬',
-      Dairy: '🥛',
-      'Meat & Seafood': '🥩',
-      Bakery: '🍞',
-      Pantry: '🥫',
-      Frozen: '🧊',
-      Beverages: '🥤',
-      Snacks: '🍪',
-      Household: '🧹',
-      'Personal Care': '🧴',
-      Clothing: '👕',
-      Toiletries: '🧼',
-      Electronics: '📱',
-      Documents: '📄',
-      "Kids' Items": '🧸',
-      Miscellaneous: '📦',
-    };
-    return emojiMap[category] || '📝';
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -188,15 +168,7 @@ export function NLParseModal({
                     >
                       <span>{getCategoryEmoji(item.category)}</span>
                       <span>{item.category}</span>
-                      <svg
-                        className="w-3 h-3 opacity-60"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
+                      <ChevronDownIcon className="w-3 h-3 opacity-60" />
                     </button>
                   </motion.div>
                 );

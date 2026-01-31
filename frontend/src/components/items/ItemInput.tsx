@@ -6,6 +6,7 @@ import { NLParseModal } from './NLParseModal';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../../api/ai';
 import type { ListType, Category, ParsedItem } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
+import { getCategoryEmoji } from '../icons/CategoryIcons';
 
 interface ItemInputProps {
   listType: ListType;
@@ -555,27 +556,3 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
   );
 }
 
-function getCategoryEmoji(category: string): string {
-  const emojiMap: Record<string, string> = {
-    Produce: '🥬',
-    Dairy: '🥛',
-    'Meat & Seafood': '🥩',
-    Bakery: '🍞',
-    Pantry: '🥫',
-    Frozen: '🧊',
-    Beverages: '🥤',
-    Snacks: '🍪',
-    Household: '🧹',
-    'Personal Care': '🧴',
-    Clothing: '👕',
-    Toiletries: '🧼',
-    Electronics: '📱',
-    Documents: '📄',
-    "Kids' Items": '🧸',
-    Miscellaneous: '📦',
-    Today: '📅',
-    'This Week': '📆',
-    Later: '⏰',
-  };
-  return emojiMap[category] || '📝';
-}
