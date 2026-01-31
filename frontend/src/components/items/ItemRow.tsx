@@ -92,38 +92,67 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, showCategory }: ItemR
           aria-label={`Mark ${item.name} as ${item.is_checked ? 'incomplete' : 'complete'}`}
         />
 
-        <button
-          type="button"
-          onClick={onEdit}
-          disabled={!onEdit}
-          className="flex-1 min-w-0 text-left"
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className={clsx(
-                'font-medium truncate',
-                item.is_checked
-                  ? 'text-[var(--color-text-muted)] line-through'
-                  : 'text-[var(--color-text-primary)]'
-              )}
-            >
-              {item.name}
-            </span>
-            {item.quantity > 1 && (
-              <span className="font-mono text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded">
-                ×{item.quantity}
+        {onEdit ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex-1 min-w-0 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={clsx(
+                  'font-medium truncate',
+                  item.is_checked
+                    ? 'text-[var(--color-text-muted)] line-through'
+                    : 'text-[var(--color-text-primary)]'
+                )}
+              >
+                {item.name}
               </span>
+              {item.quantity > 1 && (
+                <span className="font-mono text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded">
+                  ×{item.quantity}
+                </span>
+              )}
+              {hasPending && (
+                <span className="w-2 h-2 rounded-full bg-[var(--color-pending)] animate-pulse" />
+              )}
+            </div>
+            {item.notes && (
+              <p className="text-sm text-[var(--color-text-muted)] truncate mt-0.5">
+                {item.notes}
+              </p>
             )}
-            {hasPending && (
-              <span className="w-2 h-2 rounded-full bg-[var(--color-pending)] animate-pulse" />
+          </button>
+        ) : (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span
+                className={clsx(
+                  'font-medium truncate',
+                  item.is_checked
+                    ? 'text-[var(--color-text-muted)] line-through'
+                    : 'text-[var(--color-text-primary)]'
+                )}
+              >
+                {item.name}
+              </span>
+              {item.quantity > 1 && (
+                <span className="font-mono text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded">
+                  ×{item.quantity}
+                </span>
+              )}
+              {hasPending && (
+                <span className="w-2 h-2 rounded-full bg-[var(--color-pending)] animate-pulse" />
+              )}
+            </div>
+            {item.notes && (
+              <p className="text-sm text-[var(--color-text-muted)] truncate mt-0.5">
+                {item.notes}
+              </p>
             )}
           </div>
-          {item.notes && (
-            <p className="text-sm text-[var(--color-text-muted)] truncate mt-0.5">
-              {item.notes}
-            </p>
-          )}
-        </button>
+        )}
 
         {showCategory && item.category_id && (
           <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-2 py-1 rounded-full">

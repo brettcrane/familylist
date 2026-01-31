@@ -45,6 +45,16 @@ export function EditItemModal({
     }
   }, [item, selectedCategoryId, quantity, notes]);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    if (!item) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [item, onClose]);
+
   const handleSave = () => {
     if (!item || !hasChanges) return;
 
@@ -84,6 +94,9 @@ export function EditItemModal({
 
           {/* Bottom Sheet */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-item-title"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -97,7 +110,7 @@ export function EditItemModal({
 
             {/* Header */}
             <div className="px-5 pb-4 border-b border-[var(--color-text-muted)]/10">
-              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              <h2 id="edit-item-title" className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
                 Edit Item
               </h2>
               <p className="mt-1 text-[var(--color-text-secondary)] font-medium truncate">
