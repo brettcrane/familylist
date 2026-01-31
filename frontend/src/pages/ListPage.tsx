@@ -148,6 +148,11 @@ export function ListPage() {
         onSuccess: () => {
           setEditingItem(null);
         },
+        onError: (error) => {
+          console.error('Failed to update item:', error);
+          // Close modal anyway since optimistic update will be rolled back
+          setEditingItem(null);
+        },
       }
     );
   };

@@ -87,7 +87,42 @@ export function useUpdateItem(listId: string) {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: ItemUpdate }) =>
       api.updateItem(id, data),
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: listKeys.detail(listId) });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<ListWithItems>(
+        listKeys.detail(listId)
+      );
+
+      // Optimistically update the item
+      queryClient.setQueryData<ListWithItems>(
+        listKeys.detail(listId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === id ? { ...item, ...data } : item
+            ),
+          };
+        }
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          listKeys.detail(listId),
+          context.previousData
+        );
+      }
+    },
     onSuccess: (updatedItem: Item) => {
+      // Replace optimistic update with server response
       queryClient.setQueryData<ListWithItems>(
         listKeys.detail(listId),
         (old) => {
