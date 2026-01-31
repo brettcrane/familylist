@@ -14,38 +14,40 @@ from .api import FamilyListsApiError, FamilyListsClient
 _LOGGER = logging.getLogger(__name__)
 
 
-def _get_last_checked_info(items: list[dict[str, Any]]) -> dict[str, Any]:
-    """Extract information about the most recently checked item.
+def _process_items(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Process items in a single pass to extract counts and last checked info.
 
     Returns a dict with:
-    - last_checked_item: name of the item
+    - checked_items: count of checked items
+    - unchecked_items: count of unchecked items
+    - total_items: total count
+    - last_checked_item: name of the most recently checked item
     - last_checked_by: user ID who checked it
     - last_checked_by_name: user display name
     - last_checked_at: timestamp when it was checked
     """
-    # Filter to only checked items with a checked_at timestamp
-    checked_items = [
-        item for item in items
-        if item.get("is_checked") and item.get("checked_at")
-    ]
+    checked = 0
+    most_recent_item: dict[str, Any] | None = None
+    most_recent_ts = ""
 
-    if not checked_items:
-        return {
-            "last_checked_item": None,
-            "last_checked_by": None,
-            "last_checked_by_name": None,
-            "last_checked_at": None,
-        }
+    for item in items:
+        if item.get("is_checked"):
+            checked += 1
+            ts = item.get("checked_at", "")
+            if ts and ts > most_recent_ts:
+                most_recent_item = item
+                most_recent_ts = ts
 
-    # Sort by checked_at descending to get most recent
-    checked_items.sort(key=lambda x: x.get("checked_at", ""), reverse=True)
-    most_recent = checked_items[0]
+    total = len(items)
 
     return {
-        "last_checked_item": most_recent.get("name"),
-        "last_checked_by": most_recent.get("checked_by"),
-        "last_checked_by_name": most_recent.get("checked_by_name"),
-        "last_checked_at": most_recent.get("checked_at"),
+        "total_items": total,
+        "checked_items": checked,
+        "unchecked_items": total - checked,
+        "last_checked_item": most_recent_item.get("name") if most_recent_item else None,
+        "last_checked_by": most_recent_item.get("checked_by") if most_recent_item else None,
+        "last_checked_by_name": most_recent_item.get("checked_by_name") if most_recent_item else None,
+        "last_checked_at": most_recent_item.get("checked_at") if most_recent_item else None,
     }
 
 
@@ -75,27 +77,22 @@ class FamilyListsCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             result: dict[str, Any] = {}
             for lst in lists:
                 list_id = lst["id"]
-                # Fetch items for each list to get counts
+                # Fetch items for each list
                 items = await self.client.get_list_items(list_id)
-                checked = sum(1 for item in items if item.get("is_checked"))
-                unchecked = len(items) - checked
+
+                # Process items in single pass for efficiency
+                item_stats = _process_items(items)
 
                 # Get sharing info from list response
                 share_count = lst.get("share_count", 0)
                 is_shared = lst.get("is_shared", share_count > 0)
 
-                # Get last checked info from items
-                last_checked_info = _get_last_checked_info(items)
-
                 result[list_id] = {
                     **lst,
                     "items": items,
-                    "total_items": len(items),
-                    "checked_items": checked,
-                    "unchecked_items": unchecked,
                     "is_shared": is_shared,
                     "share_count": share_count,
-                    **last_checked_info,
+                    **item_stats,
                 }
             return result
         except FamilyListsApiError as err:

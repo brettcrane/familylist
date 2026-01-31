@@ -38,8 +38,8 @@ export function ListPage() {
   const { isAuthReady } = useAuth();
   const { data: list, isLoading, error } = useList(id!, { enabled: isAuthReady });
 
-  // Connect to SSE for real-time updates
-  useListStream(id!);
+  // Connect to SSE for real-time updates (only when auth is ready)
+  useListStream(id!, { enabled: isAuthReady });
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);

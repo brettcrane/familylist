@@ -1,6 +1,6 @@
 """List service - business logic for list operations."""
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Category, Item, List, ListShare, utc_now
 from app.schemas import ListCreate, ListType, ListUpdate
@@ -132,6 +132,23 @@ def user_can_edit_list(db: Session, user_id: str, list_id: str) -> bool:
 def get_list_by_id(db: Session, list_id: str) -> List | None:
     """Get a list by ID."""
     return db.query(List).filter(List.id == list_id).first()
+
+
+def get_list_with_items(db: Session, list_id: str) -> List | None:
+    """Get a list by ID with items and checked_by_user eagerly loaded.
+
+    This avoids N+1 queries when accessing item.checked_by_user for each item.
+    Use this when you need to serialize items with checked_by_name.
+    """
+    return (
+        db.query(List)
+        .options(
+            joinedload(List.categories),
+            joinedload(List.items).joinedload(Item.checked_by_user),
+        )
+        .filter(List.id == list_id)
+        .first()
+    )
 
 
 def create_list(db: Session, data: ListCreate) -> List:

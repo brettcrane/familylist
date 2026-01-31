@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.auth import AuthResult, get_auth
+from app.auth import AuthResult
 from app.clerk_auth import verify_clerk_token
 from app.config import get_settings
 from app.database import get_db
-from app.dependencies import check_list_access, get_current_user
+from app.dependencies import check_list_access
 from app.models import User
 from app.services import list_service
 from app.services.event_broadcaster import event_broadcaster
@@ -27,42 +27,40 @@ async def get_auth_for_sse(
     """Get authentication for SSE endpoint.
 
     SSE (EventSource) doesn't support custom headers, so we accept
-    the JWT token as a query parameter as a fallback.
+    the JWT token as a query parameter.
 
     Priority:
-    1. Authorization header (if present)
-    2. Query parameter token
-    3. API key header (X-API-Key)
+    1. Query parameter token (primary method for SSE)
+    2. Authorization header (if present, for testing)
+    3. API key disabled mode (allows unauthenticated access)
     """
     settings = get_settings()
 
-    # Check Authorization header first
+    # API key disabled mode - allow unauthenticated access first
+    # This is for home deployments without authentication
+    if settings.api_key == "disabled":
+        return AuthResult(api_key="disabled")
+
+    # Check query parameter token (primary SSE auth method)
+    if token:
+        clerk_user = verify_clerk_token(token)
+        return AuthResult(clerk_user=clerk_user)
+
+    # Check Authorization header (for testing tools that support headers)
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         bearer_token = auth_header[7:]
         clerk_user = verify_clerk_token(bearer_token)
         return AuthResult(clerk_user=clerk_user)
 
-    # Check query parameter token
-    if token:
-        clerk_user = verify_clerk_token(token)
-        return AuthResult(clerk_user=clerk_user)
-
-    # Check API key header
+    # Check API key header as fallback
     api_key = request.headers.get("X-API-Key")
-    if api_key:
-        if settings.api_key == "disabled":
-            return AuthResult(api_key="disabled")
-        if api_key == settings.api_key:
-            return AuthResult(api_key=api_key)
-
-    # API key disabled mode
-    if settings.api_key == "disabled":
-        return AuthResult(api_key="disabled")
+    if api_key and api_key == settings.api_key:
+        return AuthResult(api_key=api_key)
 
     raise HTTPException(
         status_code=401,
-        detail="Authentication required. Provide token query parameter or X-API-Key header.",
+        detail="Authentication required. For SSE connections, provide JWT via 'token' query parameter.",
     )
 
 
@@ -96,7 +94,7 @@ async def stream_list_events(
 
     Authentication:
     - Pass JWT token as `token` query parameter (EventSource doesn't support headers)
-    - Or use X-API-Key header if API key auth is enabled
+    - If API_KEY is set to 'disabled', no authentication required
 
     Example:
         const eventSource = new EventSource(`/api/lists/${listId}/stream?token=${jwt}`);
@@ -113,28 +111,38 @@ async def stream_list_events(
     # Check access permission
     check_list_access(db, list_id, current_user, require_edit=False)
 
-    logger.info(
-        f"SSE connection opened for list {list_id} "
-        f"by user {current_user.id if current_user else 'anonymous'}"
-    )
+    user_id = current_user.id if current_user else "anonymous"
+    logger.info(f"SSE connection opened for list {list_id} by user {user_id}")
 
     async def event_generator():
         """Generate SSE events."""
         # Send initial connection confirmation
         yield f"event: connected\ndata: {{\"list_id\": \"{list_id}\"}}\n\n"
 
-        # Subscribe and stream events
         try:
             async for event in event_broadcaster.subscribe(list_id):
                 # Check if client disconnected
                 if await request.is_disconnected():
-                    logger.info(f"SSE client disconnected for list {list_id}")
+                    logger.info(f"SSE client disconnected for list {list_id}, user {user_id}")
                     break
 
-                # Format as SSE
-                yield f"event: {event.event_type}\ndata: {event.to_sse_data()}\n\n"
+                # Format and yield the event
+                try:
+                    sse_data = event.to_sse_data()
+                    yield f"event: {event.event_type}\ndata: {sse_data}\n\n"
+                except (TypeError, ValueError) as e:
+                    # Serialization error for single event - log and skip
+                    logger.error(
+                        f"SSE event serialization failed: list_id={list_id}, "
+                        f"event_type={event.event_type}, item_id={event.item_id}, error={e}"
+                    )
+                    continue
+
         except Exception as e:
-            logger.error(f"SSE error for list {list_id}: {e}")
+            logger.error(
+                f"SSE stream error: list_id={list_id}, user={user_id}, error={e}",
+                exc_info=True,
+            )
             raise
 
     return StreamingResponse(

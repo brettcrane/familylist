@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.auth import AuthResult, get_auth
+from app.auth import get_auth
 from app.database import get_db
 from app.dependencies import check_list_access, get_current_user
 from app.models import User
@@ -14,6 +14,7 @@ from app.schemas import (
     ListUpdate,
     ListWithItemsResponse,
 )
+from app.serializers import item_to_response
 from app.services import list_service
 
 router = APIRouter(prefix="/lists", tags=["lists"], dependencies=[Depends(get_auth)])
@@ -90,7 +91,8 @@ def get_list(
     db: Session = Depends(get_db),
 ):
     """Get a list with its categories and items."""
-    list_obj = list_service.get_list_by_id(db, list_id)
+    # Use eager loading to avoid N+1 queries for checked_by_user
+    list_obj = list_service.get_list_with_items(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
@@ -101,25 +103,8 @@ def get_list(
     stats = list_service.get_list_stats(db, list_id)
     share_count = list_service.get_list_share_count(db, list_id)
 
-    # Build item responses with checked_by_name
-    items_with_user = []
-    for item in list_obj.items:
-        item_dict = {
-            "id": item.id,
-            "list_id": item.list_id,
-            "name": item.name,
-            "quantity": item.quantity,
-            "notes": item.notes,
-            "category_id": item.category_id,
-            "is_checked": item.is_checked,
-            "checked_by": item.checked_by,
-            "checked_by_name": item.checked_by_user.display_name if item.checked_by_user else None,
-            "checked_at": item.checked_at,
-            "sort_order": item.sort_order,
-            "created_at": item.created_at or "",
-            "updated_at": item.updated_at or "",
-        }
-        items_with_user.append(item_dict)
+    # Build item responses with checked_by_name using shared serializer
+    items_with_user = [item_to_response(item) for item in list_obj.items]
 
     return ListWithItemsResponse(
         id=list_obj.id,

@@ -1,6 +1,6 @@
 """Item API endpoints."""
 
-import asyncio
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -16,48 +16,34 @@ from app.schemas import (
     ItemResponse,
     ItemUpdate,
 )
+from app.serializers import item_to_response
 from app.services import item_service, list_service
 from app.services.event_broadcaster import ListEvent, event_broadcaster
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["items"], dependencies=[Depends(get_auth)])
 
 
-def item_to_response(item) -> dict:
-    """Convert an Item model to a response dict with checked_by_name."""
-    return {
-        "id": item.id,
-        "list_id": item.list_id,
-        "name": item.name,
-        "quantity": item.quantity,
-        "notes": item.notes,
-        "category_id": item.category_id,
-        "is_checked": item.is_checked,
-        "checked_by": item.checked_by,
-        "checked_by_name": item.checked_by_user.display_name if item.checked_by_user else None,
-        "checked_at": item.checked_at,
-        "sort_order": item.sort_order,
-        "created_at": item.created_at or "",
-        "updated_at": item.updated_at or "",
-    }
+async def publish_event_async(event: ListEvent) -> None:
+    """Publish an event to the broadcaster asynchronously.
 
-
-def publish_event(event: ListEvent) -> None:
-    """Publish an event to the broadcaster.
-
-    This runs the async publish in a new event loop since we're
-    calling from sync endpoints.
+    This function is designed to be used with BackgroundTasks.add_task().
+    Properly handles and logs any errors during event publishing.
     """
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If there's a running loop, create a task
-            asyncio.create_task(event_broadcaster.publish(event))
-        else:
-            # No running loop, run synchronously
-            loop.run_until_complete(event_broadcaster.publish(event))
-    except RuntimeError:
-        # No event loop exists, create one
-        asyncio.run(event_broadcaster.publish(event))
+        await event_broadcaster.publish(event)
+        logger.debug(
+            f"Successfully published {event.event_type} event for list {event.list_id}"
+        )
+    except Exception as e:
+        # Log the error but don't re-raise - event publishing failures
+        # should not affect the main request
+        logger.error(
+            f"Failed to publish event: event_type={event.event_type}, "
+            f"list_id={event.list_id}, item_id={event.item_id}, error={e}",
+            exc_info=True,
+        )
 
 
 @router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
@@ -101,7 +87,7 @@ def create_items(
     # Publish events for created items
     for item in items:
         background_tasks.add_task(
-            publish_event,
+            publish_event_async,
             ListEvent(
                 event_type="item_created",
                 list_id=list_id,
@@ -155,7 +141,7 @@ def delete_item(
 
     # Publish delete event
     background_tasks.add_task(
-        publish_event,
+        publish_event_async,
         ListEvent(
             event_type="item_deleted",
             list_id=list_id,
@@ -188,7 +174,7 @@ def check_item(
 
     # Publish check event
     background_tasks.add_task(
-        publish_event,
+        publish_event_async,
         ListEvent(
             event_type="item_checked",
             list_id=item.list_id,
@@ -220,7 +206,7 @@ def uncheck_item(
 
     # Publish uncheck event
     background_tasks.add_task(
-        publish_event,
+        publish_event_async,
         ListEvent(
             event_type="item_unchecked",
             list_id=item.list_id,
@@ -252,7 +238,7 @@ def clear_checked_items(
 
     # Publish clear event
     background_tasks.add_task(
-        publish_event,
+        publish_event_async,
         ListEvent(
             event_type="items_cleared",
             list_id=list_id,
@@ -282,7 +268,7 @@ def restore_checked_items(
 
     # Publish restore event
     background_tasks.add_task(
-        publish_event,
+        publish_event_async,
         ListEvent(
             event_type="items_restored",
             list_id=list_id,
