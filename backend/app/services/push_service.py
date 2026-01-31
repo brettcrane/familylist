@@ -129,7 +129,12 @@ def update_notification_preferences(
 
 
 def is_quiet_hours(prefs: NotificationPreferences | None) -> bool:
-    """Check if current time is within quiet hours."""
+    """Check if current time is within quiet hours.
+
+    Note: Quiet hours are compared against UTC time. Users should set their
+    quiet hours adjusted for UTC (e.g., if you want quiet from 10pm-7am EST,
+    set 03:00-12:00 UTC). Future improvement: store user timezone preference.
+    """
     if not prefs or not prefs.quiet_start or not prefs.quiet_end:
         return False
 

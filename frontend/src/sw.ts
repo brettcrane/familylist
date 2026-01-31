@@ -30,8 +30,19 @@ interface PushPayload {
 }
 
 self.addEventListener('push', (event: PushEvent) => {
+  // Fallback notification for when data is missing or malformed
+  const showFallbackNotification = () => {
+    return self.registration.showNotification('FamilyList', {
+      body: 'A list was updated',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/badge-72.png',
+      tag: 'familylist-fallback',
+    });
+  };
+
   if (!event.data) {
     console.log('Push event received but no data');
+    event.waitUntil(showFallbackNotification());
     return;
   }
 
@@ -40,6 +51,7 @@ self.addEventListener('push', (event: PushEvent) => {
     payload = event.data.json() as PushPayload;
   } catch (e) {
     console.error('Failed to parse push data:', e);
+    event.waitUntil(showFallbackNotification());
     return;
   }
 

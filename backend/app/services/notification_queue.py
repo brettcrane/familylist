@@ -179,27 +179,34 @@ class NotificationQueue:
         title, body = self._format_notification(batch)
 
         # Check user preferences and send
-        with get_db_context() as db:
-            prefs = push_service.get_notification_preferences(db, user_id)
+        try:
+            with get_db_context() as db:
+                prefs = push_service.get_notification_preferences(db, user_id)
 
-            # Check if notifications are disabled
-            if prefs and prefs.list_updates == "off":
-                logger.debug(f"User {user_id} has list updates disabled, skipping")
-                return
+                # Check if notifications are disabled
+                if prefs and prefs.list_updates == "off":
+                    logger.debug(f"User {user_id} has list updates disabled, skipping")
+                    return
 
-            # Check quiet hours
-            if push_service.is_quiet_hours(prefs):
-                logger.debug(f"User {user_id} is in quiet hours, skipping")
-                return
+                # Check quiet hours
+                if push_service.is_quiet_hours(prefs):
+                    logger.debug(f"User {user_id} is in quiet hours, skipping")
+                    return
 
-            # Send the notification
-            push_service.send_push_notification(
-                db=db,
-                user_id=user_id,
-                title=title,
-                body=body,
-                data={"list_id": list_id},
-                tag=f"list-{list_id}",
+                # Send the notification
+                push_service.send_push_notification(
+                    db=db,
+                    user_id=user_id,
+                    title=title,
+                    body=body,
+                    data={"list_id": list_id},
+                    tag=f"list-{list_id}",
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to send push notification batch to user {user_id} "
+                f"for list {batch.list_id}: {type(e).__name__}: {e}",
+                exc_info=True,
             )
 
     def _format_notification(self, batch: BatchState) -> tuple[str, str]:

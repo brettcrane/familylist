@@ -2,7 +2,7 @@
  * Push notification API functions.
  */
 
-import { get, post, del, put } from './client';
+import { get, post, put, apiRequest } from './client';
 
 export interface VapidPublicKeyResponse {
   public_key: string;
@@ -51,7 +51,10 @@ export function subscribePush(subscription: PushSubscriptionJSON): Promise<PushS
  * Unsubscribe from push notifications.
  */
 export function unsubscribePush(endpoint: string): Promise<void> {
-  return del<void>('/push/unsubscribe');
+  return apiRequest<void>('/push/unsubscribe', {
+    method: 'DELETE',
+    body: { endpoint },
+  });
 }
 
 /**

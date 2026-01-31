@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class ListType(str, Enum):
@@ -364,6 +364,32 @@ class PushSubscriptionCreate(BaseModel):
 
     endpoint: str = Field(..., description="Push service endpoint URL")
     keys: PushSubscriptionKeys
+
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint_url(cls, v: str) -> str:
+        """Validate that endpoint is a valid HTTPS push service URL."""
+        if not v.startswith("https://"):
+            raise ValueError("Push endpoint must use HTTPS")
+        # Allow known push service domains
+        allowed_domains = [
+            "push.services.mozilla.com",
+            "fcm.googleapis.com",
+            "updates.push.services.mozilla.com",
+            "android.googleapis.com",
+            "notify.windows.com",
+            "wns.windows.com",
+            "web.push.apple.com",
+        ]
+        from urllib.parse import urlparse
+
+        parsed = urlparse(v)
+        hostname = parsed.hostname or ""
+        if not any(hostname.endswith(domain) for domain in allowed_domains):
+            raise ValueError(
+                f"Push endpoint must be from a known push service provider"
+            )
+        return v
 
 
 class PushSubscriptionDelete(BaseModel):

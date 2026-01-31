@@ -146,6 +146,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
         setPreferences(prefs);
       } catch (err) {
         console.error('Failed to load notification preferences:', err);
+        setError('Failed to load notification settings');
       }
     };
 
@@ -247,8 +248,10 @@ export function usePushNotifications(): UsePushNotificationsResult {
         const prefs = await getNotificationPreferences();
         setPreferences(prefs);
       }
+      setError(null);
     } catch (err) {
       console.error('Failed to refresh push status:', err);
+      setError('Failed to refresh notification status');
     }
   }, [isSupported, isEnabled, isAuthenticated]);
 
