@@ -111,7 +111,7 @@ export async function apiRequest<T>(
     let errorData: ErrorResponse | undefined;
     try {
       errorData = await response.json();
-    } catch (parseError) {
+    } catch {
       // Response may not be JSON (e.g., HTML error page from proxy)
       const contentType = response.headers.get('content-type');
       console.warn('Could not parse error response as JSON:', {

@@ -40,6 +40,7 @@ export function NLParseModal({
 
   // Reset state when items change (new modal open)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: sync derived state from props
     setEditableItems(items.map((item) => ({ ...item, selected: true })));
     setEditingCategory(null);
     originalCategories.current = new Map(items.map((item) => [item.name, item.category]));
@@ -81,7 +82,8 @@ export function NLParseModal({
   const handleConfirm = () => {
     const selectedItems = editableItems
       .filter((item) => item.selected)
-      .map(({ selected: _, ...item }) => item);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Destructuring to exclude 'selected'
+      .map(({ selected, ...item }) => item);
     onConfirm(selectedItems);
   };
 

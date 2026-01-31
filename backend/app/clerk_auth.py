@@ -3,20 +3,22 @@
 This module handles JWT verification for Clerk authentication, including:
 - JWKS (JSON Web Key Set) fetching with caching
 - RS256 signature verification
-- Token claim validation (issuer, expiration, authorized parties)
+- Token claim validation (issuer, expiration, not-before, authorized parties)
+- JWT v2 format verification (Clerk deprecated v1 in April 2025)
 
 Security Notes:
 - Uses RS256 algorithm only to prevent algorithm confusion attacks
 - Validates issuer claim against configured CLERK_JWT_ISSUER
-- Validates exp/iat to prevent expired or future-dated tokens
-- Optionally validates azp (authorized party) to prevent cross-app token replay
+- Validates exp/iat/nbf to prevent expired, future-dated, or premature tokens
+- Validates azp (authorized party) to prevent CSRF/subdomain cookie attacks
+- Applies 5-second clock skew tolerance per Clerk recommendations
 - JWKS is cached for 6 hours with stale fallback on fetch failure
 """
 
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import jwt
@@ -152,7 +154,7 @@ def _get_signing_key(token: str) -> Any:
 
     except jwt.exceptions.DecodeError as e:
         logger.error(f"Failed to decode token header: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token format")
+        raise HTTPException(status_code=401, detail="Invalid token format") from None
 
 
 def verify_clerk_token(token: str) -> ClerkUser:
@@ -161,8 +163,10 @@ def verify_clerk_token(token: str) -> ClerkUser:
     Performs full JWT verification including:
     - RS256 signature verification using Clerk's JWKS
     - Issuer validation against CLERK_JWT_ISSUER
-    - Expiration (exp) and issued-at (iat) validation
-    - Optional authorized party (azp) validation
+    - Expiration (exp), issued-at (iat), and not-before (nbf) validation
+    - Authorized party (azp) validation when CLERK_AUTHORIZED_PARTIES configured
+    - JWT v2 format verification (rejects explicit non-v2 tokens)
+    - 5-second clock skew tolerance
 
     Args:
         token: The JWT token (without 'Bearer ' prefix)
@@ -188,24 +192,44 @@ def verify_clerk_token(token: str) -> ClerkUser:
             "verify_signature": True,
             "verify_exp": True,
             "verify_iat": True,
+            "verify_nbf": True,
             "require": ["exp", "iat", "sub"],
         }
 
         # Decode and verify
+        # leeway=5 provides 5 seconds of clock skew tolerance (Clerk recommendation)
         payload = jwt.decode(
             token,
             signing_key,
             algorithms=["RS256"],
             issuer=settings.clerk_jwt_issuer,
             options=options,
+            leeway=5,
         )
 
-        # Verify authorized parties (azp claim) if configured
+        # Verify authorized parties (azp claim) - protects against CSRF/subdomain attacks
+        azp = payload.get("azp")
         if settings.clerk_authorized_parties:
-            azp = payload.get("azp")
             if azp and azp not in settings.clerk_authorized_parties:
                 logger.warning(f"Token azp '{azp}' not in authorized parties")
                 raise HTTPException(status_code=401, detail="Token not authorized for this application")
+        elif azp:
+            # azp exists but no authorized parties configured - log security warning
+            # Include azp value for debugging and monitoring
+            logger.warning(
+                "SECURITY: Token has azp claim but CLERK_AUTHORIZED_PARTIES not configured. "
+                "Configure this setting to prevent CSRF attacks in production. "
+                f"(azp={azp})"
+            )
+
+        # Verify JWT v2 format (Clerk deprecated v1 in April 2025)
+        # Note: Tokens without a "v" claim are allowed for backwards compatibility.
+        # Clerk v2 tokens include v=2; older tokens may lack this claim entirely.
+        # We only reject tokens with an explicit non-v2 version.
+        token_version = payload.get("v")
+        if token_version is not None and token_version != 2:
+            logger.warning(f"Unexpected JWT version: {token_version}, expected v2")
+            raise HTTPException(status_code=401, detail="Unsupported token version")
 
         # Extract user info from claims
         clerk_user_id = payload.get("sub")
@@ -233,13 +257,13 @@ def verify_clerk_token(token: str) -> ClerkUser:
 
     except jwt.ExpiredSignatureError:
         logger.info("Token expired for request")
-        raise HTTPException(status_code=401, detail="Token has expired")
+        raise HTTPException(status_code=401, detail="Token has expired") from None
     except jwt.InvalidIssuerError as e:
         logger.warning(f"Invalid token issuer: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token issuer")
+        raise HTTPException(status_code=401, detail="Invalid token issuer") from None
     except jwt.InvalidTokenError as e:
         logger.error(f"JWT validation failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid token") from None
 
 
 def extract_bearer_token(request: Request) -> str | None:

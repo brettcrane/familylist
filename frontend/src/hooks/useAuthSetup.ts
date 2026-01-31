@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { setTokenGetter, clearTokenGetter } from '../api/client';
 
+const DEBUG_AUTH = import.meta.env.DEV;
+
 /**
  * Hook to connect Clerk authentication to the API client.
  * Call this once in the app root to set up token injection.
@@ -14,7 +16,9 @@ export function useAuthSetup(): { isAuthReady: boolean } {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    console.log('[useAuthSetup] isLoaded:', isLoaded, 'isSignedIn:', isSignedIn);
+    if (DEBUG_AUTH) {
+      console.log('[useAuthSetup] isLoaded:', isLoaded, 'isSignedIn:', isSignedIn);
+    }
 
     // Wait for Clerk to finish loading before checking auth state
     // This prevents race conditions where isSignedIn is undefined during loading
@@ -24,18 +28,30 @@ export function useAuthSetup(): { isAuthReady: boolean } {
 
     if (isSignedIn) {
       // Set up token getter for API requests
-      // Wrap getToken with logging to debug token issues
       const wrappedGetToken = async () => {
-        const token = await getToken();
-        console.log('[useAuthSetup] getToken result:', token ? `${token.slice(0, 20)}...` : null);
-        return token;
+        try {
+          const token = await getToken();
+          if (DEBUG_AUTH) {
+            console.log('[useAuthSetup] getToken result:', token ? `${token.slice(0, 20)}...` : null);
+          }
+          // Log anomalous state: signed in but no token (even in production)
+          if (!token) {
+            console.warn('[useAuthSetup] User signed in but getToken returned null');
+          }
+          return token;
+        } catch (error) {
+          // Always log token retrieval errors for debugging auth issues
+          console.error('[useAuthSetup] getToken failed:', error);
+          throw error;
+        }
       };
       setTokenGetter(wrappedGetToken);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: mark ready after external system setup
       setIsAuthReady(true);
     } else {
       // Clear token getter when signed out
       clearTokenGetter();
-      // Still mark as ready - queries will work in API key mode
+      // Mark ready (queries will work in API key mode)
       setIsAuthReady(true);
     }
 
