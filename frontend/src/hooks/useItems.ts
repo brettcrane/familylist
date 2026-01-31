@@ -1,7 +1,29 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api';
-import type { Item, ItemCreate, ItemUpdate, ItemCheckRequest, ListWithItems } from '../types/api';
+import type { Item, ItemCreate, ItemUpdate, ItemCheckRequest, ListWithItems, List } from '../types/api';
 import { listKeys } from './useLists';
+
+/**
+ * Helper to update item counts in the lists cache
+ */
+function updateListCounts(
+  queryClient: ReturnType<typeof useQueryClient>,
+  listId: string,
+  countDelta: { items?: number; checked?: number }
+) {
+  queryClient.setQueryData<List[]>(listKeys.lists(), (oldLists) => {
+    if (!oldLists) return oldLists;
+    return oldLists.map((list) =>
+      list.id === listId
+        ? {
+            ...list,
+            item_count: list.item_count + (countDelta.items ?? 0),
+            checked_count: list.checked_count + (countDelta.checked ?? 0),
+          }
+        : list
+    );
+  });
+}
 
 /**
  * Hook to create a new item
@@ -25,6 +47,8 @@ export function useCreateItem(listId: string) {
           };
         }
       );
+      // Update counts in lists cache
+      updateListCounts(queryClient, listId, { items: 1 });
     },
   });
 }
@@ -48,6 +72,8 @@ export function useCreateItems(listId: string) {
           };
         }
       );
+      // Update counts in lists cache
+      updateListCounts(queryClient, listId, { items: newItems.length });
     },
   });
 }
@@ -95,6 +121,10 @@ export function useDeleteItem(listId: string) {
         listKeys.detail(listId)
       );
 
+      // Find if the item was checked (for count updates)
+      const deletedItem = previousData?.items.find((item) => item.id === id);
+      const wasChecked = deletedItem?.is_checked ?? false;
+
       // Optimistically remove the item
       queryClient.setQueryData<ListWithItems>(
         listKeys.detail(listId),
@@ -107,7 +137,13 @@ export function useDeleteItem(listId: string) {
         }
       );
 
-      return { previousData };
+      // Update counts in lists cache
+      updateListCounts(queryClient, listId, {
+        items: -1,
+        checked: wasChecked ? -1 : 0,
+      });
+
+      return { previousData, wasChecked };
     },
     onError: (_err, _id, context) => {
       // Rollback on error
@@ -116,6 +152,11 @@ export function useDeleteItem(listId: string) {
           listKeys.detail(listId),
           context.previousData
         );
+        // Rollback list counts
+        updateListCounts(queryClient, listId, {
+          items: 1,
+          checked: context.wasChecked ? 1 : 0,
+        });
       }
     },
   });
@@ -157,6 +198,9 @@ export function useCheckItem(listId: string) {
         }
       );
 
+      // Update checked count in lists cache
+      updateListCounts(queryClient, listId, { checked: 1 });
+
       return { previousData };
     },
     onError: (_err, _vars, context) => {
@@ -165,6 +209,8 @@ export function useCheckItem(listId: string) {
           listKeys.detail(listId),
           context.previousData
         );
+        // Rollback list counts
+        updateListCounts(queryClient, listId, { checked: -1 });
       }
     },
     onSuccess: (updatedItem: Item) => {
@@ -220,6 +266,9 @@ export function useUncheckItem(listId: string) {
         }
       );
 
+      // Update checked count in lists cache
+      updateListCounts(queryClient, listId, { checked: -1 });
+
       return { previousData };
     },
     onError: (_err, _id, context) => {
@@ -228,6 +277,8 @@ export function useUncheckItem(listId: string) {
           listKeys.detail(listId),
           context.previousData
         );
+        // Rollback list counts
+        updateListCounts(queryClient, listId, { checked: 1 });
       }
     },
     onSuccess: (updatedItem: Item) => {
@@ -256,6 +307,12 @@ export function useClearCompleted(listId: string) {
   return useMutation({
     mutationFn: () => api.clearCompleted(listId),
     onSuccess: () => {
+      // Get current data to count cleared items
+      const currentData = queryClient.getQueryData<ListWithItems>(
+        listKeys.detail(listId)
+      );
+      const clearedCount = currentData?.items.filter((item) => item.is_checked).length ?? 0;
+
       queryClient.setQueryData<ListWithItems>(
         listKeys.detail(listId),
         (old) => {
@@ -266,6 +323,12 @@ export function useClearCompleted(listId: string) {
           };
         }
       );
+
+      // Update counts in lists cache
+      updateListCounts(queryClient, listId, {
+        items: -clearedCount,
+        checked: -clearedCount,
+      });
     },
   });
 }

@@ -83,59 +83,59 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
             />
           )}
 
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={list.color ? {
-                  backgroundColor: `${list.color}20`,
-                  color: list.color,
-                } : undefined}
-              >
-                {list.icon ? (
-                  <span className="text-xl">{list.icon}</span>
-                ) : (
-                  <div className={clsx(
-                    'w-full h-full rounded-xl flex items-center justify-center',
-                    !list.color && 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-                  )}>
-                    <ListTypeIcon type={list.type} className="w-5 h-5" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-[var(--color-text-primary)] truncate">
-                  {list.name}
-                </h3>
-                {/* Inline progress row - bar first for consistent alignment */}
-                <div className="flex items-center gap-2 mt-0.5">
-                  {/* Fixed-width progress bar container */}
-                  <div className="w-16 h-1.5 bg-[var(--color-bg-secondary)] rounded-full overflow-hidden flex-shrink-0">
-                    {itemCount > 0 && (
-                      <motion.div
-                        className="h-full rounded-full"
-                        style={{
-                          backgroundColor: list.color || 'var(--color-checked)'
-                        }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(checkedCount / itemCount) * 100}%` }}
-                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                      />
-                    )}
-                  </div>
-                  <span className="text-sm text-[var(--color-text-muted)] whitespace-nowrap tabular-nums">
-                    {itemCount === 0 ? (
-                      'No items'
-                    ) : (
-                      <>{checkedCount} of {itemCount}</>
-                    )}
-                  </span>
+          {/* Header row: Icon + Name */}
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={list.color ? {
+                backgroundColor: `${list.color}20`,
+                color: list.color,
+              } : undefined}
+            >
+              {list.icon ? (
+                <span className="text-xl">{list.icon}</span>
+              ) : (
+                <div className={clsx(
+                  'w-full h-full rounded-xl flex items-center justify-center',
+                  !list.color && 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                )}>
+                  <ListTypeIcon type={list.type} className="w-5 h-5" />
                 </div>
-              </div>
+              )}
             </div>
+            <h3 className="font-semibold text-[var(--color-text-primary)] truncate min-w-0 flex-1">
+              {list.name}
+            </h3>
           </div>
 
-          <div className="mt-3 flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+          {/* Progress row: Bar (~2/3) + Count (right-aligned) */}
+          <div className="mt-3 flex items-center gap-3">
+            {/* Progress bar - takes ~2/3 of space */}
+            <div className="flex-[2] h-1.5 bg-[var(--color-bg-secondary)] rounded-full overflow-hidden">
+              {itemCount > 0 && (
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{
+                    backgroundColor: list.color || 'var(--color-checked)'
+                  }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(checkedCount / itemCount) * 100}%` }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                />
+              )}
+            </div>
+            {/* Count - right-aligned, fixed min-width for "1000 of 1000" */}
+            <span className="flex-1 text-sm text-[var(--color-text-muted)] text-right whitespace-nowrap tabular-nums">
+              {itemCount === 0 ? (
+                'No items'
+              ) : (
+                <>{checkedCount} of {itemCount}</>
+              )}
+            </span>
+          </div>
+
+          {/* Footer row: Type/shared + Timestamp */}
+          <div className="mt-2 flex items-center justify-between text-sm text-[var(--color-text-muted)]">
             <div className="flex items-center gap-2">
               <span className="capitalize">{list.type}</span>
               {shareCount > 0 && (
