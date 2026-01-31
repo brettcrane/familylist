@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
-import { ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { getCategoryEmoji } from '../icons/CategoryIcons';
+import { useCreateCategory } from '../../hooks/useCategories';
 import type { Item, Category, ItemUpdate } from '../../types/api';
 
 interface EditItemModalProps {
   item: Item | null;
+  listId: string;
   categories: Category[];
   onSave: (itemId: string, data: ItemUpdate) => void;
   onClose: () => void;
@@ -16,6 +18,7 @@ interface EditItemModalProps {
 
 export function EditItemModal({
   item,
+  listId,
   categories,
   onSave,
   onClose,
@@ -26,7 +29,12 @@ export function EditItemModal({
   const [notes, setNotes] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const newCategoryInputRef = useRef<HTMLInputElement>(null);
+
+  const createCategory = useCreateCategory(listId);
 
   // Reset state when item changes
   useEffect(() => {
@@ -36,8 +44,17 @@ export function EditItemModal({
       setNotes(item.notes || '');
       setHasChanges(false);
       setCategoryDropdownOpen(false);
+      setIsCreatingCategory(false);
+      setNewCategoryName('');
     }
   }, [item]);
+
+  // Focus new category input when creating
+  useEffect(() => {
+    if (isCreatingCategory && newCategoryInputRef.current) {
+      newCategoryInputRef.current.focus();
+    }
+  }, [isCreatingCategory]);
 
   // Track changes
   useEffect(() => {
@@ -105,6 +122,22 @@ export function EditItemModal({
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(99, prev + delta)));
+  };
+
+  const handleCreateCategory = async () => {
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) return;
+
+    try {
+      const newCategory = await createCategory.mutateAsync({ name: trimmedName });
+      setSelectedCategoryId(newCategory.id);
+      setIsCreatingCategory(false);
+      setNewCategoryName('');
+      setCategoryDropdownOpen(false);
+    } catch (err) {
+      console.error('Failed to create category:', err);
+      // Error will show in the UI via createCategory.error
+    }
   };
 
   // Sort categories, putting "Uncategorized" option first
@@ -254,6 +287,69 @@ export function EditItemModal({
                               )}
                             </button>
                           ))}
+
+                          {/* Divider */}
+                          <div className="h-px bg-[var(--color-text-muted)]/10 my-1" />
+
+                          {/* Create new category */}
+                          {isCreatingCategory ? (
+                            <div className="p-2">
+                              <div className="flex gap-2">
+                                <input
+                                  ref={newCategoryInputRef}
+                                  type="text"
+                                  value={newCategoryName}
+                                  onChange={(e) => setNewCategoryName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleCreateCategory();
+                                    } else if (e.key === 'Escape') {
+                                      setIsCreatingCategory(false);
+                                      setNewCategoryName('');
+                                    }
+                                  }}
+                                  placeholder="Category name..."
+                                  className={clsx(
+                                    'flex-1 px-3 py-2 text-sm rounded-lg',
+                                    'bg-[var(--color-bg-secondary)] border border-[var(--color-text-muted)]/20',
+                                    'text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]',
+                                    'focus:outline-none focus:border-[var(--color-accent)]'
+                                  )}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleCreateCategory}
+                                  disabled={!newCategoryName.trim() || createCategory.isPending}
+                                  className={clsx(
+                                    'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                                    'bg-[var(--color-accent)] text-white',
+                                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                                  )}
+                                >
+                                  {createCategory.isPending ? '...' : 'Add'}
+                                </button>
+                              </div>
+                              {createCategory.isError && (
+                                <p className="mt-1 text-xs text-[var(--color-destructive)]">
+                                  {(createCategory.error as Error)?.message || 'Failed to create category'}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setIsCreatingCategory(true)}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center gap-2',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                'text-[var(--color-accent)]'
+                              )}
+                            >
+                              <PlusIcon className="w-5 h-5" />
+                              <span className="text-sm font-medium">Add new category</span>
+                            </button>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>

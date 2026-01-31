@@ -40,7 +40,9 @@ export function EditListModal() {
   const [color, setColor] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [iconDropdownOpen, setIconDropdownOpen] = useState(false);
   const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
+  const iconDropdownRef = useRef<HTMLDivElement>(null);
   const colorDropdownRef = useRef<HTMLDivElement>(null);
 
   // Sync form with list data when modal opens
@@ -50,23 +52,27 @@ export function EditListModal() {
       setIcon(list.icon);
       setColor(list.color);
       setError('');
+      setIconDropdownOpen(false);
       setColorDropdownOpen(false);
     }
   }, [open, list]);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
-    if (!colorDropdownOpen) return;
+    if (!iconDropdownOpen && !colorDropdownOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (colorDropdownRef.current && !colorDropdownRef.current.contains(e.target as Node)) {
+      if (iconDropdownOpen && iconDropdownRef.current && !iconDropdownRef.current.contains(e.target as Node)) {
+        setIconDropdownOpen(false);
+      }
+      if (colorDropdownOpen && colorDropdownRef.current && !colorDropdownRef.current.contains(e.target as Node)) {
         setColorDropdownOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [colorDropdownOpen]);
+  }, [iconDropdownOpen, colorDropdownOpen]);
 
   const handleClose = () => {
     closeModal();
@@ -74,6 +80,7 @@ export function EditListModal() {
     setIcon(null);
     setColor(null);
     setError('');
+    setIconDropdownOpen(false);
     setColorDropdownOpen(false);
   };
 
@@ -198,41 +205,119 @@ export function EditListModal() {
                   />
                 </div>
 
-                {/* Icon and Color row - compact side by side */}
-                <div className="flex gap-4 mb-4">
-                  {/* Icon selection - compact grid */}
-                  <div className="flex-1">
+                {/* Icon and Color row - compact dropdowns side by side */}
+                <div className="flex gap-3 mb-4">
+                  {/* Icon dropdown */}
+                  <div className="flex-1" ref={iconDropdownRef}>
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
                       Icon
                     </label>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {ICON_OPTIONS.map((iconOption) => (
-                        <button
-                          key={iconOption}
-                          type="button"
-                          onClick={() => setIcon(icon === iconOption ? null : iconOption)}
-                          className={clsx(
-                            'aspect-square flex items-center justify-center text-lg rounded-lg border-2 transition-all',
-                            icon === iconOption
-                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                              : 'border-[var(--color-text-muted)]/20 hover:border-[var(--color-text-muted)]/40'
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIconDropdownOpen(!iconDropdownOpen);
+                          setColorDropdownOpen(false);
+                        }}
+                        aria-expanded={iconDropdownOpen}
+                        aria-haspopup="listbox"
+                        aria-label="Select icon"
+                        className={clsx(
+                          'w-full h-10 px-3 rounded-xl border-2 transition-all',
+                          'flex items-center justify-between gap-2',
+                          'bg-[var(--color-bg-secondary)]',
+                          iconDropdownOpen
+                            ? 'border-[var(--color-accent)]'
+                            : 'border-[var(--color-text-muted)]/20 hover:border-[var(--color-text-muted)]/40'
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          {icon ? (
+                            <span className="text-xl">{icon}</span>
+                          ) : (
+                            <span className="text-sm text-[var(--color-text-muted)]">None</span>
                           )}
-                        >
-                          {iconOption}
-                        </button>
-                      ))}
+                        </div>
+                        <ChevronDownIcon className={clsx(
+                          'w-4 h-4 text-[var(--color-text-muted)] transition-transform',
+                          iconDropdownOpen && 'rotate-180'
+                        )} />
+                      </button>
+
+                      {/* Icon dropdown menu */}
+                      <AnimatePresence>
+                        {iconDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            role="listbox"
+                            aria-label="Icon options"
+                            className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden"
+                          >
+                            {/* None option */}
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={icon === null}
+                              onClick={() => {
+                                setIcon(null);
+                                setIconDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                icon === null && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <span className="text-sm text-[var(--color-text-secondary)]">None</span>
+                              {icon === null && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+
+                            {/* Icon grid inside dropdown */}
+                            <div className="grid grid-cols-4 gap-1 p-2 border-t border-[var(--color-text-muted)]/10">
+                              {ICON_OPTIONS.map((iconOption) => (
+                                <button
+                                  key={iconOption}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={icon === iconOption}
+                                  onClick={() => {
+                                    setIcon(iconOption);
+                                    setIconDropdownOpen(false);
+                                  }}
+                                  className={clsx(
+                                    'aspect-square flex items-center justify-center text-xl rounded-lg transition-all',
+                                    icon === iconOption
+                                      ? 'bg-[var(--color-accent)]/10 ring-2 ring-[var(--color-accent)]'
+                                      : 'hover:bg-[var(--color-bg-secondary)]'
+                                  )}
+                                >
+                                  {iconOption}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 
                   {/* Color dropdown */}
-                  <div className="w-28" ref={colorDropdownRef}>
+                  <div className="flex-1" ref={colorDropdownRef}>
                     <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
                       Color
                     </label>
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() => setColorDropdownOpen(!colorDropdownOpen)}
+                        onClick={() => {
+                          setColorDropdownOpen(!colorDropdownOpen);
+                          setIconDropdownOpen(false);
+                        }}
                         aria-expanded={colorDropdownOpen}
                         aria-haspopup="listbox"
                         aria-label="Select color"

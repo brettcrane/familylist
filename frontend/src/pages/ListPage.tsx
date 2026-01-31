@@ -478,6 +478,7 @@ export function ListPage() {
       {/* Item edit modal */}
       <EditItemModal
         item={editingItem}
+        listId={id!}
         categories={list.categories}
         onSave={handleSaveItem}
         onClose={() => setEditingItem(null)}

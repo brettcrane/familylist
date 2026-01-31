@@ -211,6 +211,7 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, onNameChange, showCat
         </div>
 
         {/* Edit button (pencil icon) for modal - min 44px tap target for mobile accessibility */}
+        {/* Touch events stop propagation to prevent swipe gesture interference */}
         {onEdit && !isEditing && (
           <button
             type="button"
@@ -218,8 +219,11 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, onNameChange, showCat
               e.stopPropagation();
               onEdit();
             }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
             className={clsx(
-              'w-11 h-11 -mr-2 rounded-xl flex-shrink-0',
+              'w-12 h-12 -mr-3 rounded-xl flex-shrink-0',
               'flex items-center justify-center',
               'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]',
               'hover:bg-[var(--color-bg-secondary)] active:bg-[var(--color-bg-secondary)]',
