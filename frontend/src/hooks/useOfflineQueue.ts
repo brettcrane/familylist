@@ -183,6 +183,7 @@ export function useOfflineSync() {
     }
   }, [syncPaused, pendingMutations.length, syncMutations]);
 
+  /* eslint-disable react-hooks/refs -- isSyncing.current is intentional: snapshot for status display */
   return {
     pendingCount: pendingMutations.length,
     isSyncing: isSyncing.current,
@@ -190,6 +191,7 @@ export function useOfflineSync() {
     syncNow: syncMutations,
     resumeSync: () => setSyncPaused(false),
   };
+  /* eslint-enable react-hooks/refs */
 }
 
 /**

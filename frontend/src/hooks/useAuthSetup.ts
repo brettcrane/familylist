@@ -46,11 +46,12 @@ export function useAuthSetup(): { isAuthReady: boolean } {
         }
       };
       setTokenGetter(wrappedGetToken);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: mark ready after external system setup
       setIsAuthReady(true);
     } else {
       // Clear token getter when signed out
       clearTokenGetter();
-      // Still mark as ready - queries will work in API key mode
+      // Mark ready (queries will work in API key mode)
       setIsAuthReady(true);
     }
 

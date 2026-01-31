@@ -115,6 +115,7 @@ export function AuthProvider({ children, isAuthReady = false }: AuthProviderProp
  * Hook to access auth context.
  * Must be used within AuthProvider (which must be within ClerkProvider).
  */
+// eslint-disable-next-line react-refresh/only-export-components -- Hook must be co-located with context
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {

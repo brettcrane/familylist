@@ -42,7 +42,7 @@ export function CreateListModal() {
     try {
       await createList.mutateAsync({ name: name.trim(), type });
       handleClose();
-    } catch (err) {
+    } catch {
       setError('Failed to create list. Please try again.');
     }
   };

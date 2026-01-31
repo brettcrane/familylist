@@ -39,6 +39,7 @@ export function EditListModal() {
   // Sync form with list data when modal opens
   useEffect(() => {
     if (open && list) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: sync form state from props
       setName(list.name);
       setIcon(list.icon);
       setColor(list.color);
