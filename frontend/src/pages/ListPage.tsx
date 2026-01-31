@@ -132,6 +132,7 @@ export function ListPage() {
 
   const handleDeleteItem = (itemId: string) => {
     deleteItem.mutate(itemId);
+    setEditingItem(null);
   };
 
   const handleClearAll = () => {
@@ -399,7 +400,6 @@ export function ListPage() {
                       category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
                       items={uncategorizedItems}
                       onCheckItem={handleCheckItem}
-                      onDeleteItem={handleDeleteItem}
                       onEditItem={handleEditItem}
                       onNameChange={handleNameChange}
                     />
@@ -415,7 +415,6 @@ export function ListPage() {
                         category={category}
                         items={items}
                         onCheckItem={handleCheckItem}
-                        onDeleteItem={handleDeleteItem}
                         onEditItem={handleEditItem}
                         onNameChange={handleNameChange}
                       />
@@ -481,6 +480,7 @@ export function ListPage() {
         listId={id!}
         categories={list.categories}
         onSave={handleSaveItem}
+        onDelete={handleDeleteItem}
         onClose={() => setEditingItem(null)}
         isSaving={updateItem.isPending}
       />

@@ -11,7 +11,6 @@ interface CategorySectionProps {
   category: Category;
   items: Item[];
   onCheckItem: (itemId: string) => void;
-  onDeleteItem: (itemId: string) => void;
   onEditItem?: (item: Item) => void;
   onNameChange?: (itemId: string, newName: string) => void;
 }
@@ -21,7 +20,6 @@ export function CategorySection({
   category,
   items,
   onCheckItem,
-  onDeleteItem,
   onEditItem,
   onNameChange,
 }: CategorySectionProps) {
@@ -96,7 +94,6 @@ export function CategorySection({
                   <ItemRow
                     item={item}
                     onCheck={() => onCheckItem(item.id)}
-                    onDelete={() => onDeleteItem(item.id)}
                     onEdit={onEditItem ? () => onEditItem(item) : undefined}
                     onNameChange={onNameChange ? (newName) => onNameChange(item.id, newName) : undefined}
                   />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
-import { ChevronDownIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, CheckIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { getCategoryEmoji } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
@@ -13,6 +13,7 @@ interface EditItemModalProps {
   listId: string;
   categories: Category[];
   onSave: (itemId: string, data: ItemUpdate) => void;
+  onDelete: (itemId: string) => void;
   onClose: () => void;
   isSaving?: boolean;
 }
@@ -22,6 +23,7 @@ export function EditItemModal({
   listId,
   categories,
   onSave,
+  onDelete,
   onClose,
   isSaving = false,
 }: EditItemModalProps) {
@@ -462,6 +464,21 @@ export function EditItemModal({
             {/* Footer */}
             <div className="p-5 pt-3 border-t border-[var(--color-text-muted)]/10 safe-bottom">
               <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => onDelete(item.id)}
+                  disabled={isSaving}
+                  className={clsx(
+                    'w-11 h-11 flex items-center justify-center rounded-xl transition-colors',
+                    'bg-[var(--color-destructive)]/10 text-[var(--color-destructive)]',
+                    'hover:bg-[var(--color-destructive)]/20',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                  aria-label="Delete item"
+                  title="Delete item"
+                >
+                  <TrashIcon className="w-5 h-5" />
+                </button>
                 <Button
                   type="button"
                   variant="secondary"
