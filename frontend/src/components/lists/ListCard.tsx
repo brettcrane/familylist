@@ -38,7 +38,6 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
   const [menuOpen, setMenuOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
-  const uncheckedCount = itemCount - checkedCount;
   const shareCount = list.share_count || 0;
 
   const longPressHandlers = useLongPress({
@@ -69,32 +68,74 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
             'bg-[var(--color-bg-card)]',
             'shadow-[var(--shadow-card)]',
             'border border-[var(--color-text-muted)]/10',
-            'transition-shadow hover:shadow-[var(--shadow-md)]'
+            'transition-shadow hover:shadow-[var(--shadow-md)]',
+            'overflow-hidden relative'
           )}
+          style={list.color ? {
+            background: `linear-gradient(135deg, ${list.color}15 0%, transparent 50%)`,
+          } : undefined}
         >
+          {/* Color accent bar */}
+          {list.color && (
+            <div
+              className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+              style={{ backgroundColor: list.color }}
+            />
+          )}
+
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-accent)]/10 flex items-center justify-center text-[var(--color-accent)]">
-                <ListTypeIcon type={list.type} className="w-5 h-5" />
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={list.color ? {
+                  backgroundColor: `${list.color}20`,
+                  color: list.color,
+                } : undefined}
+              >
+                {list.icon ? (
+                  <span className="text-xl">{list.icon}</span>
+                ) : (
+                  <div className={clsx(
+                    'w-full h-full rounded-xl flex items-center justify-center',
+                    !list.color && 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                  )}>
+                    <ListTypeIcon type={list.type} className="w-5 h-5" />
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="font-semibold text-[var(--color-text-primary)]">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-[var(--color-text-primary)] truncate">
                   {list.name}
                 </h3>
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  {uncheckedCount} item{uncheckedCount !== 1 ? 's' : ''} to do
-                </p>
+                {/* Inline progress row - bar first for consistent alignment */}
+                <div className="flex items-center gap-2 mt-0.5">
+                  {/* Fixed-width progress bar container */}
+                  <div className="w-16 h-1.5 bg-[var(--color-bg-secondary)] rounded-full overflow-hidden flex-shrink-0">
+                    {itemCount > 0 && (
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{
+                          backgroundColor: list.color || 'var(--color-checked)'
+                        }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(checkedCount / itemCount) * 100}%` }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    )}
+                  </div>
+                  <span className="text-sm text-[var(--color-text-muted)] whitespace-nowrap tabular-nums">
+                    {itemCount === 0 ? (
+                      'No items'
+                    ) : (
+                      <>{checkedCount} of {itemCount}</>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
-            {list.color && (
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: list.color }}
-              />
-            )}
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+          <div className="mt-3 flex items-center justify-between text-sm text-[var(--color-text-muted)]">
             <div className="flex items-center gap-2">
               <span className="capitalize">{list.type}</span>
               {shareCount > 0 && (
@@ -120,19 +161,6 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
             </div>
             <span>{formatRelativeTime(list.updated_at)}</span>
           </div>
-
-          {itemCount > 0 && (
-            <div className="mt-3">
-              <div className="h-1.5 bg-[var(--color-bg-secondary)] rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-[var(--color-checked)] rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(checkedCount / itemCount) * 100}%` }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                />
-              </div>
-            </div>
-          )}
         </motion.div>
       </div>
 

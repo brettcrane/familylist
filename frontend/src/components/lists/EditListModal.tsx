@@ -238,27 +238,27 @@ export function EditListModal() {
                 {/* Divider */}
                 <div className="h-px bg-[var(--color-text-muted)]/10 my-4" />
 
-                {/* List actions */}
-                <div className="space-y-2">
+                {/* List actions - side by side */}
+                <div className="flex items-center justify-between">
                   <button
                     type="button"
                     onClick={handleDuplicate}
                     disabled={isDuplicating}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-50"
                   >
-                    <DocumentDuplicateIcon className="w-5 h-5" />
-                    <span className="text-sm font-medium">
-                      {isDuplicating ? 'Duplicating...' : 'Duplicate List'}
+                    <DocumentDuplicateIcon className="w-4 h-4" />
+                    <span className="text-sm">
+                      {isDuplicating ? 'Duplicating...' : 'Duplicate'}
                     </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/10 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[var(--color-destructive)]/70 hover:text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/10 transition-colors"
                   >
-                    <TrashIcon className="w-5 h-5" />
-                    <span className="text-sm font-medium">Delete List</span>
+                    <TrashIcon className="w-4 h-4" />
+                    <span className="text-sm">Delete</span>
                   </button>
                 </div>
               </form>
