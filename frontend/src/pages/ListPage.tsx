@@ -157,6 +157,17 @@ export function ListPage() {
     );
   };
 
+  const handleNameChange = (itemId: string, newName: string) => {
+    updateItem.mutate(
+      { id: itemId, data: { name: newName } },
+      {
+        onError: (error) => {
+          console.error('Failed to update item name:', error);
+        },
+      }
+    );
+  };
+
   // Input submission
   const handleInputSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -384,6 +395,7 @@ export function ListPage() {
                       onCheckItem={handleCheckItem}
                       onDeleteItem={handleDeleteItem}
                       onEditItem={handleEditItem}
+                      onNameChange={handleNameChange}
                     />
                   )}
 
@@ -399,6 +411,7 @@ export function ListPage() {
                         onCheckItem={handleCheckItem}
                         onDeleteItem={handleDeleteItem}
                         onEditItem={handleEditItem}
+                        onNameChange={handleNameChange}
                       />
                     );
                   })}

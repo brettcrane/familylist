@@ -13,6 +13,7 @@ interface CategorySectionProps {
   onCheckItem: (itemId: string) => void;
   onDeleteItem: (itemId: string) => void;
   onEditItem?: (item: Item) => void;
+  onNameChange?: (itemId: string, newName: string) => void;
 }
 
 export function CategorySection({
@@ -22,6 +23,7 @@ export function CategorySection({
   onCheckItem,
   onDeleteItem,
   onEditItem,
+  onNameChange,
 }: CategorySectionProps) {
   const isCollapsed = useUIStore((state) =>
     state.isCategoryCollapsed(listId, category.id)
@@ -96,6 +98,7 @@ export function CategorySection({
                     onCheck={() => onCheckItem(item.id)}
                     onDelete={() => onDeleteItem(item.id)}
                     onEdit={onEditItem ? () => onEditItem(item) : undefined}
+                    onNameChange={onNameChange ? (newName) => onNameChange(item.id, newName) : undefined}
                   />
                 </motion.div>
               ))}
