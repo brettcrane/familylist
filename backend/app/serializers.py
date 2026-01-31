@@ -1,6 +1,10 @@
 """Shared serialization utilities for API responses."""
 
+import logging
+
 from app.models import Item
+
+logger = logging.getLogger(__name__)
 
 
 def item_to_response(item: Item) -> dict:
@@ -9,6 +13,16 @@ def item_to_response(item: Item) -> dict:
     This is shared between items.py and lists.py to ensure consistent
     serialization of items across endpoints.
     """
+    # Safely get checked_by_name with defensive error handling
+    checked_by_name = None
+    if item.checked_by_user:
+        try:
+            checked_by_name = item.checked_by_user.display_name
+        except AttributeError as e:
+            logger.warning(
+                f"Failed to get checked_by_name for item {item.id}: {type(e).__name__}: {e}"
+            )
+
     return {
         "id": item.id,
         "list_id": item.list_id,
@@ -18,7 +32,7 @@ def item_to_response(item: Item) -> dict:
         "category_id": item.category_id,
         "is_checked": item.is_checked,
         "checked_by": item.checked_by,
-        "checked_by_name": item.checked_by_user.display_name if item.checked_by_user else None,
+        "checked_by_name": checked_by_name,
         "checked_at": item.checked_at,
         "sort_order": item.sort_order,
         "created_at": item.created_at or "",

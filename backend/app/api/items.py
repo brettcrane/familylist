@@ -1,5 +1,6 @@
 """Item API endpoints."""
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -30,18 +31,26 @@ async def publish_event_async(event: ListEvent) -> None:
 
     This function is designed to be used with BackgroundTasks.add_task().
     Properly handles and logs any errors during event publishing.
+    Distinguishes between expected failures (queue full, timeout) and
+    unexpected bugs for better debugging.
     """
     try:
         await event_broadcaster.publish(event)
         logger.debug(
             f"Successfully published {event.event_type} event for list {event.list_id}"
         )
+    except (asyncio.QueueFull, asyncio.TimeoutError) as e:
+        # Expected failures - log as warning, not error
+        logger.warning(
+            f"Event publish failed (expected): {type(e).__name__} for "
+            f"event_type={event.event_type}, list_id={event.list_id}"
+        )
     except Exception as e:
-        # Log the error but don't re-raise - event publishing failures
-        # should not affect the main request
+        # Unexpected failures - these indicate potential bugs
+        # Log with full stack trace for debugging
         logger.error(
-            f"Failed to publish event: event_type={event.event_type}, "
-            f"list_id={event.list_id}, item_id={event.item_id}, error={e}",
+            f"UNEXPECTED event publish failure: event_type={event.event_type}, "
+            f"list_id={event.list_id}, item_id={event.item_id}, error={type(e).__name__}: {e}",
             exc_info=True,
         )
 

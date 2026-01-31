@@ -43,15 +43,29 @@ async def get_auth_for_sse(
 
     # Check query parameter token (primary SSE auth method)
     if token:
-        clerk_user = verify_clerk_token(token)
-        return AuthResult(clerk_user=clerk_user)
+        try:
+            clerk_user = verify_clerk_token(token)
+            return AuthResult(clerk_user=clerk_user)
+        except HTTPException:
+            logger.warning(f"SSE auth failed: invalid token (truncated: {token[:20]}...)")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected SSE auth error: {type(e).__name__}: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Authentication error")
 
     # Check Authorization header (for testing tools that support headers)
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         bearer_token = auth_header[7:]
-        clerk_user = verify_clerk_token(bearer_token)
-        return AuthResult(clerk_user=clerk_user)
+        try:
+            clerk_user = verify_clerk_token(bearer_token)
+            return AuthResult(clerk_user=clerk_user)
+        except HTTPException:
+            logger.warning("SSE auth failed: invalid Bearer token")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected SSE auth error: {type(e).__name__}: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Authentication error")
 
     # Check API key header as fallback
     api_key = request.headers.get("X-API-Key")
@@ -143,6 +157,11 @@ async def stream_list_events(
                 f"SSE stream error: list_id={list_id}, user={user_id}, error={e}",
                 exc_info=True,
             )
+            # Try to inform the client before closing
+            try:
+                yield 'event: error\ndata: {"error": "stream_error", "message": "Connection interrupted"}\n\n'
+            except Exception:
+                pass  # Client may already be disconnected
             raise
 
     return StreamingResponse(

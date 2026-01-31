@@ -123,7 +123,19 @@ export function useListStream(
     };
 
     eventSource.onerror = () => {
-      console.error(`SSE: Connection error for list ${listId}`);
+      // EventSource error events provide minimal info, but we can check readyState
+      const readyState = eventSource.readyState;
+      const stateNames: Record<number, string> = {
+        0: 'CONNECTING',
+        1: 'OPEN',
+        2: 'CLOSED',
+      };
+
+      console.error(`SSE: Connection error for list ${listId}`, {
+        readyState: stateNames[readyState] || readyState,
+        immediateClose: readyState === EventSource.CLOSED,
+      });
+
       setIsConnected(false);
 
       // Close the connection
@@ -132,6 +144,11 @@ export function useListStream(
 
       setReconnectAttempts((prev) => {
         const attempts = prev + 1;
+
+        // If connection was immediately closed, likely auth or 404 issue
+        if (readyState === EventSource.CLOSED && prev === 0) {
+          console.warn('SSE: Immediate connection failure - check authentication or list access');
+        }
 
         if (attempts >= MAX_RECONNECT_ATTEMPTS) {
           console.error(
@@ -158,10 +175,27 @@ export function useListStream(
       });
     };
 
+    // Type guard to validate SSE event data structure
+    const isValidEventData = (data: unknown): boolean => {
+      return (
+        typeof data === 'object' &&
+        data !== null &&
+        'event_type' in data &&
+        'list_id' in data &&
+        'timestamp' in data
+      );
+    };
+
     // Handle specific event types
     const handleEvent = (eventType: string) => (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+
+        // Validate event data structure
+        if (!isValidEventData(data)) {
+          console.warn('SSE: Received event with invalid structure:', data);
+        }
+
         console.log(`SSE: Received ${eventType} event:`, data);
 
         // Debounced invalidation to avoid hammering the server
@@ -178,6 +212,16 @@ export function useListStream(
     // Listen for connection confirmation
     eventSource.addEventListener('connected', (event: MessageEvent) => {
       console.log('SSE: Connection confirmed:', event.data);
+    });
+
+    // Listen for server-side error events
+    eventSource.addEventListener('error', (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.error('SSE: Server error event:', data);
+      } catch {
+        console.error('SSE: Server error event (unparsed):', event.data);
+      }
     });
 
     // Listen for all event types
