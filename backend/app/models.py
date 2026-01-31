@@ -40,6 +40,12 @@ class User(Base):
     owned_lists = relationship("List", back_populates="owner")
     checked_items = relationship("Item", back_populates="checked_by_user")
     shared_lists = relationship("ListShare", back_populates="user")
+    push_subscriptions = relationship(
+        "PushSubscription", back_populates="user", cascade="all, delete-orphan"
+    )
+    notification_preferences = relationship(
+        "NotificationPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ListShare(Base):
@@ -169,4 +175,61 @@ class CategoryLearning(Base):
     __table_args__ = (
         UniqueConstraint("item_name_normalized", "list_type", name="uq_learning_item_type"),
         Index("idx_learnings_lookup", "item_name_normalized", "list_type"),
+    )
+
+
+class PushSubscription(Base):
+    """Web Push subscription for a user's device."""
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False)
+    p256dh_key: Mapped[str] = mapped_column(Text, nullable=False)
+    auth_key: Mapped[str] = mapped_column(Text, nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text, default=utc_now)
+    last_used_at: Mapped[str | None] = mapped_column(Text)
+
+    # Relationships
+    user = relationship("User", back_populates="push_subscriptions")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "endpoint", name="uq_push_sub_user_endpoint"),
+        Index("idx_push_subscriptions_user_id", "user_id"),
+    )
+
+
+class NotificationPreferences(Base):
+    """User notification preferences."""
+
+    __tablename__ = "notification_preferences"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    list_updates: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="batched"
+    )  # "always", "batched", "off"
+    list_sharing: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="always"
+    )  # "always", "off"
+    quiet_start: Mapped[str | None] = mapped_column(String(5))  # "22:00"
+    quiet_end: Mapped[str | None] = mapped_column(String(5))  # "07:00"
+
+    # Relationships
+    user = relationship("User", back_populates="notification_preferences")
+
+    __table_args__ = (
+        CheckConstraint(
+            "list_updates IN ('always', 'batched', 'off')",
+            name="ck_notif_pref_list_updates",
+        ),
+        CheckConstraint(
+            "list_sharing IN ('always', 'off')",
+            name="ck_notif_pref_list_sharing",
+        ),
     )

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from app.api import ai, categories, items, lists, shares, stream, users
+from app.api import ai, categories, items, lists, push, shares, stream, users
 from app.config import get_settings
 from app.database import create_indexes, get_db_context, init_db
 from app.schemas import HealthResponse
@@ -71,6 +71,7 @@ app.include_router(ai.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(shares.router, prefix="/api")
 app.include_router(stream.router, prefix="/api")
+app.include_router(push.router, prefix="/api")
 
 
 @app.get("/api/health", response_model=HealthResponse, tags=["health"])

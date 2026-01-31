@@ -48,9 +48,19 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 512
     llm_temperature: float = 0.1  # Low temp for consistent parsing
 
+    # Web Push (VAPID) settings
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_mailto: str = "mailto:admin@familylist.app"
+
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
+
+    @property
+    def push_enabled(self) -> bool:
+        """Check if push notifications are configured."""
+        return bool(self.vapid_private_key and self.vapid_public_key)
 
 
 @lru_cache

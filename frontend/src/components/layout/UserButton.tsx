@@ -6,9 +6,12 @@ import {
   MoonIcon,
   ComputerDesktopIcon,
   ChevronDownIcon,
+  BellIcon,
+  BellSlashIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUIStore, type Theme } from '../../stores/uiStore';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 const THEME_OPTIONS: { value: Theme; label: string; Icon: typeof SunIcon }[] = [
   { value: 'light', label: 'Light', Icon: SunIcon },
@@ -20,11 +23,24 @@ export function UserButton() {
   const { user, signOut, isSignedIn } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const theme = useUIStore((state) => state.theme);
   const setTheme = useUIStore((state) => state.setTheme);
+
+  const {
+    isSupported: pushSupported,
+    isEnabled: pushEnabled,
+    isSubscribed: pushSubscribed,
+    isLoading: pushLoading,
+    preferences: notifPrefs,
+    error: pushError,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+    updatePreferences: updateNotifPrefs,
+  } = usePushNotifications();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -194,6 +210,105 @@ export function UserButton() {
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Notifications */}
+            {pushSupported && pushEnabled && (
+              <div className="p-2 border-b border-[var(--color-text-muted)]/10">
+                <button
+                  onClick={() => setNotificationsMenuOpen(!notificationsMenuOpen)}
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors"
+                  disabled={pushLoading}
+                >
+                  <div className="flex items-center gap-3">
+                    {pushSubscribed ? (
+                      <BellIcon className="w-5 h-5 text-[var(--color-text-secondary)]" />
+                    ) : (
+                      <BellSlashIcon className="w-5 h-5 text-[var(--color-text-secondary)]" />
+                    )}
+                    <span className="text-[var(--color-text-primary)]">Notifications</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[var(--color-text-secondary)]">
+                    <span className="text-sm">
+                      {pushLoading ? 'Loading...' : pushSubscribed ? 'On' : 'Off'}
+                    </span>
+                    <ChevronDownIcon
+                      className={`w-4 h-4 transition-transform ${notificationsMenuOpen ? 'rotate-180' : ''}`}
+                    />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {notificationsMenuOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-1 pl-8 space-y-1">
+                        {/* Enable/Disable toggle */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              if (pushSubscribed) {
+                                await unsubscribePush();
+                              } else {
+                                await subscribePush();
+                              }
+                            } catch {
+                              // Error is already handled in the hook
+                            }
+                          }}
+                          disabled={pushLoading}
+                          className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors"
+                        >
+                          <span className="text-sm text-[var(--color-text-primary)]">
+                            {pushSubscribed ? 'Disable notifications' : 'Enable notifications'}
+                          </span>
+                        </button>
+
+                        {/* Preferences (only show if subscribed) */}
+                        {pushSubscribed && notifPrefs && (
+                          <>
+                            <div className="px-3 py-1">
+                              <span className="text-xs text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                List updates
+                              </span>
+                            </div>
+                            {(['batched', 'always', 'off'] as const).map((mode) => (
+                              <button
+                                key={mode}
+                                onClick={() => updateNotifPrefs({ list_updates: mode })}
+                                disabled={pushLoading}
+                                className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors ${
+                                  notifPrefs.list_updates === mode
+                                    ? 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                                    : 'hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]'
+                                }`}
+                              >
+                                <span className="text-sm">
+                                  {mode === 'batched'
+                                    ? 'Batched (recommended)'
+                                    : mode === 'always'
+                                      ? 'Every change'
+                                      : 'Off'}
+                                </span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+
+                        {/* Error display */}
+                        {pushError && (
+                          <div className="px-3 py-2 text-xs text-red-500">{pushError}</div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             {/* Sign out */}
             <div className="p-2">
