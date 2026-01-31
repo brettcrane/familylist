@@ -11,6 +11,7 @@ import { EditListModal } from '../components/lists/EditListModal';
 import { DeleteListDialog } from '../components/lists/DeleteListDialog';
 import { ShareListModal } from '../components/lists/ShareListModal';
 import { useList } from '../hooks/useLists';
+import { useListStream } from '../hooks/useListStream';
 import { useAuth } from '../contexts/AuthContext';
 import {
   useCreateItem,
@@ -36,6 +37,9 @@ export function ListPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthReady } = useAuth();
   const { data: list, isLoading, error } = useList(id!, { enabled: isAuthReady });
+
+  // Connect to SSE for real-time updates
+  useListStream(id!);
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);

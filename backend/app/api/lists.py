@@ -58,6 +58,7 @@ def get_lists(
                 item_count=stats["total_items"],
                 checked_count=stats["checked_items"],
                 share_count=share_count,
+                is_shared=share_count > 0,
             )
         )
     return result
@@ -100,6 +101,26 @@ def get_list(
     stats = list_service.get_list_stats(db, list_id)
     share_count = list_service.get_list_share_count(db, list_id)
 
+    # Build item responses with checked_by_name
+    items_with_user = []
+    for item in list_obj.items:
+        item_dict = {
+            "id": item.id,
+            "list_id": item.list_id,
+            "name": item.name,
+            "quantity": item.quantity,
+            "notes": item.notes,
+            "category_id": item.category_id,
+            "is_checked": item.is_checked,
+            "checked_by": item.checked_by,
+            "checked_by_name": item.checked_by_user.display_name if item.checked_by_user else None,
+            "checked_at": item.checked_at,
+            "sort_order": item.sort_order,
+            "created_at": item.created_at or "",
+            "updated_at": item.updated_at or "",
+        }
+        items_with_user.append(item_dict)
+
     return ListWithItemsResponse(
         id=list_obj.id,
         name=list_obj.name,
@@ -113,8 +134,9 @@ def get_list(
         item_count=stats["total_items"],
         checked_count=stats["checked_items"],
         share_count=share_count,
+        is_shared=share_count > 0,
         categories=[c for c in list_obj.categories],
-        items=[i for i in list_obj.items],
+        items=items_with_user,
     )
 
 
