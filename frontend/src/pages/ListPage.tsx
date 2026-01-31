@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
-import { CategorySection } from '../components/items';
+import { CategorySection, EditItemModal } from '../components/items';
 import { BottomInputBar } from '../components/items/BottomInputBar';
 import { NLParseModal } from '../components/items/NLParseModal';
 import { DoneList } from '../components/done';
@@ -18,11 +18,12 @@ import {
   useCheckItem,
   useUncheckItem,
   useDeleteItem,
+  useUpdateItem,
   useClearCompleted,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
-import type { Item, ParsedItem } from '../types/api';
+import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const AUTO_ACCEPT_DELAY = 2000;
 
@@ -50,6 +51,7 @@ export function ListPage() {
   const checkItem = useCheckItem(id!);
   const uncheckItem = useUncheckItem(id!);
   const deleteItem = useDeleteItem(id!);
+  const updateItem = useUpdateItem(id!);
   const clearCompleted = useClearCompleted(id!);
 
   // Input state
@@ -61,6 +63,7 @@ export function ListPage() {
   const [nlModalOpen, setNlModalOpen] = useState(false);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [originalInput, setOriginalInput] = useState('');
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLElement>(null);
@@ -132,6 +135,21 @@ export function ListPage() {
 
   const handleClearAll = () => {
     clearCompleted.mutate();
+  };
+
+  const handleEditItem = (item: Item) => {
+    setEditingItem(item);
+  };
+
+  const handleSaveItem = (itemId: string, data: ItemUpdate) => {
+    updateItem.mutate(
+      { id: itemId, data },
+      {
+        onSuccess: () => {
+          setEditingItem(null);
+        },
+      }
+    );
   };
 
   // Input submission
@@ -360,6 +378,7 @@ export function ListPage() {
                       items={uncategorizedItems}
                       onCheckItem={handleCheckItem}
                       onDeleteItem={handleDeleteItem}
+                      onEditItem={handleEditItem}
                     />
                   )}
 
@@ -374,6 +393,7 @@ export function ListPage() {
                         items={items}
                         onCheckItem={handleCheckItem}
                         onDeleteItem={handleDeleteItem}
+                        onEditItem={handleEditItem}
                       />
                     );
                   })}
@@ -430,6 +450,15 @@ export function ListPage() {
       <EditListModal />
       <DeleteListDialog />
       <ShareListModal />
+
+      {/* Item edit modal */}
+      <EditItemModal
+        item={editingItem}
+        categories={list.categories}
+        onSave={handleSaveItem}
+        onClose={() => setEditingItem(null)}
+        isSaving={updateItem.isPending}
+      />
     </Layout>
   );
 }

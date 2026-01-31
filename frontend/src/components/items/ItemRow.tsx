@@ -9,10 +9,11 @@ interface ItemRowProps {
   item: Item;
   onCheck: () => void;
   onDelete: () => void;
+  onEdit?: () => void;
   showCategory?: boolean;
 }
 
-export function ItemRow({ item, onCheck, onDelete, showCategory }: ItemRowProps) {
+export function ItemRow({ item, onCheck, onDelete, onEdit, showCategory }: ItemRowProps) {
   const hasPending = useHasPendingMutation(item.id);
 
   const { state, handlers } = useSwipe({
@@ -91,7 +92,12 @@ export function ItemRow({ item, onCheck, onDelete, showCategory }: ItemRowProps)
           aria-label={`Mark ${item.name} as ${item.is_checked ? 'incomplete' : 'complete'}`}
         />
 
-        <div className="flex-1 min-w-0">
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={!onEdit}
+          className="flex-1 min-w-0 text-left"
+        >
           <div className="flex items-center gap-2">
             <span
               className={clsx(
@@ -117,7 +123,7 @@ export function ItemRow({ item, onCheck, onDelete, showCategory }: ItemRowProps)
               {item.notes}
             </p>
           )}
-        </div>
+        </button>
 
         {showCategory && item.category_id && (
           <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-2 py-1 rounded-full">
