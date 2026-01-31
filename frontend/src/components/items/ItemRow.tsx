@@ -49,7 +49,7 @@ export function ItemRow({ item, onCheck, onDelete, onEdit, onNameChange, showCat
       onNameChange(trimmedName);
     }
     setIsEditing(false);
-    setEditName(item.name); // Reset to original in case save fails
+    // Let the useEffect sync editName when item.name changes (on success or rollback)
   };
 
   const handleCancelEdit = () => {
