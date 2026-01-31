@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useUpdateList, useList } from '../../hooks/useLists';
+import { useUpdateList, useList, useDuplicateList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -24,22 +26,25 @@ const COLOR_OPTIONS = [
 ];
 
 export function EditListModal() {
+  const navigate = useNavigate();
   const { open, listId } = useUIStore((state) => state.editListModal);
   const closeModal = useUIStore((state) => state.closeEditListModal);
+  const openDeleteListDialog = useUIStore((state) => state.openDeleteListDialog);
   const { isAuthReady } = useAuth();
 
   const { data: list } = useList(listId || '', { enabled: isAuthReady && !!listId });
   const updateList = useUpdateList();
+  const duplicateList = useDuplicateList();
 
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string | null>(null);
   const [color, setColor] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Sync form with list data when modal opens
   useEffect(() => {
     if (open && list) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: sync form state from props
       setName(list.name);
       setIcon(list.icon);
       setColor(list.color);
@@ -83,6 +88,33 @@ export function EditListModal() {
     }
   };
 
+  const handleDuplicate = async () => {
+    if (!list || !listId) return;
+
+    setIsDuplicating(true);
+    try {
+      const newList = await duplicateList.mutateAsync({
+        id: listId,
+        data: { name: `${list.name} (Copy)` },
+      });
+      handleClose();
+      navigate(`/lists/${newList.id}`);
+    } catch (err: unknown) {
+      const apiError = err as { message?: string; data?: { detail?: string } };
+      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to duplicate list';
+      console.error('Failed to duplicate list:', { listId, error: err, errorMessage });
+      setError(errorMessage);
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!list || !listId) return;
+    handleClose();
+    openDeleteListDialog(listId, list.name, list.items?.length || 0);
+  };
+
   return (
     <AnimatePresence>
       {open && (
@@ -104,15 +136,15 @@ export function EditListModal() {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] safe-bottom"
           >
-            <div className="bg-[var(--color-bg-card)] rounded-t-2xl shadow-lg">
+            <div className="bg-[var(--color-bg-card)] rounded-t-2xl shadow-lg max-h-[85vh] overflow-y-auto">
               {/* Drag handle */}
-              <div className="flex justify-center py-3">
+              <div className="flex justify-center py-3 sticky top-0 bg-[var(--color-bg-card)]">
                 <div className="w-10 h-1 bg-[var(--color-text-muted)]/30 rounded-full" />
               </div>
 
               <form onSubmit={handleSubmit} className="px-6 pb-6">
                 <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-6">
-                  Edit List
+                  List Settings
                 </h2>
 
                 {/* Name input */}
@@ -183,8 +215,8 @@ export function EditListModal() {
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-3">
+                {/* Save actions */}
+                <div className="flex gap-3 mb-6">
                   <Button
                     type="button"
                     variant="secondary"
@@ -201,6 +233,33 @@ export function EditListModal() {
                   >
                     Save Changes
                   </Button>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-[var(--color-text-muted)]/10 my-4" />
+
+                {/* List actions */}
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleDuplicate}
+                    disabled={isDuplicating}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-50"
+                  >
+                    <DocumentDuplicateIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">
+                      {isDuplicating ? 'Duplicating...' : 'Duplicate List'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--color-destructive)] hover:bg-[var(--color-destructive)]/10 transition-colors"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">Delete List</span>
+                  </button>
                 </div>
               </form>
             </div>
