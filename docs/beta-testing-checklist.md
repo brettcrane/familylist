@@ -33,48 +33,10 @@ Use this checklist to verify all features work correctly before family release.
 - [ ] Shared user can check/uncheck items (with edit permission)
 - [ ] View-only permission prevents edits
 
-### `is_shared` Attribute
-- [ ] Unshared list shows `is_shared: false` in HA
-- [ ] After sharing, `is_shared` changes to `true`
-- [ ] After removing all shares, `is_shared` changes back to `false`
-
-### `last_checked_*` Attributes
-- [ ] `last_checked_item` shows correct item name
-- [ ] `last_checked_by` shows user ID
-- [ ] `last_checked_by_name` shows user display name
-- [ ] `last_checked_at` shows correct timestamp
-- [ ] Values update when different user checks an item
-
----
-
-## Home Assistant Integration
-
-### Sensor Setup
-- [ ] FamilyLists integration loads without errors
-- [ ] Sensors created for each list
-- [ ] Sensor state shows item count correctly
-
-### Attributes
-- [ ] `list_id` attribute present
-- [ ] `list_type` attribute correct (grocery/packing/tasks)
-- [ ] `total_items` count accurate
-- [ ] `checked_items` count accurate
-- [ ] `unchecked_items` count accurate
-- [ ] `is_shared` attribute present
-- [ ] `share_count` attribute present
-- [ ] `last_checked_item` attribute present
-- [ ] `last_checked_by_name` attribute present
-- [ ] `last_checked_at` attribute present
-
-### Polling
-- [ ] Sensor updates within polling interval (default 30s)
-- [ ] Changes in app reflected in HA after poll
-
-### Automations
-- [ ] Test automation triggers on `last_checked_item` change
-- [ ] Notification received on correct device
-- [ ] Notification shows correct item name
-- [ ] Notification shows correct user name
+### Sharing State
+- [ ] Unshared list shows share icon as inactive
+- [ ] After sharing, share indicator appears
+- [ ] After removing all shares, indicator disappears
 
 ---
 
@@ -110,19 +72,6 @@ Use this checklist to verify all features work correctly before family release.
 - [ ] App loads when offline (cached shell)
 - [ ] Static assets cached properly
 - [ ] API requests queued when offline
-
----
-
-## Voice Commands (Google Home)
-
-### Setup
-- [ ] Google Home linked to FamilyLists
-- [ ] Correct list configured as default
-
-### Commands
-- [ ] "Hey Google, add milk to grocery list" → item added
-- [ ] "Hey Google, what's on my grocery list" → items read back
-- [ ] Voice-added items appear in app
 
 ---
 
@@ -168,11 +117,6 @@ Use this checklist to verify all features work correctly before family release.
 - Console: Check for SSE events and errors
 - Application tab: Verify service worker status
 
-### Home Assistant DevTools
-- States: Inspect sensor attributes
-- Template: Test automation conditions
-- Logs: Check for integration errors
-
 ---
 
 ## Sign-off
@@ -181,10 +125,8 @@ Use this checklist to verify all features work correctly before family release.
 |------|--------|------|-----------|-------|
 | Real-Time Sync | | | | |
 | Shared Lists | | | | |
-| HA Integration | | | | |
 | Offline Mode | | | | |
 | PWA Features | | | | |
-| Voice Commands | | | | |
 | Performance | | | | |
 | Edge Cases | | | | |
 

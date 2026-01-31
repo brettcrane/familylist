@@ -1,6 +1,6 @@
 # FamilyList
 
-A family-friendly list management application with AI-powered categorization, designed for Home Assistant integration.
+A family-friendly list management PWA with AI-powered categorization and real-time sync.
 
 ## Features
 
@@ -8,7 +8,8 @@ A family-friendly list management application with AI-powered categorization, de
 - **AI Categorization**: Automatic item categorization using embeddings
 - **Natural Language Parsing**: "Meal mode" lets you type dishes and AI extracts ingredients
 - **Learning System**: Remembers user corrections to improve over time
-- **Home Assistant Ready**: Designed for HA integration via REST API
+- **Real-Time Sync**: See changes instantly across all devices
+- **Shared Lists**: Share lists with family members
 
 ## Known Issues
 

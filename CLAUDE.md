@@ -42,7 +42,7 @@ See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
 ## Authentication (Clerk + API Key Hybrid)
 
-Hybrid auth supporting both Clerk user auth and API key auth (for Home Assistant, etc.).
+Hybrid auth supporting both Clerk user auth and API key auth.
 
 **Key files:**
 - `frontend/src/main.tsx` - ClerkProvider (graceful fallback if key missing)
@@ -143,10 +143,6 @@ Frontend (optional):
 ## Known Issues
 
 See [TODO.md](./TODO.md) for current bugs and tasks.
-
-## Development Plans
-
-- Phase 4 (Home Assistant Integration): `~/.claude/plans/phase-4-home-assistant-integration.md`
 
 ## Development & Testing
 
