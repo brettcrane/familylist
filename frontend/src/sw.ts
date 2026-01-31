@@ -55,7 +55,7 @@ self.addEventListener('push', (event: PushEvent) => {
     return;
   }
 
-  const options: NotificationOptions = {
+  const options = {
     body: payload.body,
     icon: payload.icon || '/icons/icon-192.png',
     badge: payload.badge || '/icons/badge-72.png',
@@ -67,7 +67,7 @@ self.addEventListener('push', (event: PushEvent) => {
       { action: 'open', title: 'Open List' },
       { action: 'dismiss', title: 'Dismiss' },
     ],
-  };
+  } as NotificationOptions;
 
   event.waitUntil(
     self.registration.showNotification(payload.title, options).catch((e) => {
