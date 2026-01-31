@@ -53,6 +53,7 @@ export function UserButton() {
       ) {
         setIsOpen(false);
         setThemeMenuOpen(false);
+        setNotificationsMenuOpen(false);
       }
     }
 
@@ -68,6 +69,7 @@ export function UserButton() {
       if (event.key === 'Escape') {
         setIsOpen(false);
         setThemeMenuOpen(false);
+        setNotificationsMenuOpen(false);
       }
     }
 

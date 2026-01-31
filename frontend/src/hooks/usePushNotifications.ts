@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getVapidPublicKey,
   subscribePush,
+  unsubscribePush,
   getNotificationPreferences,
   updateNotificationPreferences,
   type NotificationPreferences,
@@ -201,9 +202,19 @@ export function usePushNotifications(): UsePushNotificationsResult {
       const subscription = await registration.pushManager.getSubscription();
 
       if (subscription) {
+        const endpoint = subscription.endpoint;
+
+        // Unsubscribe from browser push manager
         await subscription.unsubscribe();
-        // Note: We don't need to call the server - the subscription is now invalid
-        // The server will clean it up on the next push attempt (410 Gone response)
+
+        // Clean up server-side subscription record immediately
+        // This is best-effort - if it fails, the 410 cleanup mechanism handles it
+        try {
+          await unsubscribePush(endpoint);
+        } catch (serverErr) {
+          console.warn('Failed to clean up server subscription:', serverErr);
+          // Don't throw - browser unsubscribe succeeded, which is what matters
+        }
       }
 
       setIsSubscribed(false);

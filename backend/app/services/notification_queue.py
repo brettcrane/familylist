@@ -15,11 +15,24 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 
 from app.database import get_db_context
 from app.services import push_service
 
 logger = logging.getLogger(__name__)
+
+
+class NotificationEventType(str, Enum):
+    """Valid notification event types."""
+
+    ITEM_CREATED = "item_created"
+    ITEM_CHECKED = "item_checked"
+    ITEM_UNCHECKED = "item_unchecked"
+    ITEM_DELETED = "item_deleted"
+    ITEM_UPDATED = "item_updated"
+    ITEMS_CLEARED = "items_cleared"
+    ITEMS_RESTORED = "items_restored"
 
 # Batching configuration
 INITIAL_DELAY = 30.0  # seconds before first flush
@@ -159,6 +172,13 @@ class NotificationQueue:
         except asyncio.CancelledError:
             # Timer was cancelled (extended or force flushed)
             pass
+        except Exception as e:
+            # Log any other exceptions to prevent silent task crashes
+            logger.error(
+                f"Unexpected error in flush timer for user {user_id}, "
+                f"list {list_id}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
 
     async def _flush_batch(self, user_id: str, list_id: str) -> None:
         """Flush a batch and send the notification."""

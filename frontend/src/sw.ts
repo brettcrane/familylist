@@ -70,7 +70,14 @@ self.addEventListener('push', (event: PushEvent) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, options)
+    self.registration.showNotification(payload.title, options).catch((e) => {
+      console.error('Failed to show notification:', e);
+      // Attempt minimal fallback notification
+      return self.registration.showNotification('FamilyList', {
+        body: payload.body || 'A list was updated',
+        tag: 'familylist-error-fallback',
+      });
+    })
   );
 });
 
@@ -87,18 +94,23 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
   const url = listId ? `/lists/${listId}` : '/';
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Try to focus an existing window
-      for (const client of clientList) {
-        if (client.url.includes(url) && 'focus' in client) {
-          return client.focus();
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Try to focus an existing window
+        for (const client of clientList) {
+          if (client.url.includes(url) && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-      // Open new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
-      }
-    })
+        // Open new window
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(url);
+        }
+      })
+      .catch((e) => {
+        console.error('Failed to handle notification click:', e);
+      })
   );
 });
 
