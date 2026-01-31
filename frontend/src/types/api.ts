@@ -42,6 +42,7 @@ export interface Item {
   notes: string | null;
   is_checked: boolean;
   checked_by: string | null;
+  checked_by_name: string | null;
   checked_at: string | null;
   sort_order: number;
   created_at: string;
@@ -89,6 +90,7 @@ export interface List {
   item_count: number;
   checked_count: number;
   share_count?: number;
+  is_shared?: boolean;
 }
 
 /** List response with items and categories */

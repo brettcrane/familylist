@@ -13,10 +13,16 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_CHECKED_ITEMS,
+    ATTR_IS_SHARED,
+    ATTR_LAST_CHECKED_AT,
+    ATTR_LAST_CHECKED_BY,
+    ATTR_LAST_CHECKED_BY_NAME,
+    ATTR_LAST_CHECKED_ITEM,
     ATTR_LAST_UPDATED,
     ATTR_LAST_UPDATED_BY,
     ATTR_LIST_ID,
     ATTR_LIST_TYPE,
+    ATTR_SHARE_COUNT,
     ATTR_TOTAL_ITEMS,
     ATTR_UNCHECKED_ITEMS,
     DOMAIN,
@@ -95,6 +101,13 @@ class FamilyListsSensor(CoordinatorEntity[FamilyListsCoordinator], SensorEntity)
                 ATTR_UNCHECKED_ITEMS: data.get("unchecked_items", 0),
                 ATTR_LAST_UPDATED: data.get("updated_at"),
                 ATTR_LAST_UPDATED_BY: data.get("updated_by"),
+                # Sharing awareness attributes
+                ATTR_IS_SHARED: data.get("is_shared", False),
+                ATTR_SHARE_COUNT: data.get("share_count", 0),
+                ATTR_LAST_CHECKED_ITEM: data.get("last_checked_item"),
+                ATTR_LAST_CHECKED_BY: data.get("last_checked_by"),
+                ATTR_LAST_CHECKED_BY_NAME: data.get("last_checked_by_name"),
+                ATTR_LAST_CHECKED_AT: data.get("last_checked_at"),
             }
         return {}
 

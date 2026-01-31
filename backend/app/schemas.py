@@ -193,6 +193,7 @@ class ItemResponse(ItemBase):
     list_id: str
     is_checked: bool
     checked_by: str | None
+    checked_by_name: str | None = None
     checked_at: str | None
     sort_order: int
     created_at: str
@@ -246,6 +247,7 @@ class ListResponse(ListBase):
     item_count: int = 0
     checked_count: int = 0
     share_count: int = 0
+    is_shared: bool = False
 
     model_config = {"from_attributes": True}
 

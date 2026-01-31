@@ -11,6 +11,7 @@ import { EditListModal } from '../components/lists/EditListModal';
 import { DeleteListDialog } from '../components/lists/DeleteListDialog';
 import { ShareListModal } from '../components/lists/ShareListModal';
 import { useList } from '../hooks/useLists';
+import { useListStream } from '../hooks/useListStream';
 import { useAuth } from '../contexts/AuthContext';
 import {
   useCreateItem,
@@ -36,6 +37,11 @@ export function ListPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthReady } = useAuth();
   const { data: list, isLoading, error } = useList(id!, { enabled: isAuthReady });
+
+  // Connect to SSE for real-time updates (only when auth is ready)
+  const { isFailed: sseConnectionFailed, retry: retrySSE } = useListStream(id!, {
+    enabled: isAuthReady,
+  });
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
@@ -315,6 +321,23 @@ export function ListPage() {
       />
 
       <Main ref={scrollRef} className="flex-1 overflow-y-auto">
+        {/* SSE connection failure banner */}
+        {sseConnectionFailed && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700 px-4 py-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-amber-800 dark:text-amber-200">
+                Real-time updates unavailable
+              </span>
+              <button
+                onClick={retrySSE}
+                className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 underline font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {activeTab === 'todo' ? (
             <div key="todo" className="pb-24">

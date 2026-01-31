@@ -1,6 +1,9 @@
 """Item API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import asyncio
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.auth import get_auth
@@ -14,9 +17,42 @@ from app.schemas import (
     ItemResponse,
     ItemUpdate,
 )
+from app.serializers import item_to_response
 from app.services import item_service, list_service
+from app.services.event_broadcaster import ListEvent, event_broadcaster
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["items"], dependencies=[Depends(get_auth)])
+
+
+async def publish_event_async(event: ListEvent) -> None:
+    """Publish an event to the broadcaster asynchronously.
+
+    This function is designed to be used with BackgroundTasks.add_task().
+    Properly handles and logs any errors during event publishing.
+    Distinguishes between expected failures (queue full, timeout) and
+    unexpected bugs for better debugging.
+    """
+    try:
+        await event_broadcaster.publish(event)
+        logger.debug(
+            f"Successfully published {event.event_type} event for list {event.list_id}"
+        )
+    except (asyncio.QueueFull, asyncio.TimeoutError) as e:
+        # Expected failures - log as warning, not error
+        logger.warning(
+            f"Event publish failed (expected): {type(e).__name__} for "
+            f"event_type={event.event_type}, list_id={event.list_id}"
+        )
+    except Exception as e:
+        # Unexpected failures - these indicate potential bugs
+        # Log with full stack trace for debugging
+        logger.error(
+            f"UNEXPECTED event publish failure: event_type={event.event_type}, "
+            f"list_id={event.list_id}, item_id={event.item_id}, error={type(e).__name__}: {e}",
+            exc_info=True,
+        )
 
 
 @router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
@@ -34,13 +70,14 @@ def get_items(
     check_list_access(db, list_id, current_user, require_edit=False)
 
     items = item_service.get_items_by_list(db, list_id, status=status)
-    return items
+    return [item_to_response(item) for item in items]
 
 
 @router.post("/lists/{list_id}/items", response_model=list[ItemResponse], status_code=201)
 def create_items(
     list_id: str,
     data: ItemCreate | ItemBatchCreate,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -56,13 +93,28 @@ def create_items(
     else:
         items = [item_service.create_item(db, list_id, data)]
 
-    return items
+    # Publish events for created items
+    for item in items:
+        background_tasks.add_task(
+            publish_event_async,
+            ListEvent(
+                event_type="item_created",
+                list_id=list_id,
+                item_id=item.id,
+                item_name=item.name,
+                user_id=current_user.id if current_user else None,
+                user_name=current_user.display_name if current_user else None,
+            ),
+        )
+
+    return [item_to_response(item) for item in items]
 
 
 @router.put("/items/{item_id}", response_model=ItemResponse)
 def update_item(
     item_id: str,
     data: ItemUpdate,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -74,12 +126,27 @@ def update_item(
     check_list_access(db, item.list_id, current_user, require_edit=True)
 
     updated = item_service.update_item(db, item, data)
-    return updated
+
+    # Publish update event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="item_updated",
+            list_id=item.list_id,
+            item_id=item_id,
+            item_name=updated.name,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
+
+    return item_to_response(updated)
 
 
 @router.delete("/items/{item_id}", status_code=204)
 def delete_item(
     item_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -90,12 +157,30 @@ def delete_item(
 
     check_list_access(db, item.list_id, current_user, require_edit=True)
 
+    # Capture item info before deletion
+    list_id = item.list_id
+    item_name = item.name
+
     item_service.delete_item(db, item)
+
+    # Publish delete event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="item_deleted",
+            list_id=list_id,
+            item_id=item_id,
+            item_name=item_name,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
 
 
 @router.post("/items/{item_id}/check", response_model=ItemResponse)
 def check_item(
     item_id: str,
+    background_tasks: BackgroundTasks,
     data: ItemCheckRequest | None = None,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -110,12 +195,27 @@ def check_item(
     # Use current user's ID if available and no user_id provided
     user_id = data.user_id if data and data.user_id else (current_user.id if current_user else None)
     checked = item_service.check_item(db, item, user_id=user_id)
-    return checked
+
+    # Publish check event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="item_checked",
+            list_id=item.list_id,
+            item_id=item_id,
+            item_name=item.name,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
+
+    return item_to_response(checked)
 
 
 @router.post("/items/{item_id}/uncheck", response_model=ItemResponse)
 def uncheck_item(
     item_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -127,12 +227,27 @@ def uncheck_item(
     check_list_access(db, item.list_id, current_user, require_edit=True)
 
     unchecked = item_service.uncheck_item(db, item)
-    return unchecked
+
+    # Publish uncheck event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="item_unchecked",
+            list_id=item.list_id,
+            item_id=item_id,
+            item_name=item.name,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
+
+    return item_to_response(unchecked)
 
 
 @router.post("/lists/{list_id}/clear", status_code=200)
 def clear_checked_items(
     list_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -144,12 +259,25 @@ def clear_checked_items(
     check_list_access(db, list_id, current_user, require_edit=True)
 
     count = item_service.clear_checked_items(db, list_id)
+
+    # Publish clear event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="items_cleared",
+            list_id=list_id,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
+
     return {"deleted_count": count}
 
 
 @router.post("/lists/{list_id}/restore", status_code=200)
 def restore_checked_items(
     list_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -161,4 +289,16 @@ def restore_checked_items(
     check_list_access(db, list_id, current_user, require_edit=True)
 
     count = item_service.restore_checked_items(db, list_id)
+
+    # Publish restore event
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="items_restored",
+            list_id=list_id,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+    )
+
     return {"restored_count": count}
