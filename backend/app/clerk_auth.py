@@ -154,7 +154,7 @@ def _get_signing_key(token: str) -> Any:
 
     except jwt.exceptions.DecodeError as e:
         logger.error(f"Failed to decode token header: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token format")
+        raise HTTPException(status_code=401, detail="Invalid token format") from None
 
 
 def verify_clerk_token(token: str) -> ClerkUser:
@@ -257,13 +257,13 @@ def verify_clerk_token(token: str) -> ClerkUser:
 
     except jwt.ExpiredSignatureError:
         logger.info("Token expired for request")
-        raise HTTPException(status_code=401, detail="Token has expired")
+        raise HTTPException(status_code=401, detail="Token has expired") from None
     except jwt.InvalidIssuerError as e:
         logger.warning(f"Invalid token issuer: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token issuer")
+        raise HTTPException(status_code=401, detail="Invalid token issuer") from None
     except jwt.InvalidTokenError as e:
         logger.error(f"JWT validation failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid token") from None
 
 
 def extract_bearer_token(request: Request) -> str | None:
