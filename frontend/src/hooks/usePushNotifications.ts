@@ -76,7 +76,7 @@ function isIOSWithoutInstall(): boolean {
 }
 
 export function usePushNotifications(): UsePushNotificationsResult {
-  const { isAuthenticated } = useAuth();
+  const { isSignedIn } = useAuth();
 
   const [isSupported, setIsSupported] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false);
@@ -137,7 +137,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
   // Load preferences when authenticated
   useEffect(() => {
-    if (!isAuthenticated || !isEnabled) {
+    if (!isSignedIn || !isEnabled) {
       return;
     }
 
@@ -152,7 +152,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
     };
 
     loadPreferences();
-  }, [isAuthenticated, isEnabled]);
+  }, [isSignedIn, isEnabled]);
 
   const subscribe = useCallback(async () => {
     if (!isSupported || !isEnabled || !vapidPublicKey) {
@@ -173,9 +173,10 @@ export function usePushNotifications(): UsePushNotificationsResult {
       const registration = await navigator.serviceWorker.ready;
 
       // Subscribe to push
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        applicationServerKey: applicationServerKey as BufferSource,
       });
 
       // Send subscription to server
@@ -255,7 +256,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
       const subscription = await registration.pushManager.getSubscription();
       setIsSubscribed(!!subscription);
 
-      if (isAuthenticated) {
+      if (isSignedIn) {
         const prefs = await getNotificationPreferences();
         setPreferences(prefs);
       }
@@ -264,7 +265,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
       console.error('Failed to refresh push status:', err);
       setError('Failed to refresh notification status');
     }
-  }, [isSupported, isEnabled, isAuthenticated]);
+  }, [isSupported, isEnabled, isSignedIn]);
 
   return {
     isSupported,
