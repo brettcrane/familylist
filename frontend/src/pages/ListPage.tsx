@@ -131,8 +131,18 @@ export function ListPage() {
   };
 
   const handleDeleteItem = (itemId: string) => {
-    deleteItem.mutate(itemId);
-    setEditingItem(null);
+    deleteItem.mutate(itemId, {
+      onSuccess: () => {
+        setEditingItem(null);
+      },
+      onError: (error) => {
+        console.error('Failed to delete item:', error);
+        const apiError = error as { message?: string; data?: { detail?: string } };
+        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete item. Please try again.';
+        showToast(errorMessage, 'error');
+        setEditingItem(null);
+      },
+    });
   };
 
   const handleClearAll = () => {
