@@ -131,7 +131,18 @@ export function ListPage() {
   };
 
   const handleDeleteItem = (itemId: string) => {
-    deleteItem.mutate(itemId);
+    deleteItem.mutate(itemId, {
+      onSuccess: () => {
+        setEditingItem(null);
+      },
+      onError: (error) => {
+        console.error('Failed to delete item:', error);
+        const apiError = error as { message?: string; data?: { detail?: string } };
+        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete item. Please try again.';
+        showToast(errorMessage, 'error');
+        setEditingItem(null);
+      },
+    });
   };
 
   const handleClearAll = () => {
@@ -399,7 +410,6 @@ export function ListPage() {
                       category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
                       items={uncategorizedItems}
                       onCheckItem={handleCheckItem}
-                      onDeleteItem={handleDeleteItem}
                       onEditItem={handleEditItem}
                       onNameChange={handleNameChange}
                     />
@@ -415,7 +425,6 @@ export function ListPage() {
                         category={category}
                         items={items}
                         onCheckItem={handleCheckItem}
-                        onDeleteItem={handleDeleteItem}
                         onEditItem={handleEditItem}
                         onNameChange={handleNameChange}
                       />
@@ -481,6 +490,7 @@ export function ListPage() {
         listId={id!}
         categories={list.categories}
         onSave={handleSaveItem}
+        onDelete={handleDeleteItem}
         onClose={() => setEditingItem(null)}
         isSaving={updateItem.isPending}
       />
