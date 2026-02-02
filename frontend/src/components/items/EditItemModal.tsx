@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
 import { ChevronDownIcon, CheckIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -6,7 +6,7 @@ import { Button } from '../ui/Button';
 import { getCategoryEmoji } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
 import { useUIStore } from '../../stores/uiStore';
-import type { Item, Category, ItemUpdate } from '../../types/api';
+import type { Item, Category, ItemUpdate, ApiError } from '../../types/api';
 
 interface EditItemModalProps {
   item: Item | null;
@@ -162,16 +162,18 @@ export function EditItemModal({
       setCategoryDropdownOpen(false);
     } catch (err) {
       console.error('Failed to create category:', err);
-      // Extract error message properly (API errors have different structure)
-      const apiError = err as { message?: string; data?: { detail?: string } };
+      const apiError = err as ApiError;
       const errorMessage = apiError.data?.detail || apiError.message || 'Failed to create category';
       setCategoryError(errorMessage);
       showToast(errorMessage, 'error');
     }
   };
 
-  // Sort categories, putting "Uncategorized" option first
-  const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
+  // Sort categories by sort_order (memoized to avoid re-sorting on every render)
+  const sortedCategories = useMemo(
+    () => [...categories].sort((a, b) => a.sort_order - b.sort_order),
+    [categories]
+  );
   // Handle newly created category that may not be in the list yet (race condition)
   const selectedCategory = sortedCategories.find(c => c.id === selectedCategoryId)
     || (newlyCreatedCategory?.id === selectedCategoryId ? newlyCreatedCategory as Category : null);

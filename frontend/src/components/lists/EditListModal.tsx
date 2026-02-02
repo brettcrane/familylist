@@ -8,6 +8,7 @@ import { Input } from '../ui/Input';
 import { useUpdateList, useList, useDuplicateList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '../../contexts/AuthContext';
+import type { ApiError } from '../../types/api';
 
 const ICON_OPTIONS = [
   '🛒', '🎒', '✅', '📝', '🏠', '🎁',
@@ -112,7 +113,7 @@ export function EditListModal() {
       });
       handleClose();
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
+      const apiError = err as ApiError;
       const errorMessage = apiError.data?.detail || apiError.message || 'Failed to update list. Please try again.';
       console.error('Failed to update list:', { listId, error: err });
       setError(errorMessage);
@@ -131,7 +132,7 @@ export function EditListModal() {
       handleClose();
       navigate(`/lists/${newList.id}`);
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
+      const apiError = err as ApiError;
       const errorMessage = apiError.data?.detail || apiError.message || 'Failed to duplicate list';
       console.error('Failed to duplicate list:', { listId, error: err, errorMessage });
       setError(errorMessage);
