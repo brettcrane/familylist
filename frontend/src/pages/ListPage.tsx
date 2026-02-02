@@ -20,6 +20,7 @@ import {
   useDeleteItem,
   useUpdateItem,
   useClearCompleted,
+  useRestoreCompleted,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
@@ -54,6 +55,7 @@ export function ListPage() {
   const deleteItem = useDeleteItem(id!);
   const updateItem = useUpdateItem(id!);
   const clearCompleted = useClearCompleted(id!);
+  const restoreCompleted = useRestoreCompleted(id!);
 
   // Input state
   const [inputValue, setInputValue] = useState('');
@@ -147,6 +149,10 @@ export function ListPage() {
 
   const handleClearAll = () => {
     clearCompleted.mutate();
+  };
+
+  const handleRestoreAll = () => {
+    restoreCompleted.mutate();
   };
 
   const handleEditItem = (item: Item) => {
@@ -441,7 +447,9 @@ export function ListPage() {
               totalItems={totalItems}
               onUncheckItem={handleUncheckItem}
               onClearAll={handleClearAll}
+              onRestoreAll={handleRestoreAll}
               isClearingAll={clearCompleted.isPending}
+              isRestoringAll={restoreCompleted.isPending}
             />
           )}
         </AnimatePresence>

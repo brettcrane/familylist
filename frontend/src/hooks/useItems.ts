@@ -367,3 +367,41 @@ export function useClearCompleted(listId: string) {
     },
   });
 }
+
+/**
+ * Hook to restore all completed items (uncheck them all)
+ */
+export function useRestoreCompleted(listId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api.restoreCompleted(listId),
+    onSuccess: () => {
+      // Get current data to count restored items
+      const currentData = queryClient.getQueryData<ListWithItems>(
+        listKeys.detail(listId)
+      );
+      const restoredCount = currentData?.items.filter((item) => item.is_checked).length ?? 0;
+
+      queryClient.setQueryData<ListWithItems>(
+        listKeys.detail(listId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.is_checked
+                ? { ...item, is_checked: false, checked_at: null, checked_by: null }
+                : item
+            ),
+          };
+        }
+      );
+
+      // Update counts in lists cache (checked count goes to 0)
+      updateListCounts(queryClient, listId, {
+        checked: -restoredCount,
+      });
+    },
+  });
+}

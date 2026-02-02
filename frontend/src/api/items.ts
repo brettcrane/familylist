@@ -66,6 +66,13 @@ export function clearCompleted(listId: string): Promise<void> {
 }
 
 /**
+ * Restore all completed items (uncheck them all)
+ */
+export function restoreCompleted(listId: string): Promise<void> {
+  return post<void>(`/lists/${listId}/restore`);
+}
+
+/**
  * Reorder items within a list/category
  */
 export function reorderItems(

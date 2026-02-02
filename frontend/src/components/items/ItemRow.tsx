@@ -67,7 +67,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange, showCategory }: I
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-4 py-3 bg-[var(--color-bg-card)]',
+        'flex items-center gap-3 px-4 py-2 bg-[var(--color-bg-card)]',
         'border-b border-[var(--color-text-muted)]/10'
       )}
     >
