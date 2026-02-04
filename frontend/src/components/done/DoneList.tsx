@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Button } from '../ui/Button';
@@ -11,7 +11,9 @@ interface DoneListProps {
   totalItems: number;
   onUncheckItem: (itemId: string) => void;
   onClearAll: () => void;
+  onRestoreAll: () => void;
   isClearingAll?: boolean;
+  isRestoringAll?: boolean;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -84,8 +86,17 @@ export function DoneList({
   totalItems,
   onUncheckItem,
   onClearAll,
+  onRestoreAll,
   isClearingAll = false,
+  isRestoringAll = false,
 }: DoneListProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Reset confirmation dialog when items change (e.g., via SSE or restore)
+  useEffect(() => {
+    setShowDeleteConfirm(false);
+  }, [items.length]);
+
   // Build category lookup map
   const categoryMap = useMemo(() => {
     const map: Record<string, Category> = {};
@@ -153,18 +164,54 @@ export function DoneList({
         )}
       </div>
 
-      {/* Clear all button */}
+      {/* Action buttons */}
       {items.length > 0 && (
-        <div className="px-4 py-3 border-b border-[var(--color-text-muted)]/10">
+        <div className="px-4 py-3 border-b border-[var(--color-text-muted)]/10 space-y-2">
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClearAll}
-            isLoading={isClearingAll}
-            className="w-full text-[var(--color-destructive)]"
+            onClick={onRestoreAll}
+            isLoading={isRestoringAll}
+            className="w-full text-[var(--color-accent)]"
           >
-            Clear All Completed
+            Restore All to To Do
           </Button>
+          {showDeleteConfirm ? (
+            <div className="flex flex-col gap-2 p-3 bg-[var(--color-bg-secondary)] rounded-lg">
+              <p className="text-sm text-[var(--color-text-primary)] text-center">
+                Delete {items.length} {items.length === 1 ? 'item' : 'items'} permanently?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClearAll}
+                  isLoading={isClearingAll}
+                  disabled={isClearingAll}
+                  className="flex-1 text-[var(--color-destructive)]"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full text-[var(--color-destructive)]"
+            >
+              Delete All Completed
+            </Button>
+          )}
         </div>
       )}
 
@@ -180,7 +227,7 @@ export function DoneList({
                 key={item.id}
                 onClick={() => onUncheckItem(item.id)}
                 className={clsx(
-                  'w-full flex items-center gap-3 px-4 py-3',
+                  'w-full flex items-center gap-3 px-4 py-2',
                   'bg-[var(--color-bg-card)]',
                   'border-b border-[var(--color-text-muted)]/10',
                   'hover:bg-[var(--color-bg-secondary)]/50 transition-colors',

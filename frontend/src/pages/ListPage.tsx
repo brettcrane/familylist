@@ -20,6 +20,7 @@ import {
   useDeleteItem,
   useUpdateItem,
   useClearCompleted,
+  useRestoreCompleted,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
@@ -54,6 +55,7 @@ export function ListPage() {
   const deleteItem = useDeleteItem(id!);
   const updateItem = useUpdateItem(id!);
   const clearCompleted = useClearCompleted(id!);
+  const restoreCompleted = useRestoreCompleted(id!);
 
   // Input state
   const [inputValue, setInputValue] = useState('');
@@ -146,7 +148,25 @@ export function ListPage() {
   };
 
   const handleClearAll = () => {
-    clearCompleted.mutate();
+    clearCompleted.mutate(undefined, {
+      onError: (error) => {
+        console.error('Failed to delete completed items:', error);
+        const apiError = error as { message?: string; data?: { detail?: string } };
+        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete completed items. Please try again.';
+        showToast(errorMessage, 'error');
+      },
+    });
+  };
+
+  const handleRestoreAll = () => {
+    restoreCompleted.mutate(undefined, {
+      onError: (error) => {
+        console.error('Failed to restore completed items:', error);
+        const apiError = error as { message?: string; data?: { detail?: string } };
+        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to restore items. Please try again.';
+        showToast(errorMessage, 'error');
+      },
+    });
   };
 
   const handleEditItem = (item: Item) => {
@@ -441,7 +461,9 @@ export function ListPage() {
               totalItems={totalItems}
               onUncheckItem={handleUncheckItem}
               onClearAll={handleClearAll}
+              onRestoreAll={handleRestoreAll}
               isClearingAll={clearCompleted.isPending}
+              isRestoringAll={restoreCompleted.isPending}
             />
           )}
         </AnimatePresence>
