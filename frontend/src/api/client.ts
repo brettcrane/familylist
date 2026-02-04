@@ -38,6 +38,14 @@ export class ApiError extends Error {
   }
 }
 
+/** Extract a user-facing error message from a caught exception. */
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    return err.data?.detail || err.message;
+  }
+  return fallback;
+}
+
 /** HTTP method types */
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 

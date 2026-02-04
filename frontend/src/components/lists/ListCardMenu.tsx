@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../../stores/uiStore';
 import { useDuplicateList } from '../../hooks/useLists';
+import { getErrorMessage } from '../../api/client';
 import type { List } from '../../types/api';
 
 interface ListCardMenuProps {
@@ -76,10 +77,8 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
       });
       navigate(`/lists/${newList.id}`);
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to duplicate list';
-      console.error('Failed to duplicate list:', { listId: list.id, error: err, errorMessage });
-      showToast(errorMessage, 'error');
+      console.error('Failed to duplicate list:', { listId: list.id, error: err });
+      showToast(getErrorMessage(err, 'Failed to duplicate list'), 'error');
     }
   };
 

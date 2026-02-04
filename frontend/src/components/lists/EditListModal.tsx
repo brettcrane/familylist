@@ -8,7 +8,7 @@ import { Input } from '../ui/Input';
 import { useUpdateList, useList, useDuplicateList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '../../contexts/AuthContext';
-import type { ApiError } from '../../types/api';
+import { getErrorMessage } from '../../api/client';
 
 const ICON_OPTIONS = [
   '🛒', '🎒', '✅', '📝', '🏠', '🎁',
@@ -30,6 +30,7 @@ export function EditListModal() {
   const { open, listId } = useUIStore((state) => state.editListModal);
   const closeModal = useUIStore((state) => state.closeEditListModal);
   const openDeleteListDialog = useUIStore((state) => state.openDeleteListDialog);
+  const showToast = useUIStore((state) => state.showToast);
   const { isAuthReady } = useAuth();
 
   const { data: list } = useList(listId || '', { enabled: isAuthReady && !!listId });
@@ -113,10 +114,10 @@ export function EditListModal() {
       });
       handleClose();
     } catch (err: unknown) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to update list. Please try again.';
       console.error('Failed to update list:', { listId, error: err });
+      const errorMessage = getErrorMessage(err, 'Failed to update list. Please try again.');
       setError(errorMessage);
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -132,10 +133,10 @@ export function EditListModal() {
       handleClose();
       navigate(`/lists/${newList.id}`);
     } catch (err: unknown) {
-      const apiError = err as ApiError;
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to duplicate list';
-      console.error('Failed to duplicate list:', { listId, error: err, errorMessage });
+      console.error('Failed to duplicate list:', { listId, error: err });
+      const errorMessage = getErrorMessage(err, 'Failed to duplicate list');
       setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsDuplicating(false);
     }

@@ -201,12 +201,6 @@ export interface ErrorResponse {
   detail: string;
 }
 
-/** API error structure for caught exceptions */
-export interface ApiError {
-  message?: string;
-  data?: { detail?: string };
-}
-
 /** Default categories by list type */
 export const DEFAULT_CATEGORIES: Record<ListType, string[]> = {
   grocery: [

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useUIStore } from '../../stores/uiStore';
 import { useList } from '../../hooks/useLists';
+import { getErrorMessage } from '../../api/client';
 import {
   useListShares,
   useShareList,
@@ -203,8 +204,7 @@ export function ShareListModal() {
       setEmail('');
       setError('');
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
-      setError(apiError.data?.detail || apiError.message || 'Failed to share list');
+      setError(getErrorMessage(err, 'Failed to share list'));
     }
   };
 
@@ -216,10 +216,8 @@ export function ShareListModal() {
         data: { permission: newPermission },
       });
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to update permission';
       console.error('Failed to update share permission:', { shareId, newPermission, error: err });
-      setUpdateError(errorMessage);
+      setUpdateError(getErrorMessage(err, 'Failed to update permission'));
     }
   };
 
@@ -228,10 +226,8 @@ export function ShareListModal() {
     try {
       await revokeShare.mutateAsync(shareId);
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to remove user';
       console.error('Failed to revoke share:', { shareId, error: err });
-      setUpdateError(errorMessage);
+      setUpdateError(getErrorMessage(err, 'Failed to remove user'));
     }
   };
 

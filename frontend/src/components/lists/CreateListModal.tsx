@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useCreateList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
+import { getErrorMessage } from '../../api/client';
 import type { ListType } from '../../types/api';
 import { ListTypeIcon } from '../icons/CategoryIcons';
 
@@ -50,10 +51,8 @@ export function CreateListModal() {
       await createList.mutateAsync({ name: name.trim(), type });
       handleClose();
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to create list. Please try again.';
       console.error('Failed to create list:', { name: name.trim(), type, error: err });
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to create list. Please try again.'));
     }
   };
 

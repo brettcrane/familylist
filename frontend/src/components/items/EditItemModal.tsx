@@ -6,7 +6,8 @@ import { Button } from '../ui/Button';
 import { getCategoryEmoji } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
 import { useUIStore } from '../../stores/uiStore';
-import type { Item, Category, ItemUpdate, ApiError } from '../../types/api';
+import { getErrorMessage } from '../../api/client';
+import type { Item, Category, ItemUpdate } from '../../types/api';
 
 interface EditItemModalProps {
   item: Item | null;
@@ -162,8 +163,7 @@ export function EditItemModal({
       setCategoryDropdownOpen(false);
     } catch (err) {
       console.error('Failed to create category:', err);
-      const apiError = err as ApiError;
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to create category';
+      const errorMessage = getErrorMessage(err, 'Failed to create category');
       setCategoryError(errorMessage);
       showToast(errorMessage, 'error');
     }
