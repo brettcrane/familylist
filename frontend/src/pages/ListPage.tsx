@@ -148,11 +148,25 @@ export function ListPage() {
   };
 
   const handleClearAll = () => {
-    clearCompleted.mutate();
+    clearCompleted.mutate(undefined, {
+      onError: (error) => {
+        console.error('Failed to delete completed items:', error);
+        const apiError = error as { message?: string; data?: { detail?: string } };
+        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete completed items. Please try again.';
+        showToast(errorMessage, 'error');
+      },
+    });
   };
 
   const handleRestoreAll = () => {
-    restoreCompleted.mutate();
+    restoreCompleted.mutate(undefined, {
+      onError: (error) => {
+        console.error('Failed to restore completed items:', error);
+        const apiError = error as { message?: string; data?: { detail?: string } };
+        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to restore items. Please try again.';
+        showToast(errorMessage, 'error');
+      },
+    });
   };
 
   const handleEditItem = (item: Item) => {

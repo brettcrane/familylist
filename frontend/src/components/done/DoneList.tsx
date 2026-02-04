@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Button } from '../ui/Button';
@@ -91,6 +91,12 @@ export function DoneList({
   isRestoringAll = false,
 }: DoneListProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Reset confirmation dialog when items change (e.g., via SSE or restore)
+  useEffect(() => {
+    setShowDeleteConfirm(false);
+  }, [items.length]);
+
   // Build category lookup map
   const categoryMap = useMemo(() => {
     const map: Record<string, Category> = {};
@@ -187,11 +193,9 @@ export function DoneList({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    onClearAll();
-                    setShowDeleteConfirm(false);
-                  }}
+                  onClick={onClearAll}
                   isLoading={isClearingAll}
+                  disabled={isClearingAll}
                   className="flex-1 text-[var(--color-destructive)]"
                 >
                   Delete

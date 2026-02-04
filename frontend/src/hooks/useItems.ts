@@ -365,6 +365,10 @@ export function useClearCompleted(listId: string) {
         checked: -clearedCount,
       });
     },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: listKeys.detail(listId) });
+      queryClient.invalidateQueries({ queryKey: listKeys.lists() });
+    },
   });
 }
 
@@ -402,6 +406,10 @@ export function useRestoreCompleted(listId: string) {
       updateListCounts(queryClient, listId, {
         checked: -restoredCount,
       });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: listKeys.detail(listId) });
+      queryClient.invalidateQueries({ queryKey: listKeys.lists() });
     },
   });
 }
