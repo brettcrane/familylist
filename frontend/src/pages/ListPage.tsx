@@ -24,6 +24,7 @@ import {
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
+import { getErrorMessage } from '../api/client';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const AUTO_ACCEPT_DELAY = 2000;
@@ -139,9 +140,7 @@ export function ListPage() {
       },
       onError: (error) => {
         console.error('Failed to delete item:', error);
-        const apiError = error as { message?: string; data?: { detail?: string } };
-        const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete item. Please try again.';
-        showToast(errorMessage, 'error');
+        showToast(getErrorMessage(error, 'Failed to delete item. Please try again.'), 'error');
         setEditingItem(null);
       },
     });
@@ -182,9 +181,7 @@ export function ListPage() {
         },
         onError: (error) => {
           console.error('Failed to update item:', error);
-          const apiError = error as { message?: string; data?: { detail?: string } };
-          const errorMessage = apiError.data?.detail || apiError.message || 'Failed to save changes. Please try again.';
-          showToast(errorMessage, 'error');
+          showToast(getErrorMessage(error, 'Failed to save changes. Please try again.'), 'error');
           setEditingItem(null);
         },
       }
@@ -197,9 +194,7 @@ export function ListPage() {
       {
         onError: (error) => {
           console.error('Failed to update item name:', error);
-          const apiError = error as { message?: string; data?: { detail?: string } };
-          const errorMessage = apiError.data?.detail || apiError.message || 'Failed to save item name. Please try again.';
-          showToast(errorMessage, 'error');
+          showToast(getErrorMessage(error, 'Failed to save item name. Please try again.'), 'error');
         },
       }
     );

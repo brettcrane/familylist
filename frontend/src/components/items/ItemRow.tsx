@@ -10,10 +10,9 @@ interface ItemRowProps {
   onCheck: () => void;
   onEdit?: () => void;
   onNameChange?: (newName: string) => void;
-  showCategory?: boolean;
 }
 
-export function ItemRow({ item, onCheck, onEdit, onNameChange, showCategory }: ItemRowProps) {
+export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
   const hasPending = useHasPendingMutation(item.id);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -167,11 +166,6 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange, showCategory }: I
         </button>
       )}
 
-      {showCategory && item.category_id && (
-        <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-2 py-1 rounded-full flex-shrink-0">
-          {/* Category name would come from context */}
-        </span>
-      )}
     </div>
   );
 }

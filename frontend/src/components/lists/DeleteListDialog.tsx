@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/Button';
 import { useDeleteList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
+import { getErrorMessage } from '../../api/client';
 
 export function DeleteListDialog() {
   const navigate = useNavigate();
@@ -23,10 +24,8 @@ export function DeleteListDialog() {
       closeDialog();
       navigate('/');
     } catch (err: unknown) {
-      const apiError = err as { message?: string; data?: { detail?: string } };
-      const errorMessage = apiError.data?.detail || apiError.message || 'Failed to delete list';
       console.error('Failed to delete list:', { listId, error: err });
-      setError(errorMessage);
+      setError(getErrorMessage(err, 'Failed to delete list'));
     }
   };
 

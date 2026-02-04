@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+/** Default toast duration in milliseconds */
+const DEFAULT_TOAST_DURATION_MS = 4000;
+
 /** Theme type */
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -148,7 +151,7 @@ export const useUIStore = create<UIState>()(
 
       // Toast notifications
       toasts: [],
-      showToast: (message, type = 'error', duration = 4000) => {
+      showToast: (message, type = 'error', duration = DEFAULT_TOAST_DURATION_MS) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         set((state) => ({
           toasts: [...state.toasts, { id, message, type, duration }],
