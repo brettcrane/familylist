@@ -166,52 +166,70 @@ export function DoneList({
 
       {/* Action buttons */}
       {items.length > 0 && (
-        <div className="px-4 py-3 border-b border-[var(--color-text-muted)]/10 space-y-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRestoreAll}
-            isLoading={isRestoringAll}
-            className="w-full text-[var(--color-accent)]"
-          >
-            Restore All to To Do
-          </Button>
-          {showDeleteConfirm ? (
-            <div className="flex flex-col gap-2 p-3 bg-[var(--color-bg-secondary)] rounded-lg">
-              <p className="text-sm text-[var(--color-text-primary)] text-center">
-                Delete {items.length} {items.length === 1 ? 'item' : 'items'} permanently?
-              </p>
-              <div className="flex gap-2">
+        <div className="px-4 py-3 border-b border-[var(--color-text-muted)]/10">
+          <AnimatePresence mode="wait">
+            {showDeleteConfirm ? (
+              <motion.div
+                key="confirm"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col gap-2 p-3 bg-[var(--color-bg-secondary)] rounded-lg"
+              >
+                <p className="text-sm text-[var(--color-text-primary)] text-center">
+                  Delete {items.length} {items.length === 1 ? 'item' : 'items'} permanently?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClearAll}
+                    isLoading={isClearingAll}
+                    disabled={isClearingAll}
+                    className="flex-1 text-[var(--color-destructive)]"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="actions"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex gap-2"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1"
+                  onClick={onRestoreAll}
+                  isLoading={isRestoringAll}
+                  className="flex-1 text-[var(--color-accent)]"
                 >
-                  Cancel
+                  Restore All
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={onClearAll}
-                  isLoading={isClearingAll}
-                  disabled={isClearingAll}
+                  onClick={() => setShowDeleteConfirm(true)}
                   className="flex-1 text-[var(--color-destructive)]"
                 >
-                  Delete
+                  Delete All
                 </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full text-[var(--color-destructive)]"
-            >
-              Delete All Completed
-            </Button>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
