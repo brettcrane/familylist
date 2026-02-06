@@ -33,11 +33,13 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 
 See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
-**Icons:** Use Heroicons (`@heroicons/react`) for UI elements, emojis for category indicators.
+**Icons:** Dual-library approach — Heroicons for UI actions, Tabler Icons for domain-specific icons.
 - UI buttons/actions: Import from `@heroicons/react/24/outline`
 - List type icons: Use `ListTypeIcon` from `components/icons/CategoryIcons.tsx`
-- Category emojis: Use `getCategoryEmoji()` from `components/icons/CategoryIcons.tsx`
-- Never duplicate emoji/icon mappings - always use the centralized file
+- Category icons: Use `<CategoryIcon category={name} />` from `components/icons/CategoryIcons.tsx`
+- List icons (picker/display): Use `<ListIcon icon={id} />` and `LIST_ICON_OPTIONS` from `CategoryIcons.tsx`
+- Never duplicate icon mappings - always use the centralized file
+- Both libraries use 24x24 outline style for visual consistency
 - Theme toggle is in the user menu (`UserButton.tsx`), not in the header
 
 ## Authentication (Clerk + API Key Hybrid)

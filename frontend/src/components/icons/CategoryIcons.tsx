@@ -1,17 +1,62 @@
 /**
  * Centralized icons for the app.
  * - List types: Heroicons (professional UI icons)
- * - Categories: Emojis (universally recognized for products)
+ * - Categories: Tabler Icons (consistent SVG category indicators)
+ * - List icons: Tabler Icons (for list icon picker and display)
  */
 import {
   ShoppingCartIcon,
   BriefcaseIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
+import {
+  IconApple,
+  IconMilk,
+  IconMeat,
+  IconBread,
+  IconBottle,
+  IconSnowflake,
+  IconCup,
+  IconCookie,
+  IconSpray,
+  IconDroplet,
+  IconPackage,
+  IconShirt,
+  IconDroplets,
+  IconDeviceMobile,
+  IconFileText,
+  IconBackpack,
+  IconHorseToy,
+  IconAlertTriangle,
+  IconFlag,
+  IconArrowDown,
+  IconCalendarEvent,
+  IconCalendar,
+  IconClock,
+  IconQuestionMark,
+  IconNote,
+  // List icon picker
+  IconShoppingCart,
+  IconCircleCheck,
+  IconHome,
+  IconGift,
+  IconStar,
+  IconHeart,
+  IconTarget,
+  IconPinned,
+  IconPencil,
+  IconClipboardList,
+} from '@tabler/icons-react';
 import type { ComponentType, SVGProps } from 'react';
 import type { ListType } from '../../types/api';
 
-type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+type HeroIconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+type TablerIconComponent = ComponentType<{
+  className?: string;
+  size?: number | string;
+  stroke?: number;
+  style?: React.CSSProperties;
+}>;
 
 interface IconProps {
   className?: string;
@@ -22,7 +67,7 @@ interface IconProps {
 // List Type Icons (Heroicons)
 // =============================================================================
 
-const LIST_TYPE_ICON_MAP: Record<ListType, IconComponent> = {
+const LIST_TYPE_ICON_MAP: Record<ListType, HeroIconComponent> = {
   grocery: ShoppingCartIcon,
   packing: BriefcaseIcon,
   tasks: CheckCircleIcon,
@@ -33,48 +78,99 @@ export function ListTypeIcon({ type, className = 'w-5 h-5', style }: { type: Lis
   return <Icon className={className} style={style} />;
 }
 
-export function getListTypeIconComponent(type: ListType): IconComponent {
+export function getListTypeIconComponent(type: ListType): HeroIconComponent {
   return LIST_TYPE_ICON_MAP[type];
 }
 
 // =============================================================================
-// Category Emojis (centralized mapping)
+// Category Icons (Tabler Icons)
 // =============================================================================
 
-const CATEGORY_EMOJI_MAP: Record<string, string> = {
+const CATEGORY_ICON_MAP: Record<string, TablerIconComponent> = {
   // Grocery categories
-  Produce: '🥬',
-  Dairy: '🥛',
-  'Meat & Seafood': '🥩',
-  Bakery: '🍞',
-  Pantry: '🥫',
-  Frozen: '🧊',
-  Beverages: '🥤',
-  Snacks: '🍪',
-  Household: '🧹',
-  'Personal Care': '🧴',
-  Other: '📦',
+  Produce: IconApple,
+  Dairy: IconMilk,
+  'Meat & Seafood': IconMeat,
+  Bakery: IconBread,
+  Pantry: IconBottle,
+  Frozen: IconSnowflake,
+  Beverages: IconCup,
+  Snacks: IconCookie,
+  Household: IconSpray,
+  'Personal Care': IconDroplet,
+  Other: IconPackage,
   // Packing categories
-  Clothing: '👕',
-  Toiletries: '🧼',
-  Electronics: '📱',
-  Documents: '📄',
-  Accessories: '👜',
-  "Kids' Items": '🧸',
-  Miscellaneous: '📦',
+  Clothing: IconShirt,
+  Toiletries: IconDroplets,
+  Electronics: IconDeviceMobile,
+  Documents: IconFileText,
+  Accessories: IconBackpack,
+  "Kids' Items": IconHorseToy,
+  Miscellaneous: IconPackage,
   // Task categories
-  'High Priority': '🔴',
-  Normal: '🟡',
-  'Low Priority': '🟢',
-  Today: '📅',
-  'This Week': '📆',
-  Later: '⏰',
+  'High Priority': IconAlertTriangle,
+  Normal: IconFlag,
+  'Low Priority': IconArrowDown,
+  Today: IconCalendarEvent,
+  'This Week': IconCalendar,
+  Later: IconClock,
   // Fallback
-  Uncategorized: '❓',
+  Uncategorized: IconQuestionMark,
 };
 
-const DEFAULT_EMOJI = '📝';
+const DefaultCategoryIcon: TablerIconComponent = IconNote;
 
-export function getCategoryEmoji(category: string): string {
-  return CATEGORY_EMOJI_MAP[category] || DEFAULT_EMOJI;
+export function CategoryIcon({
+  category,
+  className = 'w-5 h-5',
+  style,
+}: {
+  category: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const Icon = CATEGORY_ICON_MAP[category] || DefaultCategoryIcon;
+  return <Icon className={className} stroke={1.5} style={style} />;
+}
+
+// =============================================================================
+// List Icons (Tabler Icons - for list icon picker and display)
+// =============================================================================
+
+const LIST_ICON_MAP: Record<string, TablerIconComponent> = {
+  cart: IconShoppingCart,
+  backpack: IconBackpack,
+  check: IconCircleCheck,
+  note: IconNote,
+  home: IconHome,
+  gift: IconGift,
+  star: IconStar,
+  heart: IconHeart,
+  target: IconTarget,
+  pin: IconPinned,
+  pencil: IconPencil,
+  clipboard: IconClipboardList,
+};
+
+export const LIST_ICON_OPTIONS = Object.keys(LIST_ICON_MAP);
+
+/**
+ * Renders a list icon by ID. Falls back to rendering raw string
+ * for legacy emoji values stored in the database.
+ */
+export function ListIcon({
+  icon,
+  className = 'w-5 h-5',
+  style,
+}: {
+  icon: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const TablerIcon = LIST_ICON_MAP[icon];
+  if (TablerIcon) {
+    return <TablerIcon className={className} stroke={1.5} style={style} />;
+  }
+  // Fallback: render raw string (handles legacy emoji values)
+  return <span className="text-xl leading-none" style={style}>{icon}</span>;
 }

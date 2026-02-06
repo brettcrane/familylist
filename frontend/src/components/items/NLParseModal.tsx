@@ -6,7 +6,7 @@ import { Checkbox } from '../ui/Checkbox';
 import { submitFeedback } from '../../api/ai';
 import type { ParsedItem, Category, ListType } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
-import { getCategoryEmoji } from '../icons/CategoryIcons';
+import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface NLParseModalProps {
   isOpen: boolean;
@@ -182,7 +182,7 @@ export function NLParseModal({
                         color: categoryColor,
                       }}
                     >
-                      <span>{getCategoryEmoji(item.category)}</span>
+                      <CategoryIcon category={item.category} className="w-3.5 h-3.5" />
                       <span>{item.category}</span>
                       <ChevronDownIcon className="w-3 h-3 opacity-60" />
                     </button>
@@ -215,7 +215,7 @@ export function NLParseModal({
                             'hover:bg-[var(--color-bg-card)] transition-colors'
                           )}
                         >
-                          <span>{getCategoryEmoji(category.name)}</span>
+                          <CategoryIcon category={category.name} className="w-4 h-4" style={{ color }} />
                           <span className="font-medium" style={{ color }}>
                             {category.name}
                           </span>

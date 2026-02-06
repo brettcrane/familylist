@@ -9,11 +9,7 @@ import { useUpdateList, useList, useDuplicateList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../api/client';
-
-const ICON_OPTIONS = [
-  '🛒', '🎒', '✅', '📝', '🏠', '🎁',
-  '🌟', '❤️', '🎯', '📌', '✏️', '📋',
-];
+import { LIST_ICON_OPTIONS, ListIcon } from '../icons/CategoryIcons';
 
 // 6 distinct colors with good differentiation - warm, cool, and neutral tones
 const COLOR_OPTIONS = [
@@ -235,7 +231,7 @@ export function EditListModal() {
                       >
                         <div className="flex items-center gap-2">
                           {icon ? (
-                            <span className="text-xl">{icon}</span>
+                            <ListIcon icon={icon} className="w-5 h-5 text-[var(--color-text-primary)]" />
                           ) : (
                             <span className="text-sm text-[var(--color-text-muted)]">None</span>
                           )}
@@ -281,24 +277,24 @@ export function EditListModal() {
 
                             {/* Icon grid inside dropdown */}
                             <div className="grid grid-cols-4 gap-1 p-2 border-t border-[var(--color-text-muted)]/10">
-                              {ICON_OPTIONS.map((iconOption) => (
+                              {LIST_ICON_OPTIONS.map((iconId) => (
                                 <button
-                                  key={iconOption}
+                                  key={iconId}
                                   type="button"
                                   role="option"
-                                  aria-selected={icon === iconOption}
+                                  aria-selected={icon === iconId}
                                   onClick={() => {
-                                    setIcon(iconOption);
+                                    setIcon(iconId);
                                     setIconDropdownOpen(false);
                                   }}
                                   className={clsx(
-                                    'aspect-square flex items-center justify-center text-xl rounded-lg transition-all',
-                                    icon === iconOption
-                                      ? 'bg-[var(--color-accent)]/10 ring-2 ring-[var(--color-accent)]'
-                                      : 'hover:bg-[var(--color-bg-secondary)]'
+                                    'aspect-square flex items-center justify-center rounded-lg transition-all',
+                                    icon === iconId
+                                      ? 'bg-[var(--color-accent)]/10 ring-2 ring-[var(--color-accent)] text-[var(--color-accent)]'
+                                      : 'hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]'
                                   )}
                                 >
-                                  {iconOption}
+                                  <ListIcon icon={iconId} className="w-5 h-5" />
                                 </button>
                               ))}
                             </div>
