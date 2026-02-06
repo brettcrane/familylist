@@ -52,7 +52,7 @@ class LLMParsingService:
     """Service for LLM-based natural language parsing.
 
     Supports three backends:
-    1. OpenAI API (default, recommended for GPT-5 Nano)
+    1. OpenAI API (default, uses GPT-5 Nano with structured JSON output)
     2. Local GGUF model via llama-cpp-python
     3. Ollama API
     """
@@ -173,7 +173,8 @@ class LLMParsingService:
     def _call_openai(self, prompt: str) -> str:
         """Call OpenAI API."""
         settings = get_settings()
-        # GPT-5 models use max_completion_tokens and don't support custom temperature
+        # GPT-5 models use max_completion_tokens, don't support custom temperature,
+        # and need response_format for reliable JSON output
         if "gpt-5" in settings.llm_openai_model:
             response = self._openai_client.chat.completions.create(
                 model=settings.llm_openai_model,
@@ -182,6 +183,32 @@ class LLMParsingService:
                     {"role": "user", "content": prompt},
                 ],
                 max_completion_tokens=settings.llm_max_tokens,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "parsed_items",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "quantity": {"type": "integer"},
+                                        },
+                                        "required": ["name", "quantity"],
+                                        "additionalProperties": False,
+                                    },
+                                }
+                            },
+                            "required": ["items"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
             )
         else:
             response = self._openai_client.chat.completions.create(
@@ -227,8 +254,10 @@ class LLMParsingService:
         return response.json()["response"].strip()
 
     def _extract_json(self, text: str) -> list[dict]:
-        """Extract JSON array from LLM response."""
-        # Try to find JSON array in response
+        """Extract JSON array from LLM response.
+
+        Handles both bare arrays and structured output objects like {"items": [...]}.
+        """
         text = text.strip()
 
         # Remove markdown code blocks if present
@@ -236,7 +265,17 @@ class LLMParsingService:
             text = re.sub(r"```(?:json)?\n?", "", text)
             text = text.strip()
 
-        # Find array bounds
+        # Try parsing as a complete JSON object first (structured output format)
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict) and "items" in data:
+                return data["items"]
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: find array bounds in free-form text
         start = text.find("[")
         end = text.rfind("]")
 
