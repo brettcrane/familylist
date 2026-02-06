@@ -6,7 +6,7 @@ import { NLParseModal } from './NLParseModal';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../../api/ai';
 import type { ListType, Category, ParsedItem } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
-import { getCategoryEmoji } from '../icons/CategoryIcons';
+import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface ItemInputProps {
   listType: ListType;
@@ -396,9 +396,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
               style={{ backgroundColor: `${categoryColor}20` }}
             >
               <div className="flex items-center gap-2">
-                <span className="text-lg">
-                  {getCategoryEmoji(suggestion.categoryName)}
-                </span>
+                <CategoryIcon category={suggestion.categoryName} className="w-5 h-5" style={{ color: categoryColor }} />
                 <span
                   className="font-medium"
                   style={{ color: categoryColor }}
@@ -519,7 +517,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                         'hover:bg-[var(--color-bg-secondary)] transition-colors'
                       )}
                     >
-                      <span>{getCategoryEmoji(category.name)}</span>
+                      <CategoryIcon category={category.name} className="w-4 h-4" style={{ color }} />
                       <span
                         className="text-sm font-medium truncate"
                         style={{ color }}
@@ -536,7 +534,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                     'hover:bg-[var(--color-bg-secondary)] transition-colors'
                   )}
                 >
-                  <span>❓</span>
+                  <CategoryIcon category="Uncategorized" className="w-4 h-4 text-[var(--color-text-muted)]" />
                   <span className="text-sm font-medium text-[var(--color-text-muted)]">
                     Uncategorized
                   </span>

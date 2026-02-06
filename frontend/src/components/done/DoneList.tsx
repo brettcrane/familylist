@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { IconClipboardList, IconCircleCheck } from '@tabler/icons-react';
 import { Button } from '../ui/Button';
 import type { Item, Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
@@ -121,7 +122,7 @@ export function DoneList({
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 pb-24 text-center">
-        <div className="text-5xl mb-4">📋</div>
+        <IconClipboardList className="w-12 h-12 mb-4 text-[var(--color-text-muted)]" stroke={1.5} />
         <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
           Nothing done yet
         </h3>
@@ -142,7 +143,7 @@ export function DoneList({
             animate={{ opacity: 1, scale: 1 }}
             className="text-center py-2"
           >
-            <span className="text-lg">🎉</span>
+            <IconCircleCheck className="w-5 h-5 text-[var(--color-checked)] inline-block" stroke={1.5} />
             <span className="ml-2 font-semibold text-[var(--color-checked)]">
               All done!
             </span>

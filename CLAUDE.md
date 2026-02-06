@@ -33,11 +33,13 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 
 See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
-**Icons:** Use Heroicons (`@heroicons/react`) for UI elements, emojis for category indicators.
+**Icons:** Dual-library approach — Heroicons for UI actions, Tabler Icons for domain-specific icons.
 - UI buttons/actions: Import from `@heroicons/react/24/outline`
 - List type icons: Use `ListTypeIcon` from `components/icons/CategoryIcons.tsx`
-- Category emojis: Use `getCategoryEmoji()` from `components/icons/CategoryIcons.tsx`
-- Never duplicate emoji/icon mappings - always use the centralized file
+- Category icons: Use `<CategoryIcon category={name} />` from `components/icons/CategoryIcons.tsx`
+- List icons (picker/display): Use `<ListIcon icon={id} />` and `LIST_ICON_OPTIONS` from `CategoryIcons.tsx`
+- Never duplicate icon mappings - always use the centralized file
+- Both libraries use 24x24 outline style for visual consistency
 - Theme toggle is in the user menu (`UserButton.tsx`), not in the header
 
 ## Authentication (Clerk + API Key Hybrid)
@@ -73,7 +75,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox,CategorySection=collapsible-group}
 |frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete}
 |frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
-|frontend/src/components/icons:{CategoryIcons=ListTypeIcon+getCategoryEmoji}
+|frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
 |frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh}
 |frontend/src/components/done:{DoneList=checked-items-section}
 |frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe}

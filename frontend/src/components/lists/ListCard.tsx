@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import type { List } from '../../types/api';
 import { useLongPress } from '../../hooks/useLongPress';
 import { ListCardMenu } from './ListCardMenu';
-import { ListTypeIcon } from '../icons/CategoryIcons';
+import { ListTypeIcon, ListIcon } from '../icons/CategoryIcons';
 
 interface ListCardProps {
   list: List;
@@ -93,7 +93,7 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
               } : undefined}
             >
               {list.icon ? (
-                <span className="text-xl">{list.icon}</span>
+                <ListIcon icon={list.icon} className="w-5 h-5" />
               ) : (
                 <div className={clsx(
                   'w-full h-full rounded-xl flex items-center justify-center',

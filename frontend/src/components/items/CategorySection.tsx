@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { ItemRow } from './ItemRow';
 import { useUIStore } from '../../stores/uiStore';
-import { getCategoryEmoji } from '../icons/CategoryIcons';
+import { CategoryIcon } from '../icons/CategoryIcons';
 import type { Item, Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 
@@ -56,9 +56,7 @@ export function CategorySection({
           >
             <polyline points="6 9 12 15 18 9" />
           </motion.svg>
-          <span className="text-lg" role="img" aria-label={category.name}>
-            {getCategoryEmoji(category.name)}
-          </span>
+          <CategoryIcon category={category.name} className="w-5 h-5" style={{ color: categoryColor }} />
           <span
             className="font-medium text-[var(--color-text-primary)]"
             style={{ color: categoryColor }}

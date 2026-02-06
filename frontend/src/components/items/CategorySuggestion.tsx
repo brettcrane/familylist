@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { CheckIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import type { Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
-import { getCategoryEmoji } from '../icons/CategoryIcons';
+import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface CategorySuggestionProps {
   suggestion: {
@@ -48,7 +48,7 @@ export function CategorySuggestion({
             style={{ backgroundColor: `${categoryColor}15` }}
           >
             <div className="flex items-center gap-2.5">
-              <span className="text-lg">{getCategoryEmoji(suggestion.categoryName)}</span>
+              <CategoryIcon category={suggestion.categoryName} className="w-5 h-5" style={{ color: categoryColor }} />
               <div>
                 <p className="text-sm font-medium text-[var(--color-text-primary)]">
                   {suggestion.itemName}
@@ -136,7 +136,7 @@ export function CategorySuggestion({
                         : 'hover:bg-[var(--color-bg-secondary)]'
                     )}
                   >
-                    <span className="text-base">{getCategoryEmoji(category.name)}</span>
+                    <CategoryIcon category={category.name} className="w-4 h-4" style={{ color }} />
                     <span
                       className="text-sm font-medium truncate"
                       style={{ color: isSelected ? 'var(--color-accent)' : color }}
@@ -150,7 +150,7 @@ export function CategorySuggestion({
                 onClick={() => onSelectCategory(null)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <span className="text-base">{getCategoryEmoji('Uncategorized')}</span>
+                <CategoryIcon category="Uncategorized" className="w-4 h-4 text-[var(--color-text-muted)]" />
                 <span className="text-sm font-medium text-[var(--color-text-muted)]">
                   Uncategorized
                 </span>

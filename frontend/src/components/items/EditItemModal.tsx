@@ -3,7 +3,7 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
 import { ChevronDownIcon, CheckIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
-import { getCategoryEmoji } from '../icons/CategoryIcons';
+import { CategoryIcon } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
 import { useUIStore } from '../../stores/uiStore';
 import { getErrorMessage } from '../../api/client';
@@ -247,9 +247,7 @@ export function EditItemModal({
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-lg flex-shrink-0">
-                          {getCategoryEmoji(selectedCategory?.name || 'Uncategorized')}
-                        </span>
+                        <CategoryIcon category={selectedCategory?.name || 'Uncategorized'} className="w-5 h-5 flex-shrink-0 text-[var(--color-text-muted)]" />
                         <span className="text-sm text-[var(--color-text-primary)] truncate">
                           {selectedCategory?.name || 'Uncategorized'}
                         </span>
@@ -288,7 +286,7 @@ export function EditItemModal({
                             )}
                           >
                             <div className="flex items-center gap-2">
-                              <span className="text-lg">{getCategoryEmoji('Uncategorized')}</span>
+                              <CategoryIcon category="Uncategorized" className="w-5 h-5 text-[var(--color-text-muted)]" />
                               <span className="text-sm text-[var(--color-text-primary)]">Uncategorized</span>
                             </div>
                             {selectedCategoryId === null && (
@@ -313,7 +311,7 @@ export function EditItemModal({
                               )}
                             >
                               <div className="flex items-center gap-2">
-                                <span className="text-lg">{getCategoryEmoji(category.name)}</span>
+                                <CategoryIcon category={category.name} className="w-5 h-5 text-[var(--color-text-muted)]" />
                                 <span className="text-sm text-[var(--color-text-primary)]">{category.name}</span>
                               </div>
                               {selectedCategoryId === category.id && (

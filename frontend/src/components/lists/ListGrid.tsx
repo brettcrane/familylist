@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { IconNotes } from '@tabler/icons-react';
 import type { List } from '../../types/api';
 import { ListCard } from './ListCard';
 
@@ -61,7 +62,7 @@ export function ListGrid({ lists, isLoading }: ListGridProps) {
   if (lists.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="text-6xl mb-4">📝</div>
+        <IconNotes className="w-14 h-14 mb-4 text-[var(--color-text-muted)]" stroke={1.5} />
         <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
           No lists yet
         </h2>
