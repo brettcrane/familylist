@@ -20,7 +20,7 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 - **Backend**: FastAPI + SQLAlchemy + SQLite
 - **Frontend**: React + TypeScript + Tailwind CSS + Framer Motion
 - **Auth**: Clerk (optional) + API key fallback
-- **AI**: sentence-transformers for embeddings, OpenAI GPT-4o-mini for NL parsing
+- **AI**: sentence-transformers for embeddings, OpenAI GPT-5 Nano for NL parsing
 - **State**: React Query (server) + Zustand (UI) + IndexedDB (offline)
 - **Deployment**: Docker via GitHub Actions CI/CD → Portainer
 
@@ -101,7 +101,7 @@ Required for AI features:
 - `OPENAI_API_KEY` - For natural language parsing
 - `ENABLE_LLM_PARSING=true` - Enable NL parsing
 - `LLM_BACKEND=openai` - Use OpenAI backend (also: ollama, local)
-- `LLM_OPENAI_MODEL=gpt-4o-mini` - Model to use
+- `LLM_OPENAI_MODEL=gpt-5-nano` - Model to use
 
 Optional for push notifications:
 - `VAPID_PRIVATE_KEY` - Base64-encoded VAPID private key

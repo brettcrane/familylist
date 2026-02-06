@@ -13,7 +13,9 @@ from app.schemas import ListType
 
 logger = logging.getLogger(__name__)
 
-# Prompt template for parsing natural language into items
+# Prompt template for parsing natural language into items.
+# Note: For GPT-5 models, the response_format schema overrides the prompt's
+# "JSON array" instruction -- the model returns {"items": [...]} instead.
 PARSE_PROMPT = """Parse this into grocery/shopping items.
 
 "stuff for X" or "things for X" means ingredients to make X.
@@ -52,7 +54,8 @@ class LLMParsingService:
     """Service for LLM-based natural language parsing.
 
     Supports three backends:
-    1. OpenAI API (default, uses GPT-5 Nano with structured JSON output)
+    1. OpenAI API (default; defaults to GPT-5 Nano with structured JSON output,
+       configurable via LLM_OPENAI_MODEL)
     2. Local GGUF model via llama-cpp-python
     3. Ollama API
     """
@@ -77,7 +80,6 @@ class LLMParsingService:
 
         try:
             self._openai_client = OpenAI(api_key=settings.llm_openai_api_key)
-            # Quick validation - list models to check API key works
             logger.info(f"Using OpenAI API with model: {settings.llm_openai_model}")
             return True
         except Exception as e:
@@ -220,7 +222,19 @@ class LLMParsingService:
                 max_tokens=settings.llm_max_tokens,
                 temperature=settings.llm_temperature,
             )
-        content = response.choices[0].message.content
+        choice = response.choices[0]
+        if choice.finish_reason == "length":
+            logger.warning(
+                f"OpenAI response truncated (max_completion_tokens={settings.llm_max_tokens})"
+            )
+        if choice.finish_reason == "content_filter":
+            logger.error("OpenAI content filter triggered")
+            return ""
+        message = choice.message
+        if hasattr(message, "refusal") and message.refusal:
+            logger.error(f"OpenAI refused structured output: {message.refusal}")
+            raise ValueError(f"Model refused to process input: {message.refusal}")
+        content = message.content
         return content.strip() if content else ""
 
     def _call_local(self, prompt: str) -> str:
@@ -273,7 +287,7 @@ class LLMParsingService:
             if isinstance(data, list):
                 return data
         except json.JSONDecodeError:
-            pass
+            logger.warning(f"Failed to parse response as JSON, falling back to array extraction: {text[:200]}")
 
         # Fallback: find array bounds in free-form text
         start = text.find("[")

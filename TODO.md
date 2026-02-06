@@ -20,6 +20,12 @@
   - Useful for shared lists to see who did what
   - Consider: time-based grouping (today, yesterday, this week)
 
+- [ ] **LLM parsing test coverage** - `LLMParsingService` has zero unit tests. Priority:
+  1. Unit tests for `_extract_json()` — structured output `{"items": [...]}`, bare arrays, markdown code blocks, empty/invalid inputs
+  2. Unit tests for `_call_openai()` — verify `response_format` sent for GPT-5 models, not for others; mock `chat.completions.create`
+  3. Integration test for `parse()` with mocked backend — end-to-end flow from input to `ParsedItem` list
+  4. HTTP-level tests for `/api/ai/parse` endpoint — 503 when unavailable, success with mocked LLM, auth required
+
 ## Bugs to Investigate
 
 - [ ] **Meal mode AI parsing inconsistency** - Sometimes when meal mode (chef hat toggle) is enabled, items are added directly to the list instead of being deconstructed into ingredients by the AI.
