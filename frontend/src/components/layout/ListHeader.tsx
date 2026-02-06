@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '../../stores/uiStore';
 import { SyncIndicator } from './SyncIndicator';
 import { UserButton } from './UserButton';
+import { ListIcon } from '../icons/CategoryIcons';
 import type { ListWithItems } from '../../types/api';
 
 interface ListHeaderProps {
@@ -50,7 +51,7 @@ export function ListHeader({
         >
           {/* List icon */}
           {list.icon && (
-            <span className="text-lg flex-shrink-0">{list.icon}</span>
+            <ListIcon icon={list.icon} className="w-5 h-5 flex-shrink-0 text-[var(--color-text-secondary)]" />
           )}
           {/* List name */}
           <h1 className="text-base font-semibold text-[var(--color-text-primary)] truncate max-w-[160px]">
