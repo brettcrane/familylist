@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { CheckIcon, PencilSquareIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, PencilSquareIcon, XMarkIcon, PlusIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import type { Category, ListType } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
@@ -19,8 +19,8 @@ interface BottomInputBarProps {
   onInputChange: (value: string) => void;
   onInputSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
-  mealMode: boolean;
-  onMealModeToggle: () => void;
+  aiMode: boolean;
+  onAiModeToggle: () => void;
   inputDisabled: boolean;
   // Category suggestion props
   suggestion: CategorySuggestionState | null;
@@ -41,8 +41,8 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
       onInputChange,
       onInputSubmit,
       isLoading,
-      mealMode,
-      onMealModeToggle,
+      aiMode,
+      onAiModeToggle,
       inputDisabled,
       suggestion,
       showCategoryPicker,
@@ -55,10 +55,15 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
     },
     ref
   ) {
-    const showMealMode = listType === 'grocery';
-    const placeholder = mealMode
-      ? "What's cooking? (e.g., tacos)"
+    const placeholder = aiMode
+      ? listType === 'grocery' ? "What's cooking? (e.g., tacos)"
+        : listType === 'packing' ? "Packing for...? (e.g., beach trip)"
+        : "What needs doing? (e.g., hang a picture)"
       : 'Add item...';
+
+    const hintText = listType === 'grocery' ? 'AI will suggest ingredients for your dish'
+      : listType === 'packing' ? 'AI will suggest items to pack'
+      : 'AI will break this into tasks';
 
     const categoryColor = suggestion
       ? CATEGORY_COLORS[suggestion.categoryName] || 'var(--color-accent)'
@@ -206,65 +211,37 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
         {/* Input row */}
         <div className="px-4 py-3">
           <form onSubmit={onInputSubmit} className="flex gap-2 items-center">
-            {/* Meal Mode Toggle - only shown for grocery lists */}
-            {showMealMode && (
-              <motion.button
-                type="button"
-                onClick={onMealModeToggle}
-                disabled={inputDisabled}
-                className={clsx(
-                  'relative flex-shrink-0 w-11 h-11 rounded-xl',
-                  'flex items-center justify-center',
-                  'transition-all duration-200',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                  mealMode
-                    ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                    : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)]'
-                )}
-                whileTap={{ scale: 0.95 }}
-                aria-label={mealMode ? 'Recipe mode on' : 'Recipe mode off'}
+            {/* AI Mode Toggle */}
+            <motion.button
+              type="button"
+              onClick={onAiModeToggle}
+              disabled={inputDisabled}
+              className={clsx(
+                'relative flex-shrink-0 w-11 h-11 rounded-xl',
+                'flex items-center justify-center',
+                'transition-all duration-200',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                aiMode
+                  ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                  : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)]'
+              )}
+              whileTap={{ scale: 0.95 }}
+              aria-label={aiMode ? 'AI mode on' : 'AI mode off'}
+            >
+              <motion.div
+                animate={aiMode ? {
+                  scale: [1, 1.2, 1],
+                  rotate: [0, -8, 8, 0],
+                } : { scale: 1, rotate: 0 }}
+                transition={aiMode ? {
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                } : { duration: 0.2 }}
               >
-                <motion.svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  animate={{ rotate: mealMode ? [0, -5, 5, 0] : 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {/* Steam lines */}
-                  {mealMode && (
-                    <>
-                      <motion.path
-                        d="M8 5c0-1 .5-2 2-2"
-                        initial={{ opacity: 0, y: 2 }}
-                        animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
-                        transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
-                      />
-                      <motion.path
-                        d="M12 4c0-1.5.5-2.5 2-2.5"
-                        initial={{ opacity: 0, y: 2 }}
-                        animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
-                        transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
-                      />
-                      <motion.path
-                        d="M16 5c0-1 .5-2 2-2"
-                        initial={{ opacity: 0, y: 2 }}
-                        animate={{ opacity: [0, 0.7, 0], y: [2, -1, 2] }}
-                        transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }}
-                      />
-                    </>
-                  )}
-                  <path d="M3 12h18" />
-                  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
-                  <path d="M5 12a2 2 0 0 1-2-2 2 2 0 0 1 2-2" />
-                  <path d="M19 12a2 2 0 0 0 2-2 2 2 0 0 0-2-2" />
-                </motion.svg>
-              </motion.button>
-            )}
+                <SparklesIcon className="w-5 h-5" />
+              </motion.div>
+            </motion.button>
 
             {/* Input field */}
             <div className="flex-1 relative">
@@ -282,7 +259,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
                   'focus:outline-none focus:border-[var(--color-accent)]/40',
                   'transition-all duration-200',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
-                  mealMode && 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
+                  aiMode && 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
                 )}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
@@ -306,9 +283,9 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
             </div>
           </form>
 
-          {/* Meal mode hint - only shown for grocery lists */}
+          {/* AI mode hint */}
           <AnimatePresence>
-            {showMealMode && mealMode && !inputDisabled && (
+            {aiMode && !inputDisabled && (
               <motion.p
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -316,7 +293,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
                 className="mt-2 text-xs text-[var(--color-accent)] flex items-center gap-1.5 overflow-hidden"
               >
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
-                AI will suggest ingredients for your dish
+                {hintText}
               </motion.p>
             )}
           </AnimatePresence>

@@ -6,6 +6,7 @@ import { NLParseModal } from './NLParseModal';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../../api/ai';
 import type { ListType, Category, ParsedItem } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
+import { SparklesIcon } from '@heroicons/react/24/outline';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface ItemInputProps {
@@ -32,7 +33,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
   const [nlModalOpen, setNlModalOpen] = useState(false);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [originalInput, setOriginalInput] = useState('');
-  const [mealMode, setMealMode] = useState(false);
+  const [aiMode, setAiMode] = useState(false);
   const timerRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,20 +46,20 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
     };
   }, []);
 
-  // Focus input when meal mode changes
+  // Focus input when AI mode changes
   useEffect(() => {
     if (inputRef.current && !suggestion && !isLoading) {
       inputRef.current.focus();
     }
-  }, [mealMode, suggestion, isLoading]);
+  }, [aiMode, suggestion, isLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedValue = value.trim();
     if (!trimmedValue) return;
 
-    // If meal mode is active, always parse as recipe
-    if (mealMode) {
+    // If AI mode is active, parse with LLM
+    if (aiMode) {
       setIsLoading(true);
       try {
         const result = await parseNaturalLanguage({
@@ -198,12 +199,12 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
       });
     }
 
-    // Reset state and turn off meal mode
+    // Reset state and turn off AI mode
     setNlModalOpen(false);
     setParsedItems([]);
     setOriginalInput('');
     setValue('');
-    setMealMode(false);
+    setAiMode(false);
   };
 
   const handleNlCancel = () => {
@@ -212,115 +213,54 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
     setOriginalInput('');
   };
 
-  const toggleMealMode = () => {
-    setMealMode(!mealMode);
+  const toggleAiMode = () => {
+    setAiMode(!aiMode);
   };
 
   const categoryColor = suggestion
     ? CATEGORY_COLORS[suggestion.categoryName] || 'var(--color-accent)'
     : 'var(--color-accent)';
 
-  const placeholder = mealMode
-    ? "What are you making? (e.g., tacos, chili)"
+  const placeholder = aiMode
+    ? listType === 'grocery' ? "What's cooking? (e.g., tacos)"
+      : listType === 'packing' ? "Packing for...? (e.g., beach trip)"
+      : "What needs doing? (e.g., hang a picture)"
     : "Add item...";
 
   return (
     <div className="sticky bottom-0 safe-bottom bg-[var(--color-bg-primary)] border-t border-[var(--color-text-muted)]/10 p-4">
       <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-        {/* Meal Mode Toggle */}
+        {/* AI Mode Toggle */}
         <motion.button
           type="button"
-          onClick={toggleMealMode}
+          onClick={toggleAiMode}
           disabled={!!suggestion || isLoading}
           className={clsx(
             'relative flex-shrink-0 w-12 h-12 rounded-xl',
             'flex items-center justify-center',
             'transition-all duration-200',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            mealMode
+            aiMode
               ? 'bg-[var(--color-accent)] text-white shadow-md'
               : 'bg-[var(--color-bg-card)] border border-[var(--color-text-muted)]/20 text-[var(--color-text-muted)] hover:border-[var(--color-accent)]/50 hover:text-[var(--color-accent)]'
           )}
           whileTap={{ scale: 0.95 }}
-          aria-label={mealMode ? "Recipe mode on" : "Recipe mode off"}
-          title={mealMode ? "Recipe mode: ON - Type a dish name to get ingredients" : "Recipe mode: OFF - Click to add ingredients for a dish"}
+          aria-label={aiMode ? 'AI mode on' : 'AI mode off'}
+          title={aiMode ? 'AI mode: ON - Describe what you need' : 'AI mode: OFF - Click to use AI suggestions'}
         >
-          {/* Chef hat / cooking icon */}
           <motion.div
-            animate={{
-              rotate: mealMode ? [0, -10, 10, -5, 5, 0] : 0,
-              scale: mealMode ? [1, 1.1, 1] : 1
-            }}
-            transition={{ duration: 0.4 }}
+            animate={aiMode ? {
+              scale: [1, 1.2, 1],
+              rotate: [0, -8, 8, 0],
+            } : { scale: 1, rotate: 0 }}
+            transition={aiMode ? {
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            } : { duration: 0.2 }}
           >
-            <svg
-              className="w-6 h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {/* Steam lines */}
-              <motion.path
-                d="M8 5c0-1 .5-2 2-2"
-                initial={{ opacity: 0, y: 2 }}
-                animate={{
-                  opacity: mealMode ? [0, 1, 0] : 0,
-                  y: mealMode ? [2, -2, 2] : 2
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: mealMode ? Infinity : 0,
-                  delay: 0
-                }}
-              />
-              <motion.path
-                d="M12 4c0-1.5.5-2.5 2-2.5"
-                initial={{ opacity: 0, y: 2 }}
-                animate={{
-                  opacity: mealMode ? [0, 1, 0] : 0,
-                  y: mealMode ? [2, -2, 2] : 2
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: mealMode ? Infinity : 0,
-                  delay: 0.3
-                }}
-              />
-              <motion.path
-                d="M16 5c0-1 .5-2 2-2"
-                initial={{ opacity: 0, y: 2 }}
-                animate={{
-                  opacity: mealMode ? [0, 1, 0] : 0,
-                  y: mealMode ? [2, -2, 2] : 2
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: mealMode ? Infinity : 0,
-                  delay: 0.6
-                }}
-              />
-              {/* Pot */}
-              <path d="M3 12h18" />
-              <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
-              <path d="M5 12a2 2 0 0 1-2-2 2 2 0 0 1 2-2" />
-              <path d="M19 12a2 2 0 0 0 2-2 2 2 0 0 0-2-2" />
-            </svg>
+            <SparklesIcon className="w-6 h-6" />
           </motion.div>
-
-          {/* Active indicator dot */}
-          <AnimatePresence>
-            {mealMode && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-                className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full border-2 border-[var(--color-accent)]"
-              />
-            )}
-          </AnimatePresence>
         </motion.button>
 
         {/* Input field */}
@@ -332,7 +272,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
             placeholder={placeholder}
             disabled={!!suggestion || isLoading}
             className={clsx(
-              mealMode && 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
+              aiMode && 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
             )}
             icon={
               isLoading ? (
@@ -365,9 +305,9 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
         </div>
       </form>
 
-      {/* Meal mode hint */}
+      {/* AI mode hint */}
       <AnimatePresence>
-        {mealMode && !suggestion && !isLoading && (
+        {aiMode && !suggestion && !isLoading && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -376,7 +316,9 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
           >
             <p className="mt-2 text-xs text-[var(--color-accent)] flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
-              AI will suggest ingredients for your dish
+              {listType === 'grocery' ? 'AI will suggest ingredients for your dish'
+              : listType === 'packing' ? 'AI will suggest items to pack'
+              : 'AI will break this into tasks'}
             </p>
           </motion.div>
         )}
