@@ -13,16 +13,17 @@ from app.schemas import ListType
 
 logger = logging.getLogger(__name__)
 
-# Prompt template for parsing natural language into items.
-# Note: For GPT-5 models, the response_format schema overrides the prompt's
-# "JSON array" instruction -- the model returns {"items": [...]} instead.
-PARSE_PROMPT = """Parse this into grocery/shopping items.
+# Prompt templates for parsing natural language into items, keyed by list type.
+# Note: For GPT-5 models, the response_format schema constrains output to
+# {"items": [...]}, superseding the prompt's "JSON array" instruction.
+# The _extract_json() method handles both formats.
+PARSE_PROMPTS: dict[str, str] = {
+    "grocery": """Parse this into grocery/shopping items.
 
 "stuff for X" or "things for X" means ingredients to make X.
 "we need X, Y, Z" means items X, Y, and Z.
 
 Input: "{input}"
-List type: {list_type}
 
 Return a JSON array of items. Each item has "name" (lowercase) and "quantity" (default 1).
 
@@ -31,7 +32,38 @@ Examples:
 - "stuff for chili" → [{{"name": "ground beef", "quantity": 1}}, {{"name": "kidney beans", "quantity": 2}}, {{"name": "diced tomatoes", "quantity": 1}}, {{"name": "chili powder", "quantity": 1}}, {{"name": "onion", "quantity": 1}}]
 - "milk and eggs" → [{{"name": "milk", "quantity": 1}}, {{"name": "eggs", "quantity": 1}}]
 
-JSON array:"""
+JSON array:""",
+    "packing": """Parse this into packing list items.
+
+"stuff for X" or "things for X" means items you need to pack for X.
+"we need X, Y, Z" means items X, Y, and Z.
+
+Input: "{input}"
+
+Return a JSON array of items. Each item has "name" (lowercase) and "quantity" (default 1).
+
+Examples:
+- "stuff for a beach trip" → [{{"name": "sunscreen", "quantity": 1}}, {{"name": "towel", "quantity": 1}}, {{"name": "swimsuit", "quantity": 1}}, {{"name": "sunglasses", "quantity": 1}}]
+- "things for camping" → [{{"name": "tent", "quantity": 1}}, {{"name": "sleeping bag", "quantity": 1}}, {{"name": "flashlight", "quantity": 1}}, {{"name": "matches", "quantity": 1}}, {{"name": "cooler", "quantity": 1}}]
+- "toiletries and chargers" → [{{"name": "toothbrush", "quantity": 1}}, {{"name": "phone charger", "quantity": 1}}]
+
+JSON array:""",
+    "tasks": """Parse this into individual tasks or action items.
+
+"stuff for X" or "things for X" means steps or tasks needed for X.
+"we need to X, Y, Z" means tasks X, Y, and Z.
+
+Input: "{input}"
+
+Return a JSON array of items. Each item has "name" (lowercase action/task) and "quantity" (always 1 for tasks).
+
+Examples:
+- "things for hanging a picture" → [{{"name": "find a stud in the wall", "quantity": 1}}, {{"name": "buy picture hooks", "quantity": 1}}, {{"name": "measure and mark position", "quantity": 1}}, {{"name": "hang the picture", "quantity": 1}}]
+- "prep for a dinner party" → [{{"name": "plan the menu", "quantity": 1}}, {{"name": "buy groceries", "quantity": 1}}, {{"name": "clean the house", "quantity": 1}}, {{"name": "set the table", "quantity": 1}}]
+- "fix the leaky faucet and paint the bedroom" → [{{"name": "fix the leaky faucet", "quantity": 1}}, {{"name": "paint the bedroom", "quantity": 1}}]
+
+JSON array:""",
+}
 
 
 class ParsedItem:
@@ -181,7 +213,7 @@ class LLMParsingService:
             response = self._openai_client.chat.completions.create(
                 model=settings.llm_openai_model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that parses shopping and packing lists. Always respond with valid JSON only."},
+                    {"role": "system", "content": "You are a helpful assistant that parses lists into individual items. Always respond with valid JSON only."},
                     {"role": "user", "content": prompt},
                 ],
                 max_completion_tokens=settings.llm_max_tokens,
@@ -216,17 +248,21 @@ class LLMParsingService:
             response = self._openai_client.chat.completions.create(
                 model=settings.llm_openai_model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that parses shopping and packing lists. Always respond with valid JSON only."},
+                    {"role": "system", "content": "You are a helpful assistant that parses lists into individual items. Always respond with valid JSON only."},
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=settings.llm_max_tokens,
                 temperature=settings.llm_temperature,
             )
+        if not response.choices:
+            logger.error(f"OpenAI returned empty choices array for model {settings.llm_openai_model}")
+            return ""
         choice = response.choices[0]
         if choice.finish_reason == "length":
             logger.warning(
-                f"OpenAI response truncated (max_completion_tokens={settings.llm_max_tokens})"
+                f"OpenAI response truncated (token limit={settings.llm_max_tokens})"
             )
+            return ""
         if choice.finish_reason == "content_filter":
             logger.error("OpenAI content filter triggered")
             return ""
@@ -283,9 +319,13 @@ class LLMParsingService:
         try:
             data = json.loads(text)
             if isinstance(data, dict) and "items" in data:
-                return data["items"]
-            if isinstance(data, list):
+                if isinstance(data["items"], list):
+                    return data["items"]
+                logger.warning(f"Expected list for 'items' key, got {type(data['items']).__name__}")
+            elif isinstance(data, list):
                 return data
+            else:
+                logger.warning(f"Unexpected JSON structure in LLM response: {text[:200]}")
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse response as JSON, falling back to array extraction: {text[:200]}")
 
@@ -294,6 +334,7 @@ class LLMParsingService:
         end = text.rfind("]")
 
         if start == -1 or end == -1:
+            logger.warning(f"No JSON array found in LLM response: {text[:200]}")
             return []
 
         json_str = text[start : end + 1]
@@ -323,10 +364,11 @@ class LLMParsingService:
 
         list_type_str = list_type.value if isinstance(list_type, ListType) else list_type
 
-        prompt = PARSE_PROMPT.format(
-            list_type=list_type_str,
-            input=input_text,
-        )
+        prompt_template = PARSE_PROMPTS.get(list_type_str)
+        if prompt_template is None:
+            logger.warning(f"No prompt template for list type '{list_type_str}', falling back to grocery")
+            prompt_template = PARSE_PROMPTS["grocery"]
+        prompt = prompt_template.format(input=input_text)
 
         try:
             # Call appropriate backend
@@ -354,8 +396,10 @@ class LLMParsingService:
             logger.info(f"Parsed {len(items)} items from: {input_text}")
             return items
 
+        except ValueError:
+            raise
         except Exception as e:
-            logger.error(f"LLM parsing failed: {e}")
+            logger.error(f"LLM parsing failed for '{input_text[:50]}': {type(e).__name__}: {e}")
             return []
 
     def is_available(self) -> bool:

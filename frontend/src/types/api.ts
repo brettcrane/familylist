@@ -226,6 +226,20 @@ export const DEFAULT_CATEGORIES: Record<ListType, string[]> = {
   tasks: ['Today', 'This Week', 'Later'],
 };
 
+/** AI mode placeholder text by list type */
+export const AI_MODE_PLACEHOLDERS: Record<ListType, string> = {
+  grocery: "What's cooking? (e.g., tacos)",
+  packing: 'Packing for...? (e.g., beach trip)',
+  tasks: 'What needs doing? (e.g., hang a picture)',
+};
+
+/** AI mode hint text by list type */
+export const AI_MODE_HINTS: Record<ListType, string> = {
+  grocery: 'AI will suggest ingredients for your dish',
+  packing: 'AI will suggest items to pack',
+  tasks: 'AI will break this into tasks',
+};
+
 /** Category color mapping */
 export const CATEGORY_COLORS: Record<string, string> = {
   Produce: 'var(--color-cat-produce)',

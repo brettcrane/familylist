@@ -60,7 +60,7 @@ export function ListPage() {
 
   // Input state
   const [inputValue, setInputValue] = useState('');
-  const [mealMode, setMealMode] = useState(false);
+  const [aiMode, setAiMode] = useState(false);
   const [isInputLoading, setIsInputLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<CategorySuggestionState | null>(null);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -206,8 +206,8 @@ export function ListPage() {
     const trimmedValue = inputValue.trim();
     if (!trimmedValue || !list) return;
 
-    // If meal mode is active, parse as recipe
-    if (mealMode) {
+    // If AI mode is active, parse with LLM
+    if (aiMode) {
       setIsInputLoading(true);
       try {
         const result = await parseNaturalLanguage({
@@ -222,8 +222,9 @@ export function ListPage() {
           setIsInputLoading(false);
           return;
         }
-      } catch {
-        // Fall through to single item
+      } catch (err) {
+        console.error('AI parsing failed:', err);
+        showToast('AI parsing failed. Adding as single item.', 'error');
       }
       setIsInputLoading(false);
     }
@@ -298,7 +299,13 @@ export function ListPage() {
           item_name: suggestion.itemName,
           list_type: list.type,
           correct_category: selectedCategoryName,
-        }).catch(() => {});
+        }).catch((err) => {
+          console.warn('Category feedback submission failed:', {
+            itemName: suggestion.itemName,
+            category: selectedCategoryName,
+            error: err,
+          });
+        });
       }
 
       acceptSuggestion(suggestion.itemName, categoryId);
@@ -328,7 +335,7 @@ export function ListPage() {
     setParsedItems([]);
     setOriginalInput('');
     setInputValue('');
-    setMealMode(false);
+    setAiMode(false);
   };
 
   const handleNlCancel = () => {
@@ -472,8 +479,8 @@ export function ListPage() {
         onInputChange={setInputValue}
         onInputSubmit={handleInputSubmit}
         isLoading={isInputLoading}
-        mealMode={mealMode}
-        onMealModeToggle={() => setMealMode(!mealMode)}
+        aiMode={aiMode}
+        onAiModeToggle={() => setAiMode(!aiMode)}
         inputDisabled={!!suggestion || isInputLoading}
         suggestion={suggestion}
         showCategoryPicker={showCategoryPicker}
