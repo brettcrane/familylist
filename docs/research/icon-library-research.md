@@ -4,11 +4,11 @@
 
 FamilyList currently uses emojis for category indicators (🥬 Produce, 🥩 Meat, 🧹 Household, etc.) and Heroicons for UI actions. While functional, emojis render inconsistently across platforms/browsers and give the app a less polished feel. This research evaluates icon libraries that could replace emojis with professional, consistent SVG icons.
 
-## Current State
+## Current State (Post-Migration)
 
-### Emoji Usage (38 unique emojis)
+### Icon Implementation
 
-All category emoji mappings are centralized in `CategoryIcons.tsx` via `getCategoryEmoji()`. Used by 6 components:
+All category icons are now centralized in `CategoryIcons.tsx` via the `<CategoryIcon>` component. Used by 6 components:
 - `CategorySection.tsx` - collapsible category headers
 - `CategorySuggestion.tsx` - AI auto-accept toast
 - `ItemInput.tsx` - category picker
@@ -16,10 +16,13 @@ All category emoji mappings are centralized in `CategoryIcons.tsx` via `getCateg
 - `NLParseModal.tsx` - parsed item category chips
 - `EditItemModal.tsx` - category selector dropdown
 
-Additionally, hardcoded emojis exist in:
-- `EditListModal.tsx` - 12 emoji options for custom list icons (`ICON_OPTIONS`)
-- `DoneList.tsx` - empty state (📋) and completion celebration (🎉)
-- `ListGrid.tsx` - empty state (📝)
+List icons (for custom list icons) use the `<ListIcon>` component:
+- `EditListModal.tsx` - icon picker grid via `LIST_ICON_OPTIONS`
+- `ListCard.tsx` - displays selected list icon
+
+Empty states use direct Tabler imports:
+- `DoneList.tsx` - empty state (IconClipboardList) and completion (IconCircleCheck)
+- `ListGrid.tsx` - empty state (IconNotes)
 
 ### Heroicons Usage (14 files)
 
@@ -69,7 +72,7 @@ Used for all UI actions/navigation via `@heroicons/react/24/outline`. 24x24 grid
 | Electronics | `IconDeviceMobile`, `IconDeviceLaptop` | ✅ Direct match |
 | Documents | `IconFileText`, `IconFiles` | ✅ Direct match |
 | Accessories | `IconBackpack`, `IconSunglasses` | ✅ Direct match |
-| Kids' Items | `IconTeddyBear` | ✅ Direct match |
+| Kids' Items | `IconHorseToy` | ✅ Direct match |
 | High/Normal/Low Priority | `IconUrgent`, `IconFlag`, `IconFlagOff` | ✅ Direct match |
 | Today/This Week/Later | `IconCalendarEvent`, `IconCalendarWeek`, `IconClock` | ✅ Direct match |
 
@@ -240,34 +243,32 @@ Grocery:
   Dairy         → IconMilk
   Meat & Seafood → IconMeat
   Bakery        → IconBread
-  Pantry        → IconBottle (or IconSoup)
+  Pantry        → IconBottle
   Frozen        → IconSnowflake
-  Beverages     → IconCup (or IconCoffee)
+  Beverages     → IconCup
   Snacks        → IconCookie
-  Household     → IconBroom
-  Personal Care → IconDroplet (or IconSpray)
+  Household     → IconSpray
+  Personal Care → IconDroplet
   Other         → IconPackage
 
 Packing:
   Clothing      → IconShirt
-  Toiletries    → IconWash
+  Toiletries    → IconDroplets
   Electronics   → IconDeviceMobile
   Documents     → IconFileText
   Accessories   → IconBackpack
-  Kids' Items   → IconTeddyBear
+  Kids' Items   → IconHorseToy
   Miscellaneous → IconPackage
 
 Tasks:
-  High Priority → IconUrgent (or IconAlertTriangle)
+  High Priority → IconAlertTriangle
   Normal        → IconFlag
-  Low Priority  → IconMinus (or IconFlag with different color)
+  Low Priority  → IconArrowDown
   Today         → IconCalendarEvent
-  This Week     → IconCalendarWeek
+  This Week     → IconCalendar
   Later         → IconClock
 
 Special:
   Uncategorized → IconQuestionMark
   Default       → IconNote
 ```
-
-Note: Exact icon choices should be validated visually at https://tabler.io/icons before implementation.

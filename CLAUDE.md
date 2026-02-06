@@ -75,7 +75,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=recipe-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox,CategorySection=collapsible-group}
 |frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete}
 |frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
-|frontend/src/components/icons:{CategoryIcons=ListTypeIcon+getCategoryEmoji}
+|frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
 |frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh}
 |frontend/src/components/done:{DoneList=checked-items-section}
 |frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useOfflineQueue=IndexedDB-sync,useSwipe=gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe}

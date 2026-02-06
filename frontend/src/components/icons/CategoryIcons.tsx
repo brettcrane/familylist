@@ -48,15 +48,11 @@ import {
   IconClipboardList,
 } from '@tabler/icons-react';
 import type { ComponentType, SVGProps } from 'react';
+import type { IconProps as TablerIconProps } from '@tabler/icons-react';
 import type { ListType } from '../../types/api';
 
 type HeroIconComponent = ComponentType<SVGProps<SVGSVGElement>>;
-type TablerIconComponent = ComponentType<{
-  className?: string;
-  size?: number | string;
-  stroke?: number;
-  style?: React.CSSProperties;
-}>;
+type TablerIconComponent = ComponentType<TablerIconProps>;
 
 interface IconProps {
   className?: string;
@@ -75,11 +71,13 @@ const LIST_TYPE_ICON_MAP: Record<ListType, HeroIconComponent> = {
 
 export function ListTypeIcon({ type, className = 'w-5 h-5', style }: { type: ListType } & IconProps) {
   const Icon = LIST_TYPE_ICON_MAP[type];
+  if (!Icon) {
+    if (import.meta.env.DEV) {
+      console.error(`[ListTypeIcon] Unknown list type "${type}"`);
+    }
+    return <CheckCircleIcon className={className} style={style} />;
+  }
   return <Icon className={className} style={style} />;
-}
-
-export function getListTypeIconComponent(type: ListType): HeroIconComponent {
-  return LIST_TYPE_ICON_MAP[type];
 }
 
 // =============================================================================
@@ -120,6 +118,10 @@ const CATEGORY_ICON_MAP: Record<string, TablerIconComponent> = {
 
 const DefaultCategoryIcon: TablerIconComponent = IconNote;
 
+/**
+ * Renders a category icon by name. Uses Tabler Icons for
+ * recognized categories, falls back to IconNote for unknown categories.
+ */
 export function CategoryIcon({
   category,
   className = 'w-5 h-5',
@@ -129,7 +131,13 @@ export function CategoryIcon({
   className?: string;
   style?: React.CSSProperties;
 }) {
-  const Icon = CATEGORY_ICON_MAP[category] || DefaultCategoryIcon;
+  const Icon = CATEGORY_ICON_MAP[category];
+  if (!Icon) {
+    if (import.meta.env.DEV) {
+      console.warn(`[CategoryIcon] Unknown category "${category}", using default icon`);
+    }
+    return <DefaultCategoryIcon className={className} stroke={1.5} style={style} />;
+  }
   return <Icon className={className} stroke={1.5} style={style} />;
 }
 
@@ -152,11 +160,18 @@ const LIST_ICON_MAP: Record<string, TablerIconComponent> = {
   clipboard: IconClipboardList,
 };
 
+/** Known legacy emoji icons from EditListModal before migration */
+const LEGACY_EMOJI_ICONS = new Set([
+  '🛒', '🎒', '✅', '📝', '🏠', '🎁',
+  '🌟', '❤️', '🎯', '📌', '✏️', '📋',
+]);
+
+/** Available icon IDs for the list icon picker in EditListModal */
 export const LIST_ICON_OPTIONS = Object.keys(LIST_ICON_MAP);
 
 /**
- * Renders a list icon by ID. Falls back to rendering raw string
- * for legacy emoji values stored in the database.
+ * Renders a list icon by ID. Falls back to rendering legacy emoji
+ * for values stored in the database before the icon migration.
  */
 export function ListIcon({
   icon,
@@ -171,6 +186,13 @@ export function ListIcon({
   if (TablerIcon) {
     return <TablerIcon className={className} stroke={1.5} style={style} />;
   }
-  // Fallback: render raw string (handles legacy emoji values)
-  return <span className="text-xl leading-none" style={style}>{icon}</span>;
+  // Validate it's a known legacy emoji, not garbage data
+  if (LEGACY_EMOJI_ICONS.has(icon)) {
+    return <span className="text-xl leading-none" style={style}>{icon}</span>;
+  }
+  // Unknown icon value - log and render default
+  if (import.meta.env.DEV) {
+    console.warn(`[ListIcon] Unknown icon value "${icon}", rendering default`);
+  }
+  return <IconNote className={className} stroke={1.5} style={style} />;
 }
