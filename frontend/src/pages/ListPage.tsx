@@ -222,8 +222,9 @@ export function ListPage() {
           setIsInputLoading(false);
           return;
         }
-      } catch {
-        // Fall through to single item
+      } catch (err) {
+        console.error('AI parsing failed:', err);
+        showToast('AI parsing failed. Adding as single item.', 'error');
       }
       setIsInputLoading(false);
     }
@@ -298,7 +299,13 @@ export function ListPage() {
           item_name: suggestion.itemName,
           list_type: list.type,
           correct_category: selectedCategoryName,
-        }).catch(() => {});
+        }).catch((err) => {
+          console.warn('Category feedback submission failed:', {
+            itemName: suggestion.itemName,
+            category: selectedCategoryName,
+            error: err,
+          });
+        });
       }
 
       acceptSuggestion(suggestion.itemName, categoryId);

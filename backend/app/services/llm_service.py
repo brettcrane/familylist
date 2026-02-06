@@ -14,8 +14,9 @@ from app.schemas import ListType
 logger = logging.getLogger(__name__)
 
 # Prompt templates for parsing natural language into items, keyed by list type.
-# Note: For GPT-5 models, the response_format schema overrides the prompt's
-# "JSON array" instruction -- the model returns {"items": [...]} instead.
+# Note: For GPT-5 models, the response_format schema constrains output to
+# {"items": [...]}, superseding the prompt's "JSON array" instruction.
+# The _extract_json() method handles both formats.
 PARSE_PROMPTS: dict[str, str] = {
     "grocery": """Parse this into grocery/shopping items.
 
@@ -253,11 +254,15 @@ class LLMParsingService:
                 max_tokens=settings.llm_max_tokens,
                 temperature=settings.llm_temperature,
             )
+        if not response.choices:
+            logger.error(f"OpenAI returned empty choices array for model {settings.llm_openai_model}")
+            return ""
         choice = response.choices[0]
         if choice.finish_reason == "length":
             logger.warning(
-                f"OpenAI response truncated (max_completion_tokens={settings.llm_max_tokens})"
+                f"OpenAI response truncated (token limit={settings.llm_max_tokens})"
             )
+            return ""
         if choice.finish_reason == "content_filter":
             logger.error("OpenAI content filter triggered")
             return ""
@@ -314,9 +319,13 @@ class LLMParsingService:
         try:
             data = json.loads(text)
             if isinstance(data, dict) and "items" in data:
-                return data["items"]
-            if isinstance(data, list):
+                if isinstance(data["items"], list):
+                    return data["items"]
+                logger.warning(f"Expected list for 'items' key, got {type(data['items']).__name__}")
+            elif isinstance(data, list):
                 return data
+            else:
+                logger.warning(f"Unexpected JSON structure in LLM response: {text[:200]}")
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse response as JSON, falling back to array extraction: {text[:200]}")
 
@@ -325,6 +334,7 @@ class LLMParsingService:
         end = text.rfind("]")
 
         if start == -1 or end == -1:
+            logger.warning(f"No JSON array found in LLM response: {text[:200]}")
             return []
 
         json_str = text[start : end + 1]
@@ -354,7 +364,10 @@ class LLMParsingService:
 
         list_type_str = list_type.value if isinstance(list_type, ListType) else list_type
 
-        prompt_template = PARSE_PROMPTS.get(list_type_str, PARSE_PROMPTS["grocery"])
+        prompt_template = PARSE_PROMPTS.get(list_type_str)
+        if prompt_template is None:
+            logger.warning(f"No prompt template for list type '{list_type_str}', falling back to grocery")
+            prompt_template = PARSE_PROMPTS["grocery"]
         prompt = prompt_template.format(input=input_text)
 
         try:
@@ -383,8 +396,10 @@ class LLMParsingService:
             logger.info(f"Parsed {len(items)} items from: {input_text}")
             return items
 
+        except ValueError:
+            raise
         except Exception as e:
-            logger.error(f"LLM parsing failed: {e}")
+            logger.error(f"LLM parsing failed for '{input_text[:50]}': {type(e).__name__}: {e}")
             return []
 
     def is_available(self) -> bool:

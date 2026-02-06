@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { NLParseModal } from './NLParseModal';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../../api/ai';
 import type { ListType, Category, ParsedItem } from '../../types/api';
-import { CATEGORY_COLORS } from '../../types/api';
+import { CATEGORY_COLORS, AI_MODE_PLACEHOLDERS, AI_MODE_HINTS } from '../../types/api';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
@@ -68,7 +68,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
         });
 
         if (result.items.length > 0) {
-          // Show confirmation modal with parsed ingredients
+          // Show confirmation modal with parsed items
           setParsedItems(result.items);
           setOriginalInput(result.original_input);
           setNlModalOpen(true);
@@ -76,8 +76,9 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
           return;
         }
         // No items parsed - fall through to normal single item flow
-      } catch {
-        // NL parsing failed - fall through to single item
+      } catch (err) {
+        console.error('AI parsing failed:', err);
+        // Fall through to single item
       }
       setIsLoading(false);
     }
@@ -221,11 +222,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
     ? CATEGORY_COLORS[suggestion.categoryName] || 'var(--color-accent)'
     : 'var(--color-accent)';
 
-  const placeholder = aiMode
-    ? listType === 'grocery' ? "What's cooking? (e.g., tacos)"
-      : listType === 'packing' ? "Packing for...? (e.g., beach trip)"
-      : "What needs doing? (e.g., hang a picture)"
-    : "Add item...";
+  const placeholder = aiMode ? AI_MODE_PLACEHOLDERS[listType] : 'Add item...';
 
   return (
     <div className="sticky bottom-0 safe-bottom bg-[var(--color-bg-primary)] border-t border-[var(--color-text-muted)]/10 p-4">
@@ -316,9 +313,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
           >
             <p className="mt-2 text-xs text-[var(--color-accent)] flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
-              {listType === 'grocery' ? 'AI will suggest ingredients for your dish'
-              : listType === 'packing' ? 'AI will suggest items to pack'
-              : 'AI will break this into tasks'}
+              {AI_MODE_HINTS[listType]}
             </p>
           </motion.div>
         )}

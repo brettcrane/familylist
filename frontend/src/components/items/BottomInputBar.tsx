@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { CheckIcon, PencilSquareIcon, XMarkIcon, PlusIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import type { Category, ListType } from '../../types/api';
-import { CATEGORY_COLORS } from '../../types/api';
+import { CATEGORY_COLORS, AI_MODE_PLACEHOLDERS, AI_MODE_HINTS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface CategorySuggestionState {
@@ -55,15 +55,8 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
     },
     ref
   ) {
-    const placeholder = aiMode
-      ? listType === 'grocery' ? "What's cooking? (e.g., tacos)"
-        : listType === 'packing' ? "Packing for...? (e.g., beach trip)"
-        : "What needs doing? (e.g., hang a picture)"
-      : 'Add item...';
-
-    const hintText = listType === 'grocery' ? 'AI will suggest ingredients for your dish'
-      : listType === 'packing' ? 'AI will suggest items to pack'
-      : 'AI will break this into tasks';
+    const placeholder = aiMode ? AI_MODE_PLACEHOLDERS[listType] : 'Add item...';
+    const hintText = AI_MODE_HINTS[listType];
 
     const categoryColor = suggestion
       ? CATEGORY_COLORS[suggestion.categoryName] || 'var(--color-accent)'
