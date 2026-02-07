@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import type { List } from '../../types/api';
 import { useLongPress } from '../../hooks/useLongPress';
 import { ListCardMenu } from './ListCardMenu';
@@ -40,13 +41,15 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
 
   const shareCount = list.share_count || 0;
 
+  const openMenu = () => {
+    if (cardRef.current) {
+      setAnchorRect(cardRef.current.getBoundingClientRect());
+    }
+    setMenuOpen(true);
+  };
+
   const longPressHandlers = useLongPress({
-    onLongPress: () => {
-      if (cardRef.current) {
-        setAnchorRect(cardRef.current.getBoundingClientRect());
-      }
-      setMenuOpen(true);
-    },
+    onLongPress: openMenu,
     onClick: () => {
       navigate(`/lists/${list.id}`);
     },
@@ -106,6 +109,26 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
             <h3 className="font-semibold text-[var(--color-text-primary)] truncate min-w-0 flex-1">
               {list.name}
             </h3>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openMenu();
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              className={clsx(
+                'w-9 h-9 -mr-2 rounded-lg flex-shrink-0',
+                'flex items-center justify-center',
+                'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]',
+                'hover:bg-[var(--color-text-muted)]/10 active:bg-[var(--color-text-muted)]/10',
+                'transition-colors touch-manipulation',
+                'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30'
+              )}
+              aria-label={`Options for ${list.name}`}
+            >
+              <EllipsisHorizontalIcon className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Progress row: Bar (~2/3) + Count (right-aligned) */}
