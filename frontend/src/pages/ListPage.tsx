@@ -25,6 +25,7 @@ import {
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
 import { getErrorMessage } from '../api/client';
+import { ErrorState } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const AUTO_ACCEPT_DELAY = 2000;
@@ -39,7 +40,7 @@ interface CategorySuggestionState {
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthReady } = useAuth();
-  const { data: list, isLoading, error } = useList(id!, { enabled: isAuthReady });
+  const { data: list, isLoading, error, refetch } = useList(id!, { enabled: isAuthReady });
 
   // Connect to SSE for real-time updates (only when auth is ready)
   const { isFailed: sseConnectionFailed, retry: retrySSE } = useListStream(id!, {
@@ -348,14 +349,8 @@ export function ListPage() {
   if (error) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-screen p-8">
-          <div className="text-5xl mb-4">😕</div>
-          <h2 className="font-semibold text-[var(--color-text-primary)]">
-            Couldn't load list
-          </h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Please check your connection and try again
-          </p>
+        <div className="flex items-center justify-center min-h-screen">
+          <ErrorState title="Couldn't load list" error={error} onRetry={() => refetch()} />
         </div>
       </Layout>
     );

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Layout, Main, Header } from '../components/layout';
-import { PullToRefresh } from '../components/ui';
+import { PullToRefresh, ErrorState } from '../components/ui';
 import { ListGrid, CreateListModal } from '../components/lists';
 import { EditListModal } from '../components/lists/EditListModal';
 import { DeleteListDialog } from '../components/lists/DeleteListDialog';
@@ -9,7 +9,6 @@ import { ShareListModal } from '../components/lists/ShareListModal';
 import { useLists } from '../hooks/useLists';
 import { useUIStore } from '../stores/uiStore';
 import { useAuth } from '../contexts/AuthContext';
-
 export function HomePage() {
   const { isAuthReady } = useAuth();
   const { data: lists, isLoading, error, refetch } = useLists({ enabled: isAuthReady });
@@ -26,15 +25,7 @@ export function HomePage() {
       <Main className="relative">
         <PullToRefresh onRefresh={handleRefresh} className="h-full">
           {error ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <div className="text-4xl mb-4">😕</div>
-              <h2 className="font-semibold text-[var(--color-text-primary)]">
-                Couldn't load lists
-              </h2>
-              <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                Please check your connection and try again
-              </p>
-            </div>
+            <ErrorState title="Couldn't load lists" error={error} onRetry={() => refetch()} />
           ) : (
             <ListGrid lists={lists || []} isLoading={isLoading} />
           )}
