@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
-import { ChevronDownIcon, CheckIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, CheckIcon, PlusIcon, MinusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { CategoryIcon } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
@@ -406,9 +406,7 @@ export function EditItemModal({
                         'disabled:opacity-40 disabled:cursor-not-allowed'
                       )}
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
+                      <MinusIcon className="w-4 h-4" strokeWidth={2.5} />
                     </button>
 
                     <div className="flex-1 text-center">
@@ -427,10 +425,7 @@ export function EditItemModal({
                         'disabled:opacity-40 disabled:cursor-not-allowed'
                       )}
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
+                      <PlusIcon className="w-4 h-4" strokeWidth={2.5} />
                     </button>
                   </div>
                 </div>

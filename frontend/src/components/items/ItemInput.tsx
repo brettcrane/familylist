@@ -6,7 +6,7 @@ import { NLParseModal } from './NLParseModal';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../../api/ai';
 import type { ListType, Category, ParsedItem } from '../../types/api';
 import { CATEGORY_COLORS, AI_MODE_PLACEHOLDERS, AI_MODE_HINTS } from '../../types/api';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon, PlusIcon, XMarkIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface ItemInputProps {
@@ -284,18 +284,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                   <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
                 </svg>
               ) : (
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
+                <PlusIcon className="w-5 h-5" />
               )
             }
           />
@@ -373,18 +362,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                     className="absolute inset-0 flex items-center justify-center"
                     aria-label="Accept category"
                   >
-                    <svg
-                      className="w-4 h-4"
-                      style={{ color: categoryColor }}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <CheckIcon className="w-4 h-4" style={{ color: categoryColor }} strokeWidth={2.5} />
                   </button>
                 </div>
 
@@ -393,18 +371,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                   className="p-1.5 rounded-full hover:bg-black/10 transition-colors"
                   aria-label="Change category"
                 >
-                  <svg
-                    className="w-5 h-5 text-[var(--color-text-muted)]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  <XMarkIcon className="w-5 h-5 text-[var(--color-text-muted)]" />
                 </button>
               </div>
             </div>
@@ -430,16 +397,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                   onClick={handleDismiss}
                   className="p-1 rounded hover:bg-[var(--color-bg-secondary)]"
                 >
-                  <svg
-                    className="w-4 h-4 text-[var(--color-text-muted)]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
