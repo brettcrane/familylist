@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   SignedIn,
   SignedOut,
-  useAuth as useClerkAuth,
+  ClerkLoaded,
+  ClerkLoading,
 } from '@clerk/clerk-react';
 import { HomePage, ListPage, SignInPage, SignUpPage } from './pages';
 import { ErrorBoundary } from './components/ui';
@@ -34,60 +35,15 @@ const queryClient = new QueryClient({
   },
 });
 
-/** How long to wait for Clerk before falling back to API key mode (ms). */
-const CLERK_LOAD_TIMEOUT_MS = 8000;
-/** Show "taking longer" hint after this many ms. */
-const CLERK_SLOW_THRESHOLD_MS = 3000;
-
-function LoadingScreen({ slow = false }: { slow?: boolean }) {
+function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-primary)]">
       <div className="text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-accent)] mx-auto" />
         <p className="mt-4 text-[var(--color-text-secondary)]">Loading...</p>
-        {slow && (
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Taking longer than usual...
-          </p>
-        )}
       </div>
     </div>
   );
-}
-
-/**
- * Gate that waits for Clerk to load, with a timeout fallback.
- *
- * If Clerk's SDK doesn't load within CLERK_LOAD_TIMEOUT_MS (e.g. its CDN
- * is unreachable on certain networks), we fall back to FallbackAppContent
- * so the user can still see their lists via API key auth.
- */
-function ClerkGate() {
-  const { isLoaded } = useClerkAuth();
-  const [phase, setPhase] = useState<'loading' | 'slow' | 'timeout'>('loading');
-
-  useEffect(() => {
-    if (isLoaded) return;
-
-    const slowTimer = setTimeout(() => setPhase('slow'), CLERK_SLOW_THRESHOLD_MS);
-    const timeoutTimer = setTimeout(() => {
-      console.warn(
-        '[FamilyList] Clerk failed to load within timeout. ' +
-          'Falling back to API key mode. This may happen due to network issues ' +
-          '(DNS filtering, router-level blocking, etc.).'
-      );
-      setPhase('timeout');
-    }, CLERK_LOAD_TIMEOUT_MS);
-
-    return () => {
-      clearTimeout(slowTimer);
-      clearTimeout(timeoutTimer);
-    };
-  }, [isLoaded]);
-
-  if (isLoaded) return <ClerkAppContent />;
-  if (phase === 'timeout') return <FallbackAppContent />;
-  return <LoadingScreen slow={phase === 'slow'} />;
 }
 
 /**
@@ -177,7 +133,12 @@ function App() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <ClerkGate />
+            <ClerkLoading>
+              <LoadingScreen />
+            </ClerkLoading>
+            <ClerkLoaded>
+              <ClerkAppContent />
+            </ClerkLoaded>
           </BrowserRouter>
         </QueryClientProvider>
       </ErrorBoundary>
