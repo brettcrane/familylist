@@ -99,12 +99,12 @@ export async function apiRequest<T>(
       }
     }
 
-    // Fall back to API key if no Bearer token and API key is configured
-    if (!requestHeaders['Authorization']) {
-      const apiKey = import.meta.env.VITE_API_KEY;
-      if (apiKey) {
-        requestHeaders['X-API-Key'] = apiKey;
-      }
+    // Always include API key when available — in hybrid auth mode the backend
+    // tries JWT first and falls back to the API key, so sending both ensures
+    // requests succeed even when the JWT is expired or invalid.
+    const apiKey = import.meta.env.VITE_API_KEY;
+    if (apiKey) {
+      requestHeaders['X-API-Key'] = apiKey;
     }
   }
 

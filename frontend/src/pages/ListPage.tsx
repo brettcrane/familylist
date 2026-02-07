@@ -24,7 +24,7 @@ import {
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
-import { getErrorMessage } from '../api/client';
+import { ApiError, getErrorMessage } from '../api/client';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const AUTO_ACCEPT_DELAY = 2000;
@@ -39,7 +39,7 @@ interface CategorySuggestionState {
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthReady } = useAuth();
-  const { data: list, isLoading, error } = useList(id!, { enabled: isAuthReady });
+  const { data: list, isLoading, error, refetch } = useList(id!, { enabled: isAuthReady });
 
   // Connect to SSE for real-time updates (only when auth is ready)
   const { isFailed: sseConnectionFailed, retry: retrySSE } = useListStream(id!, {
@@ -348,14 +348,24 @@ export function ListPage() {
   if (error) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-screen p-8">
+        <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center">
           <div className="text-5xl mb-4">😕</div>
           <h2 className="font-semibold text-[var(--color-text-primary)]">
             Couldn't load list
           </h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            Please check your connection and try again
+            {error instanceof ApiError
+              ? `Server returned ${error.status}: ${error.message}`
+              : error instanceof Error
+                ? error.message
+                : 'Please check your connection and try again'}
           </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-5 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium"
+          >
+            Try again
+          </button>
         </div>
       </Layout>
     );
