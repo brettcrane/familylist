@@ -49,7 +49,7 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
   const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
 
   const longPressHandlers = useLongPress({
-    onLongPress: openMenu,
+    onLongPress: () => openMenu(),
     onClick: () => {
       navigate(`/lists/${list.id}`);
     },
