@@ -24,7 +24,8 @@ import {
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
-import { ApiError, getErrorMessage } from '../api/client';
+import { getErrorMessage } from '../api/client';
+import { ErrorState } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const AUTO_ACCEPT_DELAY = 2000;
@@ -348,24 +349,8 @@ export function ListPage() {
   if (error) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center">
-          <div className="text-5xl mb-4">😕</div>
-          <h2 className="font-semibold text-[var(--color-text-primary)]">
-            Couldn't load list
-          </h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-            {error instanceof ApiError
-              ? `Server returned ${error.status}: ${error.message}`
-              : error instanceof Error
-                ? error.message
-                : 'Please check your connection and try again'}
-          </p>
-          <button
-            onClick={() => refetch()}
-            className="mt-4 px-5 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium"
-          >
-            Try again
-          </button>
+        <div className="flex items-center justify-center min-h-screen">
+          <ErrorState title="Couldn't load list" error={error} onRetry={() => refetch()} />
         </div>
       </Layout>
     );
