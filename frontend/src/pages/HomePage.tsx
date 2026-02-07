@@ -9,6 +9,7 @@ import { ShareListModal } from '../components/lists/ShareListModal';
 import { useLists } from '../hooks/useLists';
 import { useUIStore } from '../stores/uiStore';
 import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../api/client';
 
 export function HomePage() {
   const { isAuthReady } = useAuth();
@@ -32,8 +33,18 @@ export function HomePage() {
                 Couldn't load lists
               </h2>
               <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                Please check your connection and try again
+                {error instanceof ApiError
+                  ? `Server returned ${error.status}: ${error.message}`
+                  : error instanceof Error
+                    ? error.message
+                    : 'Please check your connection and try again'}
               </p>
+              <button
+                onClick={() => refetch()}
+                className="mt-4 px-5 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium"
+              >
+                Try again
+              </button>
             </div>
           ) : (
             <ListGrid lists={lists || []} isLoading={isLoading} />
