@@ -123,6 +123,7 @@ export function useLongPress({
       // If long press was triggered, prevent any click events
       if (longPressTriggeredRef.current) {
         e.preventDefault();
+        longPressTriggeredRef.current = false;
       }
     },
     [clear]
