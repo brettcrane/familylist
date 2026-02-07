@@ -115,6 +115,25 @@ export async function apiRequest<T>(
     signal,
   });
 
+  // If we got a 401 and sent a Bearer token, retry without it.
+  // The backend's hybrid auth mode allows unauthenticated access when
+  // API_KEY is disabled, but only if no Bearer token is present. A stale
+  // JWT blocks that fallback, so stripping it lets the request through.
+  if (response.status === 401 && requestHeaders['Authorization']) {
+    const { Authorization: _, ...headersWithoutAuth } = requestHeaders;
+    const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method,
+      headers: headersWithoutAuth,
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    });
+    if (retryResponse.ok) {
+      if (retryResponse.status === 204) return undefined as T;
+      return retryResponse.json();
+    }
+    // Retry also failed — fall through to throw error from original response
+  }
+
   if (!response.ok) {
     let errorData: ErrorResponse | undefined;
     try {
