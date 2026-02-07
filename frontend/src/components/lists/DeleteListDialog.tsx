@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { useDeleteList } from '../../hooks/useLists';
 import { useUIStore } from '../../stores/uiStore';
@@ -63,20 +64,7 @@ export function DeleteListDialog() {
                 transition={{ delay: 0.1, type: 'spring', damping: 15, stiffness: 300 }}
                 className="w-12 h-12 mx-auto mb-4 bg-[var(--color-destructive)]/10 rounded-full flex items-center justify-center"
               >
-                <svg
-                  className="w-6 h-6 text-[var(--color-destructive)]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  <line x1="10" y1="11" x2="10" y2="17" />
-                  <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
+                <TrashIcon className="w-6 h-6 text-[var(--color-destructive)]" />
               </motion.div>
 
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] text-center mb-2">

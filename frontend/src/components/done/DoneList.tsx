@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { IconClipboardList, IconCircleCheck } from '@tabler/icons-react';
+import { CheckIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import type { Item, Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
@@ -258,17 +259,7 @@ export function DoneList({
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="w-6 h-6 rounded-md bg-[var(--color-checked)] flex items-center justify-center flex-shrink-0">
-                  <svg
-                    className="w-4 h-4 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <CheckIcon className="w-4 h-4 text-white" strokeWidth={2.5} />
                 </div>
 
                 <div className="flex-1 min-w-0">
