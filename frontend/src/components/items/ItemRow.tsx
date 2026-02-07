@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
-import { PencilSquareIcon } from '@heroicons/react/24/outline';
+import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
 import { useHasPendingMutation } from '../../hooks/useOfflineQueue';
 import type { Item } from '../../types/api';
@@ -66,7 +66,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-4 py-2 bg-[var(--color-bg-card)]',
+        'flex items-center gap-3 px-4 py-1.5 bg-[var(--color-bg-card)]',
         'border-b border-[var(--color-text-muted)]/10'
       )}
     >
@@ -143,7 +143,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
         )}
       </div>
 
-      {/* Edit button (pencil icon) for modal - min 44px tap target for mobile accessibility */}
+      {/* More options button - 44px tap target with negative margin to not inflate row height */}
       {onEdit && !isEditing && (
         <button
           type="button"
@@ -152,7 +152,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
             onEdit();
           }}
           className={clsx(
-            'w-12 h-12 -mr-3 rounded-xl flex-shrink-0',
+            'w-11 h-11 -mr-2 -my-1.5 rounded-xl flex-shrink-0',
             'flex items-center justify-center',
             'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]',
             'hover:bg-[var(--color-bg-secondary)] active:bg-[var(--color-bg-secondary)]',
@@ -162,7 +162,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
           aria-label={`Edit details for ${item.name}`}
           title="Edit category, quantity, notes"
         >
-          <PencilSquareIcon className="w-5 h-5" />
+          <EllipsisHorizontalIcon className="w-5 h-5" />
         </button>
       )}
 
