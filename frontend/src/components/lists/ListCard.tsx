@@ -41,12 +41,12 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
 
   const shareCount = list.share_count || 0;
 
-  const openMenu = () => {
-    if (cardRef.current) {
-      setAnchorRect(cardRef.current.getBoundingClientRect());
-    }
+  const openMenu = (rect?: DOMRect) => {
+    setAnchorRect(rect ?? cardRef.current?.getBoundingClientRect() ?? null);
     setMenuOpen(true);
   };
+
+  const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
 
   const longPressHandlers = useLongPress({
     onLongPress: openMenu,
@@ -113,10 +113,10 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                openMenu();
+                openMenu(e.currentTarget.getBoundingClientRect());
               }}
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={stopPropagation}
+              onTouchStart={stopPropagation}
               className={clsx(
                 'w-11 h-11 -mr-2 -my-1 rounded-lg flex-shrink-0',
                 'flex items-center justify-center',
