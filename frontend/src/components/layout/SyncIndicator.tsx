@@ -25,7 +25,7 @@ export function SyncIndicator() {
         >
           {!isOnline ? (
             <>
-              <IconWifiOff className="w-4 h-4" stroke={1.5} />
+              <IconWifiOff className="w-4 h-4" stroke={2} />
               <span>Offline</span>
             </>
           ) : (

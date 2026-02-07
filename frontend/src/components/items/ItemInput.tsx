@@ -284,7 +284,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                   <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
                 </svg>
               ) : (
-                <PlusIcon className="w-5 h-5" />
+                <PlusIcon className="w-5 h-5" strokeWidth={2} />
               )
             }
           />
@@ -371,7 +371,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                   className="p-1.5 rounded-full hover:bg-black/10 transition-colors"
                   aria-label="Change category"
                 >
-                  <XMarkIcon className="w-5 h-5 text-[var(--color-text-muted)]" />
+                  <XMarkIcon className="w-5 h-5 text-[var(--color-text-muted)]" strokeWidth={2} />
                 </button>
               </div>
             </div>
@@ -397,7 +397,7 @@ export function ItemInput({ listType, categories, onAddItem, onAddItems }: ItemI
                   onClick={handleDismiss}
                   className="p-1 rounded hover:bg-[var(--color-bg-secondary)]"
                 >
-                  <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
+                  <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" strokeWidth={2} />
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
