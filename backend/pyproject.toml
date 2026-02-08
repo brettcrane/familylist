@@ -16,6 +16,7 @@ dependencies = [
     "PyJWT>=2.8.0",
     "cryptography>=43.0.0",
     "pywebpush>=2.0.0",
+    "fastapi-mcp>=0.4.0",
 ]
 
 [project.optional-dependencies]

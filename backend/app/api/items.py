@@ -132,7 +132,7 @@ async def publish_event_async(
             )
 
 
-@router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
+@router.get("/lists/{list_id}/items", response_model=list[ItemResponse], operation_id="get_items")
 def get_items(
     list_id: str,
     is_checked: str = Query("all", pattern="^(all|checked|unchecked)$"),
@@ -191,7 +191,7 @@ def get_items(
     return [item_to_response(item) for item in items]
 
 
-@router.post("/lists/{list_id}/items", response_model=list[ItemResponse], status_code=201)
+@router.post("/lists/{list_id}/items", response_model=list[ItemResponse], status_code=201, operation_id="create_items")
 def create_items(
     list_id: str,
     data: ItemCreate | ItemBatchCreate,
@@ -239,7 +239,7 @@ def create_items(
     return [item_to_response(item) for item in items]
 
 
-@router.put("/items/{item_id}", response_model=ItemResponse)
+@router.put("/items/{item_id}", response_model=ItemResponse, operation_id="update_item")
 def update_item(
     item_id: str,
     data: ItemUpdate,
@@ -284,7 +284,7 @@ def update_item(
     return item_to_response(updated)
 
 
-@router.delete("/items/{item_id}", status_code=204)
+@router.delete("/items/{item_id}", status_code=204, operation_id="delete_item")
 def delete_item(
     item_id: str,
     background_tasks: BackgroundTasks,
@@ -325,7 +325,7 @@ def delete_item(
     )
 
 
-@router.post("/items/{item_id}/check", response_model=ItemResponse)
+@router.post("/items/{item_id}/check", response_model=ItemResponse, operation_id="check_item")
 def check_item(
     item_id: str,
     background_tasks: BackgroundTasks,
@@ -367,7 +367,7 @@ def check_item(
     return item_to_response(checked)
 
 
-@router.post("/items/{item_id}/uncheck", response_model=ItemResponse)
+@router.post("/items/{item_id}/uncheck", response_model=ItemResponse, operation_id="uncheck_item")
 def uncheck_item(
     item_id: str,
     background_tasks: BackgroundTasks,
@@ -406,7 +406,7 @@ def uncheck_item(
     return item_to_response(unchecked)
 
 
-@router.post("/lists/{list_id}/clear", status_code=200)
+@router.post("/lists/{list_id}/clear", status_code=200, operation_id="clear_checked_items")
 def clear_checked_items(
     list_id: str,
     background_tasks: BackgroundTasks,
@@ -442,7 +442,7 @@ def clear_checked_items(
     return {"deleted_count": count}
 
 
-@router.post("/lists/{list_id}/restore", status_code=200)
+@router.post("/lists/{list_id}/restore", status_code=200, operation_id="restore_checked_items")
 def restore_checked_items(
     list_id: str,
     background_tasks: BackgroundTasks,

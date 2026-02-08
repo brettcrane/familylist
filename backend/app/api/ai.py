@@ -20,7 +20,7 @@ from app.services.llm_service import llm_service
 router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(verify_api_key)])
 
 
-@router.post("/categorize", response_model=CategorizeResponse)
+@router.post("/categorize", response_model=CategorizeResponse, operation_id="categorize_item")
 def categorize_item(data: CategorizeRequest, db: Session = Depends(get_db)):
     """Categorize a single item using AI embeddings.
 
@@ -34,7 +34,7 @@ def categorize_item(data: CategorizeRequest, db: Session = Depends(get_db)):
     return CategorizeResponse(category=category, confidence=confidence)
 
 
-@router.post("/feedback", response_model=FeedbackResponse)
+@router.post("/feedback", response_model=FeedbackResponse, operation_id="record_feedback")
 def record_feedback(data: FeedbackRequest, db: Session = Depends(get_db)):
     """Record user feedback for AI learning.
 
@@ -53,7 +53,7 @@ def record_feedback(data: FeedbackRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/parse", response_model=ParseResponse)
+@router.post("/parse", response_model=ParseResponse, operation_id="parse_natural_language")
 def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
     """Parse natural language input into multiple items.
 
