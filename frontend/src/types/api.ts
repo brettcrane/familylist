@@ -4,6 +4,12 @@ export type ListType = 'grocery' | 'packing' | 'tasks';
 /** Magnitude (effort sizing) for items */
 export type Magnitude = 'S' | 'M' | 'L';
 
+/** Priority levels for task items */
+export type Priority = 'urgent' | 'high' | 'medium' | 'low';
+
+/** Status values for task items */
+export type ItemStatus = 'open' | 'in_progress' | 'done' | 'blocked';
+
 /** User response from API */
 export interface User {
   id: string;
@@ -50,6 +56,11 @@ export interface Item {
   checked_at: string | null;
   assigned_to: string | null;
   assigned_to_name: string | null;
+  priority: Priority | null;
+  due_date: string | null;
+  status: ItemStatus | null;
+  created_by: string | null;
+  created_by_name: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -63,6 +74,9 @@ export interface ItemCreate {
   category_id?: string | null;
   magnitude?: Magnitude | null;
   assigned_to?: string | null;
+  priority?: Priority | null;
+  due_date?: string | null;
+  status?: ItemStatus | null;
 }
 
 /** Batch item create request */
@@ -78,6 +92,9 @@ export interface ItemUpdate {
   category_id?: string | null;
   magnitude?: Magnitude | null;
   assigned_to?: string | null;
+  priority?: Priority | null;
+  due_date?: string | null;
+  status?: ItemStatus | null;
   sort_order?: number;
 }
 
@@ -275,6 +292,43 @@ export const MAGNITUDE_OPTIONS: { value: Magnitude | null; label: string }[] = [
   { value: null, label: 'None' },
   ...(['S', 'M', 'L'] as Magnitude[]).map(m => ({ value: m, label: MAGNITUDE_CONFIG[m].label })),
 ];
+
+/** Priority display configuration */
+export const PRIORITY_CONFIG: Record<Priority, { label: string; textClass: string; bgClass: string }> = {
+  urgent: { label: 'Urgent', textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-100 dark:bg-red-900/30' },
+  high:   { label: 'High',   textClass: 'text-orange-600 dark:text-orange-400', bgClass: 'bg-orange-100 dark:bg-orange-900/30' },
+  medium: { label: 'Medium', textClass: 'text-yellow-600 dark:text-yellow-400', bgClass: 'bg-yellow-100 dark:bg-yellow-900/30' },
+  low:    { label: 'Low',    textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-100 dark:bg-green-900/30' },
+};
+
+/** Priority dropdown options */
+export const PRIORITY_OPTIONS: { value: Priority | null; label: string }[] = [
+  { value: null, label: 'None' },
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
+
+/** Status display configuration */
+export const STATUS_CONFIG: Record<ItemStatus, { label: string; textClass: string; bgClass: string }> = {
+  open:        { label: 'Open',        textClass: 'text-[var(--color-text-muted)]', bgClass: 'bg-[var(--color-bg-secondary)]' },
+  in_progress: { label: 'In Progress', textClass: 'text-blue-600 dark:text-blue-400', bgClass: 'bg-blue-100 dark:bg-blue-900/30' },
+  done:        { label: 'Done',        textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-100 dark:bg-green-900/30' },
+  blocked:     { label: 'Blocked',     textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-100 dark:bg-red-900/30' },
+};
+
+/** Status dropdown options */
+export const STATUS_OPTIONS: { value: ItemStatus | null; label: string }[] = [
+  { value: null, label: 'None' },
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'done', label: 'Done' },
+  { value: 'blocked', label: 'Blocked' },
+];
+
+/** Claude system user ID for AI-created items */
+export const CLAUDE_SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 /** Category color mapping */
 export const CATEGORY_COLORS: Record<string, string> = {

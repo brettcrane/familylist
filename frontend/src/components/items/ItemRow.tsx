@@ -2,19 +2,21 @@ import { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
-import { MAGNITUDE_CONFIG } from '../../types/api';
+import { MAGNITUDE_CONFIG, PRIORITY_CONFIG, CLAUDE_SYSTEM_USER_ID } from '../../types/api';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
-import type { Item, Magnitude } from '../../types/api';
+import { isOverdue, formatDueDate } from '../../utils/dates';
+import type { Item, ListType, Magnitude, Priority } from '../../types/api';
 
 interface ItemRowProps {
   item: Item;
+  listType?: ListType;
   onCheck: () => void;
   onEdit?: () => void;
   onNameChange?: (newName: string) => void;
 }
 
-export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
+export function ItemRow({ item, listType, onCheck, onEdit, onNameChange }: ItemRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +144,40 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
       </div>
 
       {/* Badges - between content and ellipsis */}
+      {!isEditing && listType === 'tasks' && item.priority && item.priority in PRIORITY_CONFIG && (
+        <span
+          className={clsx(
+            'px-1.5 py-0.5 rounded-full font-bold flex-shrink-0',
+            PRIORITY_CONFIG[item.priority as Priority].textClass,
+            PRIORITY_CONFIG[item.priority as Priority].bgClass,
+          )}
+          style={{ fontSize: '10px' }}
+        >
+          {PRIORITY_CONFIG[item.priority as Priority].label.charAt(0)}
+        </span>
+      )}
+      {!isEditing && listType === 'tasks' && item.due_date && (
+        <span
+          className={clsx(
+            'font-medium flex-shrink-0 px-1.5 py-0.5 rounded-full',
+            isOverdue(item.due_date)
+              ? 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30'
+              : 'text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)]'
+          )}
+          style={{ fontSize: '10px' }}
+          title={`Due ${item.due_date}`}
+        >
+          {formatDueDate(item.due_date)}
+        </span>
+      )}
+      {!isEditing && item.created_by === CLAUDE_SYSTEM_USER_ID && (
+        <span
+          className="w-[18px] h-[18px] rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0"
+          title="Created by Claude"
+        >
+          <span className="text-purple-600 dark:text-purple-400 font-bold" style={{ fontSize: '9px' }}>AI</span>
+        </span>
+      )}
       {!isEditing && item.assigned_to && item.assigned_to_name && (
         <span
           className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0"
