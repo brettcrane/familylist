@@ -1,8 +1,10 @@
 """User API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth import get_auth
 from app.database import get_db
 from app.dependencies import require_user
 from app.models import ListShare, User
@@ -21,6 +23,27 @@ async def get_current_user_info(
     Requires Clerk authentication - API key auth will return 401.
     """
     return current_user
+
+
+@router.get("/lookup", dependencies=[Depends(get_auth)])
+async def lookup_users(
+    name: str = Query(..., min_length=1, description="Partial name match"),
+    db: Session = Depends(get_db),
+):
+    """Look up users by display name (partial match).
+
+    Used for identity resolution (e.g., Cowork MCP resolving "Brett" to a user ID).
+    Requires API key or Clerk authentication.
+    """
+    users = (
+        db.query(User)
+        .filter(func.lower(User.display_name).contains(name.lower()))
+        .all()
+    )
+    return [
+        {"id": u.id, "display_name": u.display_name, "email": u.email}
+        for u in users
+    ]
 
 
 @router.get("/{user_id}", response_model=UserResponse)
