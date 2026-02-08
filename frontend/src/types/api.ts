@@ -1,6 +1,9 @@
 /** List type enum matching backend */
 export type ListType = 'grocery' | 'packing' | 'tasks';
 
+/** Magnitude (effort sizing) for items */
+export type Magnitude = 'S' | 'M' | 'L';
+
 /** User response from API */
 export interface User {
   id: string;
@@ -40,10 +43,13 @@ export interface Item {
   name: string;
   quantity: number;
   notes: string | null;
+  magnitude: Magnitude | null;
   is_checked: boolean;
   checked_by: string | null;
   checked_by_name: string | null;
   checked_at: string | null;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -68,6 +74,8 @@ export interface ItemUpdate {
   quantity?: number;
   notes?: string | null;
   category_id?: string | null;
+  magnitude?: Magnitude | null;
+  assigned_to?: string | null;
   sort_order?: number;
 }
 
@@ -84,6 +92,7 @@ export interface List {
   icon: string | null;
   color: string | null;
   owner_id: string | null;
+  owner_name: string | null;
   is_template: boolean;
   created_at: string;
   updated_at: string;
@@ -239,6 +248,41 @@ export const AI_MODE_HINTS: Record<ListType, string> = {
   packing: 'AI will suggest items to pack',
   tasks: 'AI will break this into tasks',
 };
+
+/** Magnitude display configuration */
+export const MAGNITUDE_CONFIG: Record<Magnitude, { label: string; textClass: string; bgClass: string }> = {
+  S: {
+    label: 'Small',
+    textClass: 'text-[var(--color-text-muted)]',
+    bgClass: 'bg-[var(--color-bg-secondary)]',
+  },
+  M: {
+    label: 'Medium',
+    textClass: 'text-[var(--color-pending)]',
+    bgClass: 'bg-[var(--color-pending)]/15',
+  },
+  L: {
+    label: 'Large',
+    textClass: 'text-[var(--color-destructive)]',
+    bgClass: 'bg-[var(--color-destructive)]/15',
+  },
+};
+
+/** Colors for user avatar badges */
+const AVATAR_COLORS = [
+  '#4A90D9', '#D94A6B', '#5CB85C', '#F0AD4E',
+  '#9B59B6', '#E67E22', '#1ABC9C', '#E74C3C',
+  '#3498DB', '#2ECC71',
+];
+
+/** Get a deterministic color for a user ID */
+export function getUserColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = ((hash << 5) - hash + userId.charCodeAt(i)) | 0;
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 /** Category color mapping */
 export const CATEGORY_COLORS: Record<string, string> = {

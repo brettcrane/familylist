@@ -15,22 +15,13 @@ import {
   useCurrentUser,
 } from '../../hooks/useShares';
 import { useAuth } from '../../contexts/AuthContext';
+import { getInitials } from '../../utils/strings';
 import type { SharePermission, ListShare } from '../../types/api';
 
 const PERMISSION_OPTIONS: { value: SharePermission; label: string }[] = [
   { value: 'view', label: 'View' },
   { value: 'edit', label: 'Edit' },
 ];
-
-function getInitials(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return '??';
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2 && parts[0] && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return trimmed.slice(0, 2).toUpperCase();
-}
 
 interface ShareRowProps {
   share: ListShare;

@@ -38,7 +38,8 @@ class User(Base):
 
     # Relationships
     owned_lists = relationship("List", back_populates="owner")
-    checked_items = relationship("Item", back_populates="checked_by_user")
+    checked_items = relationship("Item", foreign_keys="[Item.checked_by]", back_populates="checked_by_user")
+    assigned_items = relationship("Item", foreign_keys="[Item.assigned_to]", back_populates="assigned_to_user")
     shared_lists = relationship("ListShare", back_populates="user")
     push_subscriptions = relationship(
         "PushSubscription", back_populates="user", cascade="all, delete-orphan"
@@ -147,6 +148,8 @@ class Item(Base):
     is_checked: Mapped[bool] = mapped_column(Boolean, default=False)
     checked_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
     checked_at: Mapped[str | None] = mapped_column(Text)
+    magnitude: Mapped[str | None] = mapped_column(String(1))
+    assigned_to: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(Text, default=utc_now)
     updated_at: Mapped[str] = mapped_column(Text, default=utc_now, onupdate=utc_now)
@@ -154,7 +157,8 @@ class Item(Base):
     # Relationships
     list = relationship("List", back_populates="items")
     category = relationship("Category", back_populates="items")
-    checked_by_user = relationship("User", back_populates="checked_items")
+    checked_by_user = relationship("User", foreign_keys=[checked_by], back_populates="checked_items")
+    assigned_to_user = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_items")
 
     __table_args__ = (Index("idx_items_list_id", "list_id"),)
 

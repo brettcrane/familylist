@@ -145,6 +145,7 @@ def get_list_with_items(db: Session, list_id: str) -> List | None:
         .options(
             joinedload(List.categories),
             joinedload(List.items).joinedload(Item.checked_by_user),
+            joinedload(List.items).joinedload(Item.assigned_to_user),
         )
         .filter(List.id == list_id)
         .first()
@@ -249,6 +250,7 @@ def duplicate_list(
                 name=item.name,
                 quantity=item.quantity,
                 notes=item.notes,
+                magnitude=item.magnitude,
                 sort_order=item.sort_order,
             )
             db.add(new_item)

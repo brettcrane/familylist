@@ -247,6 +247,69 @@ class TestItemEndpoints:
         assert response.status_code == 200
         assert response.json()["restored_count"] == 0
 
+    def test_create_item_with_magnitude(self, client, auth_headers, created_list):
+        """Test creating an item with magnitude set."""
+        list_id = created_list["id"]
+        item_data = {"name": "Big Task", "magnitude": "L"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data[0]["magnitude"] == "L"
+
+    def test_update_item_magnitude(self, client, auth_headers, created_list):
+        """Test updating item magnitude through its lifecycle."""
+        list_id = created_list["id"]
+        # Create item without magnitude
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+        assert create_response.json()[0]["magnitude"] is None
+
+        # Set to S
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": "S"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["magnitude"] == "S"
+
+        # Change to M
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": "M"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["magnitude"] == "M"
+
+        # Clear magnitude
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": None}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["magnitude"] is None
+
+    def test_invalid_magnitude_rejected(self, client, auth_headers, created_list):
+        """Test that invalid magnitude values are rejected."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad Item", "magnitude": "X"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_item_response_includes_assigned_fields(self, client, auth_headers, created_list):
+        """Test that item response includes assigned_to fields."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
+        )
+        data = response.json()[0]
+        assert "assigned_to" in data
+        assert data["assigned_to"] is None
+        assert "assigned_to_name" in data
+        assert data["assigned_to_name"] is None
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""

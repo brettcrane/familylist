@@ -512,6 +512,9 @@ export function ListPage() {
         onDelete={handleDeleteItem}
         onClose={() => setEditingItem(null)}
         isSaving={updateItem.isPending}
+        isShared={list.is_shared ?? false}
+        ownerId={list.owner_id}
+        ownerName={list.owner_name ?? null}
       />
     </Layout>
   );
