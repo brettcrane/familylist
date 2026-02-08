@@ -8,8 +8,8 @@ import {
   useAuth as useClerkAuth,
   useUser as useClerkUser,
 } from '@clerk/clerk-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
-import { useOfflineQueueStore } from '../hooks/useOfflineQueue';
 
 interface AuthContextValue {
   isLoaded: boolean;
@@ -45,7 +45,7 @@ export function AuthProvider({ children, isAuthReady = false }: AuthProviderProp
   const { isLoaded, isSignedIn, userId, getToken, signOut } = useClerkAuth();
   const { user } = useClerkUser();
   const { setCachedUser, clearCachedUser, cachedUser } = useAuthStore();
-  const { setSyncPaused } = useOfflineQueueStore();
+  const queryClient = useQueryClient();
 
   // Sync user data to cache for offline access
   useEffect(() => {
@@ -61,12 +61,10 @@ export function AuthProvider({ children, isAuthReady = false }: AuthProviderProp
         imageUrl: user.imageUrl ?? null,
       };
       setCachedUser(userData);
-      // Resume sync when user is authenticated
-      setSyncPaused(false);
     } else if (isLoaded && !isSignedIn) {
       clearCachedUser();
     }
-  }, [isLoaded, isSignedIn, user, setCachedUser, clearCachedUser, setSyncPaused]);
+  }, [isLoaded, isSignedIn, user, setCachedUser, clearCachedUser]);
 
   // Use cached user data when offline or loading
   const currentUser = user
@@ -104,6 +102,9 @@ export function AuthProvider({ children, isAuthReady = false }: AuthProviderProp
     },
     signOut: async () => {
       clearCachedUser();
+      queryClient.clear();
+      navigator.serviceWorker?.controller?.postMessage({ type: 'CLEAR_API_CACHE' });
+      try { localStorage.removeItem('familylists-offline-queue'); } catch { /* may not exist */ }
       await signOut();
     },
   };

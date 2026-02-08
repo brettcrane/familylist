@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
-import { useHasPendingMutation } from '../../hooks/useOfflineQueue';
 import { MAGNITUDE_CONFIG } from '../../types/api';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
@@ -16,7 +15,6 @@ interface ItemRowProps {
 }
 
 export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
-  const hasPending = useHasPendingMutation(item.id);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -133,9 +131,6 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
               <span className="font-mono text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded flex-shrink-0">
                 ×{item.quantity}
               </span>
-            )}
-            {hasPending && (
-              <span className="w-2 h-2 rounded-full bg-[var(--color-pending)] animate-pulse flex-shrink-0" />
             )}
           </div>
         )}
