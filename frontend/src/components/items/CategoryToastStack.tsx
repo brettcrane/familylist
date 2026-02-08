@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import type { Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
@@ -90,7 +90,7 @@ export function CategoryToastStack({
   if (visibleEntries.length === 0) return null;
 
   return (
-    <div className="px-4 pt-2 pb-1 flex flex-col gap-1.5">
+    <div className="px-4 pt-2 pb-1 flex flex-col gap-2">
       <AnimatePresence mode="popLayout">
         {visibleEntries.map((entry) => {
           const categoryColor = entry.suggestedCategoryName
@@ -102,66 +102,71 @@ export function CategoryToastStack({
             <motion.div
               key={entry.id}
               layout
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
-              className="overflow-hidden"
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             >
-              {/* Toast pill */}
+              {/* Toast card */}
               <div
-                className="flex items-center justify-between px-3 py-2 rounded-xl"
-                style={{ backgroundColor: `${categoryColor}15` }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg bg-[var(--color-bg-card)] border-[var(--color-text-muted)]/20 overflow-hidden"
+                style={{ borderLeftColor: categoryColor, borderLeftWidth: 3 }}
               >
-                <div className="flex items-center gap-2 min-w-0">
+                {/* Icon */}
+                {entry.status === 'categorizing' ? (
+                  <motion.svg
+                    className="w-5 h-5 flex-shrink-0 text-[var(--color-text-muted)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  >
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+                  </motion.svg>
+                ) : (
+                  <CategoryIcon
+                    category={entry.suggestedCategoryName || 'Uncategorized'}
+                    className="w-5 h-5 flex-shrink-0"
+                    style={{ color: categoryColor }}
+                  />
+                )}
+
+                {/* Text */}
+                <div className="flex-1 min-w-0">
                   {entry.status === 'categorizing' ? (
-                    <motion.svg
-                      className="w-4 h-4 flex-shrink-0 text-[var(--color-text-muted)]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    >
-                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-                    </motion.svg>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                      Adding {entry.itemName}...
+                    </p>
                   ) : (
-                    <CategoryIcon
-                      category={entry.suggestedCategoryName || 'Uncategorized'}
-                      className="w-4 h-4 flex-shrink-0"
-                      style={{ color: categoryColor }}
-                    />
-                  )}
-                  <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-                    {entry.itemName}
-                  </span>
-                  {entry.status === 'categorizing' ? (
-                    <span className="text-xs text-[var(--color-text-muted)] flex-shrink-0">
-                      Adding...
-                    </span>
-                  ) : (
-                    <span className="text-xs flex-shrink-0" style={{ color: categoryColor }}>
-                      in {entry.suggestedCategoryName || 'Uncategorized'}
-                    </span>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                      <span>{entry.itemName}</span>
+                      <span className="text-[var(--color-text-muted)]"> in </span>
+                      <span style={{ color: categoryColor }}>
+                        {entry.suggestedCategoryName || 'Uncategorized'}
+                      </span>
+                    </p>
                   )}
                 </div>
 
+                {/* Actions */}
                 {entry.status === 'created' && (
-                  <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => onChangeCategory(entry.id)}
-                      className="px-2 py-1 text-xs font-medium rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-[var(--color-text-secondary)]"
+                      className="p-1 -mr-0.5 rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors"
                       aria-label={`Change category for ${entry.itemName}`}
                     >
-                      Change
+                      <PencilSquareIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
                     </button>
                     <button
                       onClick={() => onDismiss(entry.id)}
-                      className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                      className="p-1 -mr-1 rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors"
                       aria-label={`Dismiss ${entry.itemName}`}
                     >
-                      <XMarkIcon className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+                      <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
                     </button>
                   </div>
                 )}
@@ -176,14 +181,14 @@ export function CategoryToastStack({
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="mt-1 bg-[var(--color-bg-card)] rounded-xl border border-[var(--color-text-muted)]/15 shadow-sm overflow-hidden">
+                    <div className="mt-1.5 bg-[var(--color-bg-card)] rounded-xl border border-[var(--color-text-muted)]/20 shadow-lg overflow-hidden">
                       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-text-muted)]/10">
                         <span className="text-sm font-medium text-[var(--color-text-secondary)]">
                           Category for &ldquo;{entry.itemName}&rdquo;
                         </span>
                         <button
                           onClick={onClosePicker}
-                          className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-secondary)]"
+                          className="p-1 rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors"
                         >
                           <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
                         </button>
