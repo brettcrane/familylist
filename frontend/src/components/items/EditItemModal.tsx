@@ -101,7 +101,7 @@ export function EditItemModal({
     }
   }, [item, selectedCategoryId, quantity, notes, magnitude, assignedTo]);
 
-  // Handle Escape key to close modal (with proper state sequence)
+  // Handle Escape key - close innermost open UI element first, then modal
   useEffect(() => {
     if (!item) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -228,6 +228,7 @@ export function EditItemModal({
     () => [...categories].sort((a, b) => a.sort_order - b.sort_order),
     [categories]
   );
+  // Handle newly created category that may not be in the list yet (race condition with query refresh)
   const selectedCategory = sortedCategories.find(c => c.id === selectedCategoryId)
     || (newlyCreatedCategory?.id === selectedCategoryId ? newlyCreatedCategory as Category : null);
 
@@ -280,7 +281,7 @@ export function EditItemModal({
             onDragEnd={handleDragEnd}
             className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] bg-[var(--color-bg-primary)] rounded-t-3xl shadow-2xl max-h-[70vh] overflow-hidden"
           >
-            {/* Drag handle */}
+            {/* Drag handle - touch-none prevents pull-to-refresh interference */}
             <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
               <div className="w-10 h-1.5 bg-[var(--color-text-muted)]/40 rounded-full" />
             </div>

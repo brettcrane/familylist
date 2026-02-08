@@ -217,11 +217,8 @@ def _run_migrations() -> None:
             )
 
         for migration in item_migrations:
-            try:
-                conn.execute(text(migration))
-                logger.info(f"Migration applied: {migration}")
-            except Exception as e:
-                logger.warning(f"Migration skipped (may already exist): {e}")
+            conn.execute(text(migration))
+            logger.info(f"Migration applied: {migration}")
 
         if item_migrations:
             conn.commit()

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_auth
 from app.database import get_db
 from app.dependencies import check_list_access, get_current_user
-from app.models import User
+from app.models import ListShare, User
 from app.schemas import (
     ItemBatchCreate,
     ItemCheckRequest,
@@ -18,7 +18,6 @@ from app.schemas import (
     ItemUpdate,
 )
 from app.serializers import item_to_response
-from app.models import ListShare, User as UserModel
 from app.services import item_service, list_service
 from app.services.event_broadcaster import ListEvent, event_broadcaster
 from app.services.notification_queue import notification_queue
@@ -28,16 +27,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["items"], dependencies=[Depends(get_auth)])
 
 
-def _validate_assigned_to(db: Session, assigned_to: str | None) -> None:
-    """Validate that assigned_to references an existing user."""
+def _validate_assigned_to(db: Session, list_id: str, assigned_to: str | None) -> None:
+    """Validate that assigned_to references a user with access to the list."""
     if assigned_to is None:
         return
-    user = db.query(UserModel).filter(UserModel.id == assigned_to).first()
+    user = db.query(User).filter(User.id == assigned_to).first()
     if not user:
         raise HTTPException(
             status_code=422,
-            detail=f"Cannot assign to user: user not found",
+            detail="Cannot assign to user: user not found",
         )
+    # Verify user is the list owner or has a share
+    list_obj = list_service.get_list_by_id(db, list_id)
+    if list_obj and list_obj.owner_id != assigned_to:
+        share = db.query(ListShare).filter(
+            ListShare.list_id == list_id,
+            ListShare.user_id == assigned_to,
+        ).first()
+        if not share:
+            raise HTTPException(
+                status_code=422,
+                detail="Cannot assign to user: user does not have access to this list",
+            )
 
 
 def get_notification_recipients(db: Session, list_id: str) -> list[str]:
@@ -155,10 +166,10 @@ def create_items(
     # Validate assigned_to references
     if isinstance(data, ItemBatchCreate):
         for item_data in data.items:
-            _validate_assigned_to(db, item_data.assigned_to)
+            _validate_assigned_to(db, list_id, item_data.assigned_to)
         items = item_service.create_items_batch(db, list_id, data.items)
     else:
-        _validate_assigned_to(db, data.assigned_to)
+        _validate_assigned_to(db, list_id, data.assigned_to)
         items = [item_service.create_item(db, list_id, data)]
 
     # Get notification context before returning (db session still active)
@@ -202,7 +213,7 @@ def update_item(
     # Validate assigned_to if being updated
     update_fields = data.model_dump(exclude_unset=True)
     if "assigned_to" in update_fields:
-        _validate_assigned_to(db, data.assigned_to)
+        _validate_assigned_to(db, item.list_id, data.assigned_to)
 
     updated = item_service.update_item(db, item, data)
 

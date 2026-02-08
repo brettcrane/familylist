@@ -188,7 +188,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
             'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30'
           )}
           aria-label={`Edit details for ${item.name}`}
-          title="Edit category, quantity, notes"
+          title="Edit item details"
         >
           <EllipsisHorizontalIcon className="w-5 h-5" />
         </button>

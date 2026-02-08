@@ -183,7 +183,6 @@ export function ListPage() {
         onError: (error) => {
           console.error('Failed to update item:', error);
           showToast(getErrorMessage(error, 'Failed to save changes. Please try again.'), 'error');
-          setEditingItem(null);
         },
       }
     );

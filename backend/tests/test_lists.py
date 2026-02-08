@@ -117,9 +117,9 @@ class TestListEndpoints:
         self, client, auth_headers, sample_list_data, db_session
     ):
         """Test that duplication preserves magnitude but NOT assigned_to."""
-        from app.models import User
+        from app.models import ListShare, User
 
-        # Create a user to assign
+        # Create a user and give them access to the list
         user = User(clerk_user_id="clerk_dup_test", display_name="Dup User")
         db_session.add(user)
         db_session.commit()
@@ -127,6 +127,10 @@ class TestListEndpoints:
         # Create a list
         create_response = client.post("/api/lists", json=sample_list_data, headers=auth_headers)
         list_id = create_response.json()["id"]
+
+        share = ListShare(list_id=list_id, user_id=user.id, permission="edit")
+        db_session.add(share)
+        db_session.commit()
 
         # Add an item with magnitude and assigned_to
         item_data = {"name": "Important Task", "magnitude": "L", "assigned_to": user.id}
