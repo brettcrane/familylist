@@ -36,6 +36,7 @@ class TestMCPEndpoint:
             "duplicate_list",
             # Items
             "get_items",
+            "create_item",
             "create_items",
             "update_item",
             "delete_item",

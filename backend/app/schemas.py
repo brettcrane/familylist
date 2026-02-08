@@ -211,9 +211,9 @@ class _DueDateMixin:
 class ItemCreate(ItemBase, _DueDateMixin):
     """Schema for creating a single item."""
 
-    assigned_to: str | None = Field(None, min_length=36, max_length=36)
+    assigned_to: str | None = Field(None, min_length=36, max_length=36, description="User ID (UUID) of the person to assign this item to. Must have access to the list.")
     priority: Priority | None = None
-    due_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    due_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Due date in YYYY-MM-DD format.")
     status: ItemStatus | None = None
 
 
@@ -231,9 +231,9 @@ class ItemUpdate(BaseModel, _DueDateMixin):
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
-    assigned_to: str | None = Field(None, min_length=36, max_length=36)
+    assigned_to: str | None = Field(None, min_length=36, max_length=36, description="User ID (UUID) of the person to assign this item to. Must have access to the list.")
     priority: Priority | None = None
-    due_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    due_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Due date in YYYY-MM-DD format.")
     status: ItemStatus | None = None
     sort_order: int | None = None
 

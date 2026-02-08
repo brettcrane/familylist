@@ -191,36 +191,70 @@ def get_items(
     return [item_to_response(item) for item in items]
 
 
-@router.post("/lists/{list_id}/items", response_model=list[ItemResponse], status_code=201, operation_id="create_items")
-def create_items(
+@router.post("/lists/{list_id}/items", response_model=ItemResponse, status_code=201, operation_id="create_item")
+def create_item(
     list_id: str,
-    data: ItemCreate | ItemBatchCreate,
+    data: ItemCreate,
     background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create one or more items."""
+    """Create a single item."""
     list_obj = list_service.get_list_by_id(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
     check_list_access(db, list_id, current_user, require_edit=True)
 
-    # Validate assigned_to references
     creator_id = current_user.id if current_user else None
-    if isinstance(data, ItemBatchCreate):
-        for item_data in data.items:
-            _validate_assigned_to(db, list_id, item_data.assigned_to)
-        items = item_service.create_items_batch(db, list_id, data.items, created_by=creator_id)
-    else:
-        _validate_assigned_to(db, list_id, data.assigned_to)
-        items = [item_service.create_item(db, list_id, data, created_by=creator_id)]
+    _validate_assigned_to(db, list_id, data.assigned_to)
+    item = item_service.create_item(db, list_id, data, created_by=creator_id)
 
     # Get notification context before returning (db session still active)
     recipient_ids = get_notification_recipients(db, list_id)
     list_name = list_obj.name
 
-    # Publish events for created items
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="item_created",
+            list_id=list_id,
+            item_id=item.id,
+            item_name=item.name,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+        list_name,
+        recipient_ids,
+    )
+
+    return item_to_response(item)
+
+
+@router.post("/lists/{list_id}/items/batch", response_model=list[ItemResponse], status_code=201, operation_id="create_items")
+def create_items(
+    list_id: str,
+    data: ItemBatchCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create multiple items at once."""
+    list_obj = list_service.get_list_by_id(db, list_id)
+    if not list_obj:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    check_list_access(db, list_id, current_user, require_edit=True)
+
+    creator_id = current_user.id if current_user else None
+    for item_data in data.items:
+        _validate_assigned_to(db, list_id, item_data.assigned_to)
+    items = item_service.create_items_batch(db, list_id, data.items, created_by=creator_id)
+
+    # Get notification context before returning (db session still active)
+    recipient_ids = get_notification_recipients(db, list_id)
+    list_name = list_obj.name
+
     for item in items:
         background_tasks.add_task(
             publish_event_async,
