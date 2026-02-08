@@ -33,10 +33,7 @@ export function useCreateItem(listId: string) {
 
   return useMutation({
     mutationFn: (data: ItemCreate) => api.createItem(listId, data),
-    onSuccess: (response: Item | Item[]) => {
-      // API may return single item or array - normalize to single item
-      const newItem = Array.isArray(response) ? response[0] : response;
-      if (!newItem) return;
+    onSuccess: (newItem: Item) => {
       queryClient.setQueryData<ListWithItems>(
         listKeys.detail(listId),
         (old) => {

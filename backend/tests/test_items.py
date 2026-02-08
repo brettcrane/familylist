@@ -21,10 +21,9 @@ class TestItemEndpoints:
         )
         assert response.status_code == 201
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["name"] == sample_item_data["name"]
-        assert data[0]["quantity"] == sample_item_data["quantity"]
-        assert data[0]["is_checked"] is False
+        assert data["name"] == sample_item_data["name"]
+        assert data["quantity"] == sample_item_data["quantity"]
+        assert data["is_checked"] is False
 
     def test_create_item_batch(self, client, auth_headers, created_list):
         """Test creating multiple items at once."""
@@ -37,7 +36,7 @@ class TestItemEndpoints:
             ]
         }
         response = client.post(
-            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+            f"/api/lists/{list_id}/items/batch", json=batch_data, headers=auth_headers
         )
         assert response.status_code == 201
         data = response.json()
@@ -61,7 +60,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json=sample_item_data, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Check it
         client.post(f"/api/items/{item_id}/check", headers=auth_headers)
@@ -86,7 +85,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json=sample_item_data, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         update_data = {"name": "Updated Item", "quantity": 10}
         response = client.put(f"/api/items/{item_id}", json=update_data, headers=auth_headers)
@@ -101,7 +100,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json=sample_item_data, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.delete(f"/api/items/{item_id}", headers=auth_headers)
         assert response.status_code == 204
@@ -116,7 +115,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json=sample_item_data, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
         assert response.status_code == 200
@@ -130,7 +129,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json=sample_item_data, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Check then uncheck
         client.post(f"/api/items/{item_id}/check", headers=auth_headers)
@@ -147,7 +146,7 @@ class TestItemEndpoints:
         # Create two items
         batch_data = {"items": [{"name": "Item 1"}, {"name": "Item 2"}]}
         create_response = client.post(
-            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+            f"/api/lists/{list_id}/items/batch", json=batch_data, headers=auth_headers
         )
         items = create_response.json()
 
@@ -172,7 +171,7 @@ class TestItemEndpoints:
         # Create two items
         batch_data = {"items": [{"name": "Item 1"}, {"name": "Item 2"}]}
         create_response = client.post(
-            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+            f"/api/lists/{list_id}/items/batch", json=batch_data, headers=auth_headers
         )
         items = create_response.json()
 
@@ -212,7 +211,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Check the item and verify timestamp is set
         check_response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
@@ -256,7 +255,7 @@ class TestItemEndpoints:
         )
         assert response.status_code == 201
         data = response.json()
-        assert data[0]["magnitude"] == "L"
+        assert data["magnitude"] == "L"
 
     def test_update_item_magnitude(self, client, auth_headers, created_list):
         """Test updating item magnitude through its lifecycle."""
@@ -265,8 +264,8 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
-        assert create_response.json()[0]["magnitude"] is None
+        item_id = create_response.json()["id"]
+        assert create_response.json()["magnitude"] is None
 
         # Set to S
         response = client.put(
@@ -304,7 +303,7 @@ class TestItemEndpoints:
         response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
         )
-        data = response.json()[0]
+        data = response.json()
         assert "assigned_to" in data
         assert data["assigned_to"] is None
         assert "assigned_to_name" in data
@@ -316,7 +315,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.put(
             f"/api/items/{item_id}", json={"magnitude": "X"}, headers=auth_headers
@@ -342,7 +341,7 @@ class TestItemEndpoints:
             f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
         )
         assert response.status_code == 201
-        data = response.json()[0]
+        data = response.json()
         assert data["assigned_to"] == user.id
         assert data["assigned_to_name"] == "Jane Doe"
 
@@ -361,8 +360,8 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
-        assert create_response.json()[0]["assigned_to"] is None
+        item_id = create_response.json()["id"]
+        assert create_response.json()["assigned_to"] is None
 
         # Assign to user
         response = client.put(
@@ -396,7 +395,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.put(
             f"/api/items/{item_id}",
@@ -416,7 +415,7 @@ class TestItemEndpoints:
             ]
         }
         response = client.post(
-            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+            f"/api/lists/{list_id}/items/batch", json=batch_data, headers=auth_headers
         )
         assert response.status_code == 422
 
@@ -448,7 +447,7 @@ class TestItemEndpoints:
             ]
         }
         response = client.post(
-            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+            f"/api/lists/{list_id}/items/batch", json=batch_data, headers=auth_headers
         )
         assert response.status_code == 201
         items = response.json()
@@ -477,7 +476,7 @@ class TestItemEndpoints:
             f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
         )
         assert response.status_code == 201
-        assert response.json()[0]["priority"] == "urgent"
+        assert response.json()["priority"] == "urgent"
 
     def test_invalid_priority_rejected(self, client, auth_headers, created_list):
         """Test that invalid priority values are rejected."""
@@ -496,7 +495,7 @@ class TestItemEndpoints:
             f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
         )
         assert response.status_code == 201
-        assert response.json()[0]["due_date"] == "2026-03-15"
+        assert response.json()["due_date"] == "2026-03-15"
 
     def test_invalid_due_date_format_rejected(self, client, auth_headers, created_list):
         """Test that invalid due date format is rejected."""
@@ -515,7 +514,7 @@ class TestItemEndpoints:
             f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
         )
         assert response.status_code == 201
-        assert response.json()[0]["status"] == "in_progress"
+        assert response.json()["status"] == "in_progress"
 
     def test_invalid_status_rejected(self, client, auth_headers, created_list):
         """Test that invalid status values are rejected."""
@@ -534,7 +533,7 @@ class TestItemEndpoints:
             json={"name": "Task", "status": "open"},
             headers=auth_headers,
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.put(
             f"/api/items/{item_id}", json={"status": "done"}, headers=auth_headers
@@ -551,7 +550,7 @@ class TestItemEndpoints:
             json={"name": "Task", "status": "open"},
             headers=auth_headers,
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Set to done first
         client.put(f"/api/items/{item_id}", json={"status": "done"}, headers=auth_headers)
@@ -572,7 +571,7 @@ class TestItemEndpoints:
             json={"name": "Task", "status": "open"},
             headers=auth_headers,
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
         assert response.status_code == 200
@@ -587,7 +586,7 @@ class TestItemEndpoints:
             json={"name": "Task", "status": "open"},
             headers=auth_headers,
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Check it first
         client.post(f"/api/items/{item_id}/check", headers=auth_headers)
@@ -603,7 +602,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Milk"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
         assert response.status_code == 200
@@ -616,7 +615,7 @@ class TestItemEndpoints:
         response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
         )
-        data = response.json()[0]
+        data = response.json()
         assert "priority" in data
         assert "due_date" in data
         assert "status" in data
@@ -629,7 +628,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Set priority
         response = client.put(
@@ -655,7 +654,7 @@ class TestItemEndpoints:
         create_response = client.post(
             f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         response = client.put(
             f"/api/items/{item_id}", json={"priority": "critical"}, headers=auth_headers
@@ -670,7 +669,7 @@ class TestItemEndpoints:
             json={"name": "Task", "status": "open"},
             headers=auth_headers,
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # First mark done (is_checked becomes True)
         client.put(f"/api/items/{item_id}", json={"status": "done"}, headers=auth_headers)
@@ -692,7 +691,7 @@ class TestItemEndpoints:
             json={"name": "Task", "status": "open"},
             headers=auth_headers,
         )
-        item_id = create_response.json()[0]["id"]
+        item_id = create_response.json()["id"]
 
         # Check it (status syncs to done)
         client.post(f"/api/items/{item_id}/check", headers=auth_headers)
@@ -715,7 +714,7 @@ class TestItemEndpoints:
             f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
         )
         assert response.status_code == 201
-        data = response.json()[0]
+        data = response.json()
         assert data["created_by"] is None
         assert data["created_by_name"] is None
 
@@ -728,7 +727,7 @@ class TestItemEndpoints:
             headers=auth_headers,
         )
         assert response.status_code == 201
-        data = response.json()[0]
+        data = response.json()
         assert data["status"] == "done"
         assert data["is_checked"] is True
         assert data["checked_at"] is not None
@@ -751,7 +750,7 @@ class TestItemFiltering:
         list_id = created_list["id"]
         # Create items with different statuses
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Open Task", "status": "open"},
                 {"name": "In Progress", "status": "in_progress"},
@@ -773,7 +772,7 @@ class TestItemFiltering:
         """Test filtering by multiple statuses."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Open", "status": "open"},
                 {"name": "In Progress", "status": "in_progress"},
@@ -792,7 +791,7 @@ class TestItemFiltering:
         """Test filtering items by priority."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Urgent", "priority": "urgent"},
                 {"name": "Low", "priority": "low"},
@@ -812,7 +811,7 @@ class TestItemFiltering:
         """Test filtering by multiple priorities."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Urgent", "priority": "urgent"},
                 {"name": "High", "priority": "high"},
@@ -831,7 +830,7 @@ class TestItemFiltering:
         """Test filtering items due before a date."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Soon", "due_date": "2026-02-10"},
                 {"name": "Later", "due_date": "2026-06-15"},
@@ -851,7 +850,7 @@ class TestItemFiltering:
         """Test filtering items due after a date."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Soon", "due_date": "2026-02-10"},
                 {"name": "Later", "due_date": "2026-06-15"},
@@ -880,7 +879,7 @@ class TestItemFiltering:
         db_session.commit()
 
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Assigned", "assigned_to": user.id},
                 {"name": "Unassigned"},
@@ -899,7 +898,7 @@ class TestItemFiltering:
         """Test combining multiple filter parameters."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Urgent Open", "priority": "urgent", "status": "open"},
                 {"name": "Urgent Done", "priority": "urgent", "status": "done"},
@@ -920,7 +919,7 @@ class TestItemFiltering:
         """Test that is_checked param works for checked/unchecked filtering."""
         list_id = created_list["id"]
         create_response = client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [{"name": "Item 1"}, {"name": "Item 2"}]},
             headers=auth_headers,
         )
@@ -976,7 +975,7 @@ class TestItemFiltering:
         """Test combining due_before and due_after for a date range."""
         list_id = created_list["id"]
         client.post(
-            f"/api/lists/{list_id}/items",
+            f"/api/lists/{list_id}/items/batch",
             json={"items": [
                 {"name": "Early", "due_date": "2026-01-15"},
                 {"name": "In Range", "due_date": "2026-03-15"},
