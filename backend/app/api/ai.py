@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import verify_api_key
+from app.auth import get_auth
 from app.database import get_db
 from app.schemas import (
     CategorizeRequest,
@@ -17,7 +17,7 @@ from app.schemas import (
 from app.services.ai_service import ai_service
 from app.services.llm_service import llm_service
 
-router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(verify_api_key)])
+router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_auth)])
 
 
 @router.post("/categorize", response_model=CategorizeResponse, operation_id="categorize_item")
