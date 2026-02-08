@@ -139,8 +139,8 @@ def get_list_by_id(db: Session, list_id: str) -> List | None:
 def get_list_with_items(db: Session, list_id: str) -> List | None:
     """Get a list by ID with owner, categories, and items eagerly loaded.
 
-    Items include checked_by_user and assigned_to_user relationships.
-    This avoids N+1 queries when serializing items with user names.
+    Items include checked_by_user, assigned_to_user, and created_by_user
+    relationships. This avoids N+1 queries when serializing items with user names.
     """
     return (
         db.query(List)

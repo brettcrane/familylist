@@ -233,34 +233,44 @@ def _run_migrations() -> None:
             )
 
         for migration in item_migrations:
-            conn.execute(text(migration))
-            logger.info(f"Migration applied: {migration}")
+            try:
+                conn.execute(text(migration))
+                logger.info(f"Migration applied: {migration}")
+            except Exception as e:
+                logger.warning(f"Item migration skipped (may already exist): {e}")
 
         if item_migrations:
             conn.commit()
             logger.info(f"Applied {len(item_migrations)} migrations to items table")
 
-        # Seed Claude system user if not exists
+        # Seed Claude system user if not exists.
+        # This user row is used as the created_by value for items created via the
+        # Cowork MCP integration. The frontend shows an "AI" badge for items with
+        # this created_by ID (see CLAUDE_SYSTEM_USER_ID in models.py and api.ts).
         from app.models import CLAUDE_SYSTEM_USER_ID
 
-        result = conn.execute(text(
-            "SELECT id FROM users WHERE id = :id"
-        ), {"id": CLAUDE_SYSTEM_USER_ID})
-        if not result.fetchone():
-            from app.models import utc_now
-            now = utc_now()
-            conn.execute(text(
-                "INSERT INTO users (id, clerk_user_id, display_name, email, created_at, updated_at) "
-                "VALUES (:id, :clerk_id, :name, :email, :now, :now)"
-            ), {
-                "id": CLAUDE_SYSTEM_USER_ID,
-                "clerk_id": "claude-system",
-                "name": "Claude",
-                "email": "claude@system.local",
-                "now": now,
-            })
-            conn.commit()
-            logger.info("Created Claude system user")
+        try:
+            result = conn.execute(text(
+                "SELECT id FROM users WHERE id = :id"
+            ), {"id": CLAUDE_SYSTEM_USER_ID})
+            if not result.fetchone():
+                from app.models import utc_now
+                now = utc_now()
+                conn.execute(text(
+                    "INSERT INTO users (id, clerk_user_id, display_name, email, created_at, updated_at) "
+                    "VALUES (:id, :clerk_id, :name, :email, :now, :now)"
+                ), {
+                    "id": CLAUDE_SYSTEM_USER_ID,
+                    "clerk_id": "claude-system",
+                    "name": "Claude",
+                    "email": "claude@system.local",
+                    "now": now,
+                })
+                conn.commit()
+                logger.info("Created Claude system user")
+        except Exception as e:
+            conn.rollback()
+            logger.warning(f"Claude system user seed skipped: {e}")
 
 
 def create_indexes(db: Session) -> None:

@@ -158,6 +158,49 @@ class TestListEndpoints:
         assert dup_items[0]["assigned_to"] is None
 
 
+    def test_duplicate_preserves_task_fields(
+        self, client, auth_headers, db_session
+    ):
+        """Test that duplication preserves priority, due_date, and status but clears created_by."""
+        # Create a tasks list
+        list_data = {"name": "Test Tasks", "type": "tasks"}
+        create_response = client.post("/api/lists", json=list_data, headers=auth_headers)
+        list_id = create_response.json()["id"]
+
+        # Add an item with all task fields
+        item_data = {
+            "name": "Important Task",
+            "priority": "high",
+            "due_date": "2026-06-15",
+            "status": "in_progress",
+            "magnitude": "L",
+        }
+        client.post(f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers)
+
+        # Duplicate the list
+        duplicate_data = {"name": "Duplicated Tasks", "as_template": False}
+        response = client.post(
+            f"/api/lists/{list_id}/duplicate", json=duplicate_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        dup_list_id = response.json()["id"]
+
+        # Get items from duplicated list
+        items_response = client.get(
+            f"/api/lists/{dup_list_id}/items", headers=auth_headers
+        )
+        dup_items = items_response.json()
+        assert len(dup_items) == 1
+
+        item = dup_items[0]
+        assert item["priority"] == "high"
+        assert item["due_date"] == "2026-06-15"
+        assert item["status"] == "in_progress"
+        assert item["magnitude"] == "L"
+        # created_by should not be copied
+        assert item["created_by"] is None
+
+
 class TestListTypes:
     """Test different list types."""
 

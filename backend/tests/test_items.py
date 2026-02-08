@@ -662,6 +662,86 @@ class TestItemEndpoints:
         )
         assert response.status_code == 422
 
+    def test_status_blocked_syncs_is_checked_false(self, client, auth_headers, created_list):
+        """Test that setting status=blocked sets is_checked=False."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Task", "status": "open"},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+
+        # First mark done (is_checked becomes True)
+        client.put(f"/api/items/{item_id}", json={"status": "done"}, headers=auth_headers)
+
+        # Set to blocked
+        response = client.put(
+            f"/api/items/{item_id}", json={"status": "blocked"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "blocked"
+        assert response.json()["is_checked"] is False
+
+    def test_restore_syncs_status_to_open(self, client, auth_headers, created_list):
+        """Test that restore sets status back to open for task items."""
+        list_id = created_list["id"]
+        # Create a task item with status, then check it
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Task", "status": "open"},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+
+        # Check it (status syncs to done)
+        client.post(f"/api/items/{item_id}/check", headers=auth_headers)
+
+        # Restore all checked items
+        response = client.post(f"/api/lists/{list_id}/restore", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["restored_count"] == 1
+
+        # Verify status is back to open
+        items_response = client.get(f"/api/lists/{list_id}/items", headers=auth_headers)
+        item = items_response.json()[0]
+        assert item["status"] == "open"
+        assert item["is_checked"] is False
+
+    def test_created_by_none_under_api_key_auth(self, client, auth_headers, created_list):
+        """Test that created_by is None when using API key auth (no user context)."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.json()[0]
+        assert data["created_by"] is None
+        assert data["created_by_name"] is None
+
+    def test_create_with_status_done_syncs_is_checked(self, client, auth_headers, created_list):
+        """Test that creating an item with status=done also sets is_checked=True."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Already Done", "status": "done"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()[0]
+        assert data["status"] == "done"
+        assert data["is_checked"] is True
+        assert data["checked_at"] is not None
+
+    def test_invalid_due_date_value_rejected(self, client, auth_headers, created_list):
+        """Test that a well-formatted but invalid date (e.g. Feb 30) is rejected."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad Date", "due_date": "2026-02-30"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""

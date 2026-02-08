@@ -2,6 +2,8 @@
 
 from enum import Enum
 
+from datetime import date
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -191,7 +193,22 @@ class ItemBase(BaseModel):
     magnitude: Magnitude | None = None
 
 
-class ItemCreate(ItemBase):
+class _DueDateMixin:
+    """Shared due_date validator for create/update schemas."""
+
+    @field_validator("due_date")
+    @classmethod
+    def validate_due_date(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        try:
+            date.fromisoformat(v)
+        except ValueError:
+            raise ValueError(f"Invalid calendar date: {v}")
+        return v
+
+
+class ItemCreate(ItemBase, _DueDateMixin):
     """Schema for creating a single item."""
 
     assigned_to: str | None = Field(None, min_length=36, max_length=36)
@@ -206,7 +223,7 @@ class ItemBatchCreate(BaseModel):
     items: list[ItemCreate]
 
 
-class ItemUpdate(BaseModel):
+class ItemUpdate(BaseModel, _DueDateMixin):
     """Schema for updating an item."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
@@ -232,9 +249,9 @@ class ItemResponse(ItemBase):
     checked_at: str | None
     assigned_to: str | None = None
     assigned_to_name: str | None = None
-    priority: str | None = None
+    priority: Priority | None = None
     due_date: str | None = None
-    status: str | None = None
+    status: ItemStatus | None = None
     created_by: str | None = None
     created_by_name: str | None = None
     sort_order: int

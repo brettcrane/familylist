@@ -8,10 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 def item_to_response(item: Item) -> dict:
-    """Convert an Item model to a response dict with checked_by_name and assigned_to_name.
+    """Convert an Item model to a response dict with resolved user names.
 
-    This is shared between items.py and lists.py to ensure consistent
-    serialization of items across endpoints.
+    Resolves checked_by_name, assigned_to_name, and created_by_name from
+    their user relationships. Shared between items.py and lists.py to ensure
+    consistent serialization across endpoints.
     """
     # Safely get checked_by_name with defensive error handling
     checked_by_name = None

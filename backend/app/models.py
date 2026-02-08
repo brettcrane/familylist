@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     pass
 
 
+# Well-known user ID for the Claude AI system user. Seeded by _run_migrations()
+# in database.py. Items created via Cowork MCP use this as created_by.
+# IMPORTANT: Must match CLAUDE_SYSTEM_USER_ID in frontend/src/types/api.ts.
 CLAUDE_SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 
