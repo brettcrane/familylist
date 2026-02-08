@@ -251,7 +251,7 @@ export const DEFAULT_CATEGORIES: Record<ListType, string[]> = {
     "Kids' Items",
     'Miscellaneous',
   ],
-  tasks: ['Today', 'This Week', 'Later'],
+  tasks: ['Health', 'Home', 'Finance', 'Family', 'Work'],
 };
 
 /** AI mode placeholder text by list type */
@@ -268,8 +268,15 @@ export const AI_MODE_HINTS: Record<ListType, string> = {
   tasks: 'AI will break this into tasks',
 };
 
+/** Shared shape for badge/pill display config (magnitude, priority, status) */
+export interface BadgeConfig {
+  label: string;
+  textClass: string;
+  bgClass: string;
+}
+
 /** Magnitude display configuration */
-export const MAGNITUDE_CONFIG: Record<Magnitude, { label: string; textClass: string; bgClass: string }> = {
+export const MAGNITUDE_CONFIG: Record<Magnitude, BadgeConfig> = {
   S: {
     label: 'Small',
     textClass: 'text-[var(--color-text-muted)]',
@@ -293,41 +300,43 @@ export const MAGNITUDE_OPTIONS: { value: Magnitude | null; label: string }[] = [
   ...(['S', 'M', 'L'] as Magnitude[]).map(m => ({ value: m, label: MAGNITUDE_CONFIG[m].label })),
 ];
 
-/** Priority display configuration */
-export const PRIORITY_CONFIG: Record<Priority, { label: string; textClass: string; bgClass: string }> = {
+/**
+ * Priority display configuration.
+ *
+ * Uses Tailwind dark: variants for priority-specific colors (red, orange, yellow,
+ * green) that don't have existing CSS custom properties.
+ */
+export const PRIORITY_CONFIG: Record<Priority, BadgeConfig> = {
   urgent: { label: 'Urgent', textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-100 dark:bg-red-900/30' },
   high:   { label: 'High',   textClass: 'text-orange-600 dark:text-orange-400', bgClass: 'bg-orange-100 dark:bg-orange-900/30' },
   medium: { label: 'Medium', textClass: 'text-yellow-600 dark:text-yellow-400', bgClass: 'bg-yellow-100 dark:bg-yellow-900/30' },
   low:    { label: 'Low',    textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-100 dark:bg-green-900/30' },
 };
 
-/** Priority dropdown options */
+/** Priority dropdown options (derived from PRIORITY_CONFIG) */
 export const PRIORITY_OPTIONS: { value: Priority | null; label: string }[] = [
   { value: null, label: 'None' },
-  { value: 'urgent', label: 'Urgent' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
+  ...(['urgent', 'high', 'medium', 'low'] as Priority[]).map(p => ({ value: p, label: PRIORITY_CONFIG[p].label })),
 ];
 
 /** Status display configuration */
-export const STATUS_CONFIG: Record<ItemStatus, { label: string; textClass: string; bgClass: string }> = {
+export const STATUS_CONFIG: Record<ItemStatus, BadgeConfig> = {
   open:        { label: 'Open',        textClass: 'text-[var(--color-text-muted)]', bgClass: 'bg-[var(--color-bg-secondary)]' },
   in_progress: { label: 'In Progress', textClass: 'text-blue-600 dark:text-blue-400', bgClass: 'bg-blue-100 dark:bg-blue-900/30' },
   done:        { label: 'Done',        textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-100 dark:bg-green-900/30' },
   blocked:     { label: 'Blocked',     textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-100 dark:bg-red-900/30' },
 };
 
-/** Status dropdown options */
+/** Status dropdown options (derived from STATUS_CONFIG) */
 export const STATUS_OPTIONS: { value: ItemStatus | null; label: string }[] = [
   { value: null, label: 'None' },
-  { value: 'open', label: 'Open' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
-  { value: 'blocked', label: 'Blocked' },
+  ...(['open', 'in_progress', 'done', 'blocked'] as ItemStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label })),
 ];
 
-/** Claude system user ID for AI-created items */
+/**
+ * Well-known user ID for items created by Claude AI via Cowork MCP.
+ * IMPORTANT: Must match CLAUDE_SYSTEM_USER_ID in backend/app/models.py.
+ */
 export const CLAUDE_SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 /** Category color mapping */
