@@ -34,6 +34,17 @@ def item_to_response(item: Item) -> dict:
                 f"Failed to get assigned_to_name for item {item.id}: {type(e).__name__}: {e}"
             )
 
+    # Safely get created_by_name
+    created_by_name = None
+    if item.created_by:
+        try:
+            if item.created_by_user:
+                created_by_name = item.created_by_user.display_name
+        except AttributeError as e:
+            logger.warning(
+                f"Failed to get created_by_name for item {item.id}: {type(e).__name__}: {e}"
+            )
+
     return {
         "id": item.id,
         "list_id": item.list_id,
@@ -48,6 +59,11 @@ def item_to_response(item: Item) -> dict:
         "magnitude": item.magnitude,
         "assigned_to": item.assigned_to,
         "assigned_to_name": assigned_to_name,
+        "priority": item.priority,
+        "due_date": item.due_date,
+        "status": item.status,
+        "created_by": item.created_by,
+        "created_by_name": created_by_name,
         "sort_order": item.sort_order,
         "created_at": item.created_at or "",
         "updated_at": item.updated_at or "",

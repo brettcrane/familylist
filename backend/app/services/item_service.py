@@ -13,6 +13,7 @@ def get_items_by_list(
     query = db.query(Item).options(
         joinedload(Item.checked_by_user),
         joinedload(Item.assigned_to_user),
+        joinedload(Item.created_by_user),
     ).filter(Item.list_id == list_id)
 
     if status == "checked":
@@ -29,10 +30,13 @@ def get_item_by_id(db: Session, item_id: str) -> Item | None:
     return db.query(Item).options(
         joinedload(Item.checked_by_user),
         joinedload(Item.assigned_to_user),
+        joinedload(Item.created_by_user),
     ).filter(Item.id == item_id).first()
 
 
-def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
+def create_item(
+    db: Session, list_id: str, data: ItemCreate, created_by: str | None = None
+) -> Item:
     """Create a new item."""
     # Get max sort_order for this list
     max_order = (
@@ -51,6 +55,10 @@ def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
         category_id=data.category_id,
         magnitude=data.magnitude,
         assigned_to=data.assigned_to,
+        priority=data.priority,
+        due_date=data.due_date,
+        status=data.status,
+        created_by=created_by,
         sort_order=next_order,
     )
     db.add(item)
@@ -59,7 +67,9 @@ def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
     return item
 
 
-def create_items_batch(db: Session, list_id: str, items_data: list[ItemCreate]) -> list[Item]:
+def create_items_batch(
+    db: Session, list_id: str, items_data: list[ItemCreate], created_by: str | None = None
+) -> list[Item]:
     """Create multiple items at once."""
     # Get max sort_order for this list
     max_order = (
@@ -80,6 +90,10 @@ def create_items_batch(db: Session, list_id: str, items_data: list[ItemCreate]) 
             category_id=data.category_id,
             magnitude=data.magnitude,
             assigned_to=data.assigned_to,
+            priority=data.priority,
+            due_date=data.due_date,
+            status=data.status,
+            created_by=created_by,
             sort_order=next_order + idx,
         )
         db.add(item)
@@ -98,6 +112,16 @@ def update_item(db: Session, item: Item, data: ItemUpdate) -> Item:
     for field, value in update_data.items():
         setattr(item, field, value)
 
+    # Sync is_checked when status changes on task items
+    if "status" in update_data:
+        if update_data["status"] == "done":
+            item.is_checked = True
+            item.checked_at = utc_now()
+        elif update_data["status"] in ("open", "in_progress", "blocked"):
+            item.is_checked = False
+            item.checked_at = None
+            item.checked_by = None
+
     item.updated_at = utc_now()
     db.commit()
     db.refresh(item)
@@ -115,6 +139,9 @@ def check_item(db: Session, item: Item, user_id: str | None = None) -> Item:
     item.is_checked = True
     item.checked_at = utc_now()
     item.checked_by = user_id
+    # Sync status for task items
+    if item.status is not None:
+        item.status = "done"
     item.updated_at = utc_now()
     db.commit()
     db.refresh(item)
@@ -126,6 +153,9 @@ def uncheck_item(db: Session, item: Item) -> Item:
     item.is_checked = False
     item.checked_at = None
     item.checked_by = None
+    # Sync status for task items
+    if item.status is not None:
+        item.status = "open"
     item.updated_at = utc_now()
     db.commit()
     db.refresh(item)
@@ -156,6 +186,9 @@ def restore_checked_items(db: Session, list_id: str) -> int:
         item.is_checked = False
         item.checked_at = None
         item.checked_by = None
+        # Sync status for task items
+        if item.status is not None:
+            item.status = "open"
         item.updated_at = utc_now()
 
     db.commit()

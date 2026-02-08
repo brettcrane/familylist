@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     pass
 
 
+CLAUDE_SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000001"
+
+
 def generate_uuid() -> str:
     """Generate a new UUID as string."""
     return str(uuid.uuid4())
@@ -40,6 +43,7 @@ class User(Base):
     owned_lists = relationship("List", back_populates="owner")
     checked_items = relationship("Item", foreign_keys="[Item.checked_by]", back_populates="checked_by_user")
     assigned_items = relationship("Item", foreign_keys="[Item.assigned_to]", back_populates="assigned_to_user")
+    created_items = relationship("Item", foreign_keys="[Item.created_by]", back_populates="created_by_user")
     shared_lists = relationship("ListShare", back_populates="user")
     push_subscriptions = relationship(
         "PushSubscription", back_populates="user", cascade="all, delete-orphan"
@@ -150,6 +154,10 @@ class Item(Base):
     checked_at: Mapped[str | None] = mapped_column(Text)
     magnitude: Mapped[str | None] = mapped_column(String(1))
     assigned_to: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
+    priority: Mapped[str | None] = mapped_column(String(6))
+    due_date: Mapped[str | None] = mapped_column(String(10))
+    status: Mapped[str | None] = mapped_column(String(11))
+    created_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(Text, default=utc_now)
     updated_at: Mapped[str] = mapped_column(Text, default=utc_now, onupdate=utc_now)
@@ -159,12 +167,21 @@ class Item(Base):
     category = relationship("Category", back_populates="items")
     checked_by_user = relationship("User", foreign_keys=[checked_by], back_populates="checked_items")
     assigned_to_user = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_items")
+    created_by_user = relationship("User", foreign_keys=[created_by], back_populates="created_items")
 
     __table_args__ = (
         Index("idx_items_list_id", "list_id"),
         CheckConstraint(
             "magnitude IS NULL OR magnitude IN ('S', 'M', 'L')",
             name="ck_item_magnitude",
+        ),
+        CheckConstraint(
+            "priority IS NULL OR priority IN ('urgent', 'high', 'medium', 'low')",
+            name="ck_item_priority",
+        ),
+        CheckConstraint(
+            "status IS NULL OR status IN ('open', 'in_progress', 'done', 'blocked')",
+            name="ck_item_status",
         ),
     )
 
