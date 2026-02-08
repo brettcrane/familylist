@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, useQueryClient, onlineManager } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { get, set, del } from 'idb-keyval';
 import {
   SignedIn,
   SignedOut,
@@ -11,7 +14,6 @@ import { HomePage, ListPage, SignInPage, SignUpPage } from './pages';
 import { ErrorBoundary } from './components/ui';
 import { ToastContainer } from './components/ui/Toast';
 import { initializeTheme } from './stores/uiStore';
-import { useOfflineSync } from './hooks/useOfflineQueue';
 import { useAuthSetup } from './hooks/useAuthSetup';
 import {
   AuthProvider,
@@ -21,19 +23,63 @@ import {
 // Check if Clerk is configured
 const isClerkConfigured = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-// Create a client
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute
+      staleTime: 5 * 60 * 1000,        // 5 min — list data is fine slightly stale
+      gcTime: ONE_DAY_MS,               // 24h — keep for offline across sessions
       retry: 1,
       refetchOnWindowFocus: true,
+      networkMode: 'offlineFirst',       // Allow queries to fire even when offline (use cache instead of pausing)
     },
     mutations: {
       retry: 1,
     },
   },
 });
+
+// IndexedDB-backed persister for React Query cache
+const persister = createAsyncStoragePersister({
+  storage: {
+    getItem: (key) => get(key).catch((e) => {
+      console.warn('IndexedDB read failed, falling back to memory-only cache:', e);
+      return null;
+    }),
+    setItem: (key, value) => set(key, value).catch((e) => {
+      console.warn('IndexedDB write failed:', e);
+    }),
+    removeItem: (key) => del(key).catch((e) => {
+      console.warn('IndexedDB delete failed:', e);
+    }),
+  },
+  key: 'familylists-query-cache',
+  throttleTime: 1000,
+});
+
+const persistOptions = {
+  persister,
+  maxAge: ONE_DAY_MS,
+  dehydrateOptions: {
+    // Persist all list-related queries (list index + individual list details with items)
+    shouldDehydrateQuery: (query: { state: { status: string }; queryKey: readonly unknown[] }) =>
+      query.state.status === 'success' &&
+      query.queryKey[0] === 'lists',
+  },
+};
+
+/** Invalidate all queries when the browser reconnects to the network. */
+function useReconnectRefresh(): void {
+  const client = useQueryClient();
+  useEffect(() => {
+    return onlineManager.subscribe((isOnline) => {
+      if (isOnline) {
+        client.invalidateQueries();
+      }
+    });
+  }, [client]);
+}
 
 function LoadingScreen() {
   return (
@@ -53,8 +99,7 @@ function ClerkAppContent() {
   // Set up auth token injection for API requests
   const { isAuthReady } = useAuthSetup();
 
-  // Initialize offline sync
-  useOfflineSync();
+  useReconnectRefresh();
 
   // Initialize theme on mount
   useEffect(() => {
@@ -105,8 +150,7 @@ function ClerkAppContent() {
  * App content without Clerk (API key mode).
  */
 function FallbackAppContent() {
-  // Initialize offline sync
-  useOfflineSync();
+  useReconnectRefresh();
 
   // Initialize theme on mount
   useEffect(() => {
@@ -131,7 +175,7 @@ function App() {
   if (isClerkConfigured) {
     return (
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
           <BrowserRouter>
             <ClerkLoading>
               <LoadingScreen />
@@ -140,7 +184,7 @@ function App() {
               <ClerkAppContent />
             </ClerkLoaded>
           </BrowserRouter>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </ErrorBoundary>
     );
   }
@@ -148,11 +192,11 @@ function App() {
   // Fallback mode without Clerk
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <BrowserRouter>
           <FallbackAppContent />
         </BrowserRouter>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ErrorBoundary>
   );
 }

@@ -21,7 +21,7 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 - **Frontend**: React + TypeScript + Tailwind CSS + Framer Motion
 - **Auth**: Clerk (optional) + API key fallback
 - **AI**: sentence-transformers for embeddings, OpenAI GPT-5 Nano for NL parsing
-- **State**: React Query (server) + Zustand (UI) + IndexedDB (offline)
+- **State**: React Query (server, persisted to IndexedDB via idb-keyval) + Zustand (UI) + SW Cache API (offline API responses)
 - **Deployment**: Docker via GitHub Actions CI/CD → Portainer
 
 ## UI Patterns
@@ -78,7 +78,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
 |frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh,Toast,ErrorState}
 |frontend/src/components/done:{DoneList=checked-items-section}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useOfflineQueue=IndexedDB-sync,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals,authStore=Zustand+cached-user+offline-persist}
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke,push=subscribe+preferences}
 |frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name}
@@ -93,7 +93,7 @@ NL-Parsing: AiMode+input→api/ai.parse()→llm_service.parse()→ParsedItem[]�
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
 Real-Time-Sync: useListStream→EventSource(SSE)→event_broadcaster→publish_event_async→query-invalidation
 Push-Notifications: item-change→notification_queue.queue_event()→30s-2min-batching→push_service.send_push()→pywebpush→browser-push-service→sw.ts-handler
-Offline: useOfflineQueue→IndexedDB-queue→retry-on-reconnect→sync-indicator
+Offline: PersistQueryClientProvider(idb-keyval)→cached-queries+SW-NetworkFirst(/api/*GET)→SyncIndicator(offline-pill)→reconnect→invalidateQueries
 User-Sync: ClerkProvider→useAuthSetup→setTokenGetter→apiRequest(Bearer)→get_auth→get_current_user→user_service.get_or_create_user→local-DB
 ```
 

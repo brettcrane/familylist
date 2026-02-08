@@ -75,23 +75,13 @@ Research complete — see `docs/research/cowork-integration-research.md` for ful
   - SSE real-time updates show Claude activity to other connected clients
   - Assignment validation works for Claude-created items
 
-- [ ] **In-depth review of offline/hybrid mode** - Audit the offline queue and hybrid sync system for security, correctness, and whether it's worth maintaining:
-  - **Security audit:**
-    - Is data stored in IndexedDB encrypted or accessible to other origins/extensions?
-    - Are auth tokens (Clerk JWT, API key) stored securely in the offline context?
-    - Can queued mutations be tampered with or replayed?
-    - What happens to cached data after logout — is it properly cleared?
-  - **Correctness audit:**
-    - Test the full offline → online sync cycle: queue mutations offline, reconnect, verify they apply correctly
-    - Check conflict resolution: what if another user modified the same item while offline?
-    - Verify the `useOfflineQueue` IndexedDB queue handles failures, retries, and ordering correctly
-    - Test SSE reconnection (`useListStream`) after prolonged offline periods
-    - Check if optimistic updates in `useItems` roll back properly on sync failure
-  - **Worth-having assessment:**
-    - How much code complexity does offline support add? (IndexedDB queue, sync indicator, service worker caching)
-    - Do real users actually use the app offline, or is connectivity always available?
-    - Would a simpler "read-only offline" mode (cached views, no mutation queue) be sufficient?
-    - Compare maintenance burden vs. user value — is this a feature we should invest in or deprecate?
+- [x] **Offline mode audit → read-only offline implemented** - Reviewed the offline/hybrid system and found: the mutation queue (`useOfflineQueue.ts`, 220 lines) was dead code with zero callers; no React Query cache persistence; no SW API caching; logout didn't clear cached data (security bug). Replaced with read-only offline:
+  - Deleted `useOfflineQueue.ts` and all references (dead mutation queue, sync indicator queue UI, pending mutation dots)
+  - Added `PersistQueryClientProvider` with IndexedDB-backed cache (`idb-keyval`) — lists persist across sessions
+  - Added `NetworkFirst` service worker API caching for GET requests to `/api/lists*`, `/api/items*`, `/api/categories*`
+  - Added logout cleanup: clears React Query cache, SW API cache, and legacy localStorage
+  - Simplified `SyncIndicator` to offline-only pill (no more "Syncing N..." for dead queue)
+  - Intentionally skipped: mutation queue/CRDTs, Background Sync API — read-only is sufficient for our use case
 
 ## Bugs to Investigate
 

@@ -1,6 +1,10 @@
 /// <reference lib="webworker" />
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
+import { registerRoute } from 'workbox-routing';
+import { NetworkFirst } from 'workbox-strategies';
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { ExpirationPlugin } from 'workbox-expiration';
 
 declare let self: ServiceWorkerGlobalScope;
 
@@ -11,6 +15,36 @@ clientsClaim();
 // Precache and route assets
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
+
+// ============================================================================
+// API Caching — Network-First for offline reads (3s network timeout before cache fallback)
+// ============================================================================
+
+registerRoute(
+  ({ url, request }) =>
+    url.pathname.startsWith('/api/') &&
+    !url.pathname.includes('/stream') &&
+    request.method === 'GET',
+  new NetworkFirst({
+    cacheName: 'familylists-api-cache',
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [200] }),
+      new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 86400 }),
+    ],
+  })
+);
+
+// Allow the app to clear the API cache (e.g. on logout)
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLEAR_API_CACHE') {
+    event.waitUntil(
+      caches.delete('familylists-api-cache').catch((e) => {
+        console.error('Service worker failed to delete API cache:', e);
+      })
+    );
+  }
+});
 
 // ============================================================================
 // Push Notification Handling
