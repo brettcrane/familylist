@@ -1,0 +1,7 @@
+{
+  "name": "familylist",
+  "display_name": "FamilyList",
+  "description": "Manage family tasks, grocery lists, and packing lists via FamilyList API",
+  "version": "1.0.0",
+  "author": "Brett Crane"
+}

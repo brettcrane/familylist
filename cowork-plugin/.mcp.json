@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "familylist": {
+      "url": "https://list.cranelab.org/mcp",
+      "transport": "streamable-http",
+      "headers": {
+        "X-API-Key": "${FAMILYLIST_API_KEY}"
+      }
+    }
+  }
+}
