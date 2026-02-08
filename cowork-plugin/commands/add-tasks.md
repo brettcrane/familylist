@@ -15,6 +15,7 @@ Parse the current conversation for actionable items and add them to FamilyList.
    - `priority` — based on urgency and deadline
    - `magnitude` — estimate effort level (S/M/L)
    - `due_date` — if a deadline is mentioned or implied
+   - `status` — default to `open`; use `in_progress` if already being worked on
    - `assigned_to` — based on assignment guidelines in family-context.md
 6. Call `create_items` with batch data (all items in one call)
 7. Summarize what was added: task names, assignments, due dates, and which list they were added to
