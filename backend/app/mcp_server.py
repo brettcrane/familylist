@@ -27,6 +27,6 @@ def setup_mcp(app: FastAPI) -> FastApiMCP:
         exclude_tags=["stream", "push"],
         headers=["authorization", "x-api-key"],
     )
-    mcp.mount_http(mount_path="/mcp")
-    logger.info("MCP server mounted at /mcp")
+    mcp.mount_sse(mount_path="/mcp")
+    logger.info("MCP server mounted at /mcp (SSE)")
     return mcp
