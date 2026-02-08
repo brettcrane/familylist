@@ -33,6 +33,8 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 
 See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
+**Toasts:** All toasts use the pattern from `Toast.tsx`: `bg-[var(--color-bg-card)]`, `shadow-lg`, `rounded-xl`, colored `border`, spring animation `{ type: 'spring', damping: 25, stiffness: 350 }`. Category toasts (`CategoryToastStack.tsx`) add a left border accent in the category color. Never use transparent/opacity backgrounds for toasts — they become unreadable over scrolling content.
+
 **Icons:** Dual-library approach — Heroicons for UI actions, Tabler Icons for domain-specific icons.
 - UI buttons/actions: Import from `@heroicons/react/24/outline`
 - List type icons: Use `ListTypeIcon` from `components/icons/CategoryIcons.tsx`
@@ -72,7 +74,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
 |backend/app/api:{lists=CRUD+duplicate,items=create(single)+create-batch(/items/batch)+CRUD+check,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
 |backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs+Magnitude-enum,serializers=item_to_response-shared,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings}
-|frontend/src/components/items:{ItemInput=AI-suggestions+category-picker,BottomInputBar=mobile-sticky-input,NLParseModal=AI-parse-review,CategorySuggestion=confidence-toast,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to}
+|frontend/src/components/items:{BottomInputBar=input-only+AI-toggle,CategoryToastStack=non-blocking-category-toasts,NLParseModal=AI-parse-review,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to}
 |frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete}
 |frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
 |frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
@@ -88,8 +90,8 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 ## Key Flows
 
 ```
-AI-Categorization: BottomInputBar→api/ai.categorize()→ai_service.categorize_item()→embedding-similarity→CategorySuggestion(2s-auto-accept)→user-override?→api/ai.feedback()→CategoryLearning-boost
-NL-Parsing: AiMode+input→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→useItems.batchCreate()
+Item-Entry(single): enter→input-clears-instantly→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s-auto-dismiss)→user-taps-Change?→updateItem+submitFeedback
+Item-Entry(AI-mode): AiMode+input→setIsInputLoading→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→createItem.mutate(each)+onError
 Item-Create: useCreateItem→api/items.createItem()→POST /items(single)→item_service.create_item | useCreateItems→api/items.createItems()→POST /items/batch→item_service.create_items_batch
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
 Real-Time-Sync: useListStream→EventSource(SSE)→event_broadcaster→publish_event_async→query-invalidation
