@@ -4,6 +4,12 @@ export type ListType = 'grocery' | 'packing' | 'tasks';
 /** Magnitude (effort sizing) for items */
 export type Magnitude = 'S' | 'M' | 'L';
 
+/** Priority levels for task items */
+export type Priority = 'urgent' | 'high' | 'medium' | 'low';
+
+/** Status values for task items */
+export type ItemStatus = 'open' | 'in_progress' | 'done' | 'blocked';
+
 /** User response from API */
 export interface User {
   id: string;
@@ -50,6 +56,11 @@ export interface Item {
   checked_at: string | null;
   assigned_to: string | null;
   assigned_to_name: string | null;
+  priority: Priority | null;
+  due_date: string | null;
+  status: ItemStatus | null;
+  created_by: string | null;
+  created_by_name: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -63,6 +74,9 @@ export interface ItemCreate {
   category_id?: string | null;
   magnitude?: Magnitude | null;
   assigned_to?: string | null;
+  priority?: Priority | null;
+  due_date?: string | null;
+  status?: ItemStatus | null;
 }
 
 /** Batch item create request */
@@ -78,6 +92,9 @@ export interface ItemUpdate {
   category_id?: string | null;
   magnitude?: Magnitude | null;
   assigned_to?: string | null;
+  priority?: Priority | null;
+  due_date?: string | null;
+  status?: ItemStatus | null;
   sort_order?: number;
 }
 
@@ -234,7 +251,7 @@ export const DEFAULT_CATEGORIES: Record<ListType, string[]> = {
     "Kids' Items",
     'Miscellaneous',
   ],
-  tasks: ['Today', 'This Week', 'Later'],
+  tasks: ['Health', 'Home', 'Finance', 'Family', 'Work'],
 };
 
 /** AI mode placeholder text by list type */
@@ -251,8 +268,15 @@ export const AI_MODE_HINTS: Record<ListType, string> = {
   tasks: 'AI will break this into tasks',
 };
 
+/** Shared shape for badge/pill display config (magnitude, priority, status) */
+export interface BadgeConfig {
+  label: string;
+  textClass: string;
+  bgClass: string;
+}
+
 /** Magnitude display configuration */
-export const MAGNITUDE_CONFIG: Record<Magnitude, { label: string; textClass: string; bgClass: string }> = {
+export const MAGNITUDE_CONFIG: Record<Magnitude, BadgeConfig> = {
   S: {
     label: 'Small',
     textClass: 'text-[var(--color-text-muted)]',
@@ -275,6 +299,45 @@ export const MAGNITUDE_OPTIONS: { value: Magnitude | null; label: string }[] = [
   { value: null, label: 'None' },
   ...(['S', 'M', 'L'] as Magnitude[]).map(m => ({ value: m, label: MAGNITUDE_CONFIG[m].label })),
 ];
+
+/**
+ * Priority display configuration.
+ *
+ * Uses Tailwind dark: variants for priority-specific colors (red, orange, yellow,
+ * green) that don't have existing CSS custom properties.
+ */
+export const PRIORITY_CONFIG: Record<Priority, BadgeConfig> = {
+  urgent: { label: 'Urgent', textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-100 dark:bg-red-900/30' },
+  high:   { label: 'High',   textClass: 'text-orange-600 dark:text-orange-400', bgClass: 'bg-orange-100 dark:bg-orange-900/30' },
+  medium: { label: 'Medium', textClass: 'text-yellow-600 dark:text-yellow-400', bgClass: 'bg-yellow-100 dark:bg-yellow-900/30' },
+  low:    { label: 'Low',    textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-100 dark:bg-green-900/30' },
+};
+
+/** Priority dropdown options (derived from PRIORITY_CONFIG) */
+export const PRIORITY_OPTIONS: { value: Priority | null; label: string }[] = [
+  { value: null, label: 'None' },
+  ...(['urgent', 'high', 'medium', 'low'] as Priority[]).map(p => ({ value: p, label: PRIORITY_CONFIG[p].label })),
+];
+
+/** Status display configuration */
+export const STATUS_CONFIG: Record<ItemStatus, BadgeConfig> = {
+  open:        { label: 'Open',        textClass: 'text-[var(--color-text-muted)]', bgClass: 'bg-[var(--color-bg-secondary)]' },
+  in_progress: { label: 'In Progress', textClass: 'text-blue-600 dark:text-blue-400', bgClass: 'bg-blue-100 dark:bg-blue-900/30' },
+  done:        { label: 'Done',        textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-100 dark:bg-green-900/30' },
+  blocked:     { label: 'Blocked',     textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-100 dark:bg-red-900/30' },
+};
+
+/** Status dropdown options (derived from STATUS_CONFIG) */
+export const STATUS_OPTIONS: { value: ItemStatus | null; label: string }[] = [
+  { value: null, label: 'None' },
+  ...(['open', 'in_progress', 'done', 'blocked'] as ItemStatus[]).map(s => ({ value: s, label: STATUS_CONFIG[s].label })),
+];
+
+/**
+ * Well-known user ID for items created by Claude AI via Cowork MCP.
+ * IMPORTANT: Must match CLAUDE_SYSTEM_USER_ID in backend/app/models.py.
+ */
+export const CLAUDE_SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 /** Category color mapping */
 export const CATEGORY_COLORS: Record<string, string> = {
