@@ -3,11 +3,12 @@ import clsx from 'clsx';
 import { ItemRow } from './ItemRow';
 import { useUIStore } from '../../stores/uiStore';
 import { CategoryIcon } from '../icons/CategoryIcons';
-import type { Item, Category } from '../../types/api';
+import type { Item, Category, ListType } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 
 interface CategorySectionProps {
   listId: string;
+  listType?: ListType;
   category: Category;
   items: Item[];
   onCheckItem: (itemId: string) => void;
@@ -17,6 +18,7 @@ interface CategorySectionProps {
 
 export function CategorySection({
   listId,
+  listType,
   category,
   items,
   onCheckItem,
@@ -91,6 +93,7 @@ export function CategorySection({
                 >
                   <ItemRow
                     item={item}
+                    listType={listType}
                     onCheck={() => onCheckItem(item.id)}
                     onEdit={onEditItem ? () => onEditItem(item) : undefined}
                     onNameChange={onNameChange ? (newName) => onNameChange(item.id, newName) : undefined}

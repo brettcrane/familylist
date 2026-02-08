@@ -423,6 +423,7 @@ export function ListPage() {
                   {uncategorizedItems.length > 0 && (
                     <CategorySection
                       listId={id!}
+                      listType={list.type}
                       category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
                       items={uncategorizedItems}
                       onCheckItem={handleCheckItem}
@@ -438,6 +439,7 @@ export function ListPage() {
                       <CategorySection
                         key={category.id}
                         listId={id!}
+                        listType={list.type}
                         category={category}
                         items={items}
                         onCheckItem={handleCheckItem}
@@ -506,6 +508,7 @@ export function ListPage() {
       <EditItemModal
         item={editingItem}
         listId={id!}
+        listType={list.type}
         categories={list.categories}
         onSave={handleSaveItem}
         onDelete={handleDeleteItem}

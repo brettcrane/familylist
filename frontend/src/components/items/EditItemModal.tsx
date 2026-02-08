@@ -8,14 +8,15 @@ import { useCreateCategory } from '../../hooks/useCategories';
 import { useListShares, useCurrentUser } from '../../hooks/useShares';
 import { useUIStore } from '../../stores/uiStore';
 import { getErrorMessage } from '../../api/client';
-import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS } from '../../types/api';
+import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS, PRIORITY_CONFIG, PRIORITY_OPTIONS, STATUS_CONFIG, STATUS_OPTIONS } from '../../types/api';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
-import type { Item, Category, ItemUpdate, Magnitude } from '../../types/api';
+import type { Item, Category, ItemUpdate, ListType, Magnitude, Priority, ItemStatus } from '../../types/api';
 
 interface EditItemModalProps {
   item: Item | null;
   listId: string;
+  listType: ListType;
   categories: Category[];
   onSave: (itemId: string, data: ItemUpdate) => void;
   onDelete: (itemId: string) => void;
@@ -29,6 +30,7 @@ interface EditItemModalProps {
 export function EditItemModal({
   item,
   listId,
+  listType,
   categories,
   onSave,
   onDelete,
@@ -43,10 +45,15 @@ export function EditItemModal({
   const [notes, setNotes] = useState('');
   const [magnitude, setMagnitude] = useState<Magnitude | null>(null);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [priority, setPriority] = useState<Priority | null>(null);
+  const [dueDate, setDueDate] = useState<string>('');
+  const [status, setStatus] = useState<ItemStatus | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [effortDropdownOpen, setEffortDropdownOpen] = useState(false);
   const [assignedDropdownOpen, setAssignedDropdownOpen] = useState(false);
+  const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newlyCreatedCategory, setNewlyCreatedCategory] = useState<{ id: string; name: string } | null>(null);
@@ -54,6 +61,8 @@ export function EditItemModal({
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const effortDropdownRef = useRef<HTMLDivElement>(null);
   const assignedDropdownRef = useRef<HTMLDivElement>(null);
+  const priorityDropdownRef = useRef<HTMLDivElement>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const newCategoryInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = useUIStore((state) => state.showToast);
@@ -71,10 +80,15 @@ export function EditItemModal({
       setNotes(item.notes || '');
       setMagnitude(item.magnitude);
       setAssignedTo(item.assigned_to);
+      setPriority(item.priority);
+      setDueDate(item.due_date || '');
+      setStatus(item.status);
       setHasChanges(false);
       setCategoryDropdownOpen(false);
       setEffortDropdownOpen(false);
       setAssignedDropdownOpen(false);
+      setPriorityDropdownOpen(false);
+      setStatusDropdownOpen(false);
       setIsCreatingCategory(false);
       setNewCategoryName('');
       setNewlyCreatedCategory(null);
@@ -97,16 +111,23 @@ export function EditItemModal({
       const notesChanged = (notes || '') !== (item.notes || '');
       const magnitudeChanged = magnitude !== item.magnitude;
       const assignedChanged = assignedTo !== item.assigned_to;
-      setHasChanges(categoryChanged || quantityChanged || notesChanged || magnitudeChanged || assignedChanged);
+      const priorityChanged = priority !== item.priority;
+      const dueDateChanged = (dueDate || null) !== (item.due_date || null);
+      const statusChanged = status !== item.status;
+      setHasChanges(categoryChanged || quantityChanged || notesChanged || magnitudeChanged || assignedChanged || priorityChanged || dueDateChanged || statusChanged);
     }
-  }, [item, selectedCategoryId, quantity, notes, magnitude, assignedTo]);
+  }, [item, selectedCategoryId, quantity, notes, magnitude, assignedTo, priority, dueDate, status]);
 
   // Handle Escape key - close innermost open UI element first, then modal
   useEffect(() => {
     if (!item) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (assignedDropdownOpen) {
+        if (statusDropdownOpen) {
+          setStatusDropdownOpen(false);
+        } else if (priorityDropdownOpen) {
+          setPriorityDropdownOpen(false);
+        } else if (assignedDropdownOpen) {
           setAssignedDropdownOpen(false);
         } else if (effortDropdownOpen) {
           setEffortDropdownOpen(false);
@@ -123,7 +144,7 @@ export function EditItemModal({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, onClose, categoryDropdownOpen, isCreatingCategory, effortDropdownOpen, assignedDropdownOpen]);
+  }, [item, onClose, categoryDropdownOpen, isCreatingCategory, effortDropdownOpen, assignedDropdownOpen, priorityDropdownOpen, statusDropdownOpen]);
 
   // Close category dropdown when clicking outside
   useEffect(() => {
@@ -161,6 +182,30 @@ export function EditItemModal({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [assignedDropdownOpen]);
 
+  // Close priority dropdown when clicking outside
+  useEffect(() => {
+    if (!priorityDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (priorityDropdownRef.current && !priorityDropdownRef.current.contains(e.target as Node)) {
+        setPriorityDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [priorityDropdownOpen]);
+
+  // Close status dropdown when clicking outside
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [statusDropdownOpen]);
+
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > 100 || info.velocity.y > 500) {
       onClose();
@@ -185,6 +230,15 @@ export function EditItemModal({
     }
     if (assignedTo !== item.assigned_to) {
       updates.assigned_to = assignedTo;
+    }
+    if (priority !== item.priority) {
+      updates.priority = priority;
+    }
+    if ((dueDate || null) !== (item.due_date || null)) {
+      updates.due_date = dueDate || null;
+    }
+    if (status !== item.status) {
+      updates.status = status;
     }
 
     onSave(item.id, updates);
@@ -581,6 +635,209 @@ export function EditItemModal({
                   </div>
                 </div>
               </div>
+
+              {/* Priority and Status row - tasks only */}
+              {listType === 'tasks' && (
+                <div className="flex gap-3 items-start">
+                  {/* Priority Dropdown */}
+                  <div className="flex-1" ref={priorityDropdownRef}>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                      Priority
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setPriorityDropdownOpen(!priorityDropdownOpen)}
+                        aria-expanded={priorityDropdownOpen}
+                        aria-haspopup="listbox"
+                        aria-label="Select priority"
+                        className={clsx(
+                          'w-full h-11 px-3 rounded-xl border-2 transition-all',
+                          'flex items-center justify-between gap-2',
+                          'bg-[var(--color-bg-secondary)]',
+                          priorityDropdownOpen
+                            ? 'border-[var(--color-accent)]'
+                            : 'border-transparent hover:border-[var(--color-text-muted)]/30'
+                        )}
+                      >
+                        <span className={clsx(
+                          'text-sm truncate',
+                          priority ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'
+                        )}>
+                          {priority ? PRIORITY_CONFIG[priority].label : 'None'}
+                        </span>
+                        <ChevronDownIcon className={clsx(
+                          'w-4 h-4 text-[var(--color-text-muted)] transition-transform flex-shrink-0',
+                          priorityDropdownOpen && 'rotate-180'
+                        )} />
+                      </button>
+
+                      <AnimatePresence>
+                        {priorityDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            role="listbox"
+                            aria-label="Priority options"
+                            className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden"
+                          >
+                            {PRIORITY_OPTIONS.map((option) => (
+                              <button
+                                key={option.label}
+                                type="button"
+                                role="option"
+                                aria-selected={priority === option.value}
+                                onClick={() => {
+                                  setPriority(option.value);
+                                  setPriorityDropdownOpen(false);
+                                }}
+                                className={clsx(
+                                  'w-full px-3 py-2.5 flex items-center justify-between',
+                                  'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                  priority === option.value && 'bg-[var(--color-accent)]/5'
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {option.value && (
+                                    <span
+                                      className={clsx(
+                                        'px-1.5 py-0.5 rounded-full font-bold',
+                                        PRIORITY_CONFIG[option.value].textClass,
+                                        PRIORITY_CONFIG[option.value].bgClass,
+                                      )}
+                                      style={{ fontSize: '10px' }}
+                                    >
+                                      {PRIORITY_CONFIG[option.value].label.charAt(0)}
+                                    </span>
+                                  )}
+                                  <span className="text-sm text-[var(--color-text-primary)]">{option.label}</span>
+                                </div>
+                                {priority === option.value && (
+                                  <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                                )}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div className="flex-1" ref={statusDropdownRef}>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                      Status
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                        aria-expanded={statusDropdownOpen}
+                        aria-haspopup="listbox"
+                        aria-label="Select status"
+                        className={clsx(
+                          'w-full h-11 px-3 rounded-xl border-2 transition-all',
+                          'flex items-center justify-between gap-2',
+                          'bg-[var(--color-bg-secondary)]',
+                          statusDropdownOpen
+                            ? 'border-[var(--color-accent)]'
+                            : 'border-transparent hover:border-[var(--color-text-muted)]/30'
+                        )}
+                      >
+                        <span className={clsx(
+                          'text-sm truncate',
+                          status ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'
+                        )}>
+                          {status ? STATUS_CONFIG[status].label : 'None'}
+                        </span>
+                        <ChevronDownIcon className={clsx(
+                          'w-4 h-4 text-[var(--color-text-muted)] transition-transform flex-shrink-0',
+                          statusDropdownOpen && 'rotate-180'
+                        )} />
+                      </button>
+
+                      <AnimatePresence>
+                        {statusDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            role="listbox"
+                            aria-label="Status options"
+                            className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden"
+                          >
+                            {STATUS_OPTIONS.map((option) => (
+                              <button
+                                key={option.label}
+                                type="button"
+                                role="option"
+                                aria-selected={status === option.value}
+                                onClick={() => {
+                                  setStatus(option.value);
+                                  setStatusDropdownOpen(false);
+                                }}
+                                className={clsx(
+                                  'w-full px-3 py-2.5 flex items-center justify-between',
+                                  'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                  status === option.value && 'bg-[var(--color-accent)]/5'
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {option.value && (
+                                    <span
+                                      className={clsx(
+                                        'px-1.5 py-0.5 rounded-full font-bold',
+                                        STATUS_CONFIG[option.value].textClass,
+                                        STATUS_CONFIG[option.value].bgClass,
+                                      )}
+                                      style={{ fontSize: '10px' }}
+                                    >
+                                      {STATUS_CONFIG[option.value].label.charAt(0)}
+                                    </span>
+                                  )}
+                                  <span className="text-sm text-[var(--color-text-primary)]">{option.label}</span>
+                                </div>
+                                {status === option.value && (
+                                  <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                                )}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Due Date - tasks only */}
+              {listType === 'tasks' && (
+                <div>
+                  <label
+                    htmlFor="item-due-date"
+                    className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5"
+                  >
+                    Due Date
+                  </label>
+                  <input
+                    id="item-due-date"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className={clsx(
+                      'w-full h-11 px-3 rounded-xl',
+                      'bg-[var(--color-bg-card)] border border-[var(--color-text-muted)]/20',
+                      'text-[var(--color-text-primary)]',
+                      'transition-all duration-200 text-sm',
+                      'focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20',
+                      !dueDate && 'text-[var(--color-text-muted)]'
+                    )}
+                  />
+                </div>
+              )}
 
               {/* Notes */}
               <div>
