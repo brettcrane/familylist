@@ -7,19 +7,40 @@ from app.schemas import ItemCreate, ItemUpdate
 
 
 def get_items_by_list(
-    db: Session, list_id: str, status: str = "all"
+    db: Session,
+    list_id: str,
+    is_checked: str = "all",
+    status: list[str] | None = None,
+    priority: list[str] | None = None,
+    due_before: str | None = None,
+    due_after: str | None = None,
+    assigned_to: str | None = None,
+    created_by: str | None = None,
 ) -> list[Item]:
-    """Get items for a list, filtered by status."""
+    """Get items for a list with optional filters."""
     query = db.query(Item).options(
         joinedload(Item.checked_by_user),
         joinedload(Item.assigned_to_user),
         joinedload(Item.created_by_user),
     ).filter(Item.list_id == list_id)
 
-    if status == "checked":
+    if is_checked == "checked":
         query = query.filter(Item.is_checked == True)  # noqa: E712
-    elif status == "unchecked":
+    elif is_checked == "unchecked":
         query = query.filter(Item.is_checked == False)  # noqa: E712
+
+    if status:
+        query = query.filter(Item.status.in_(status))
+    if priority:
+        query = query.filter(Item.priority.in_(priority))
+    if due_before:
+        query = query.filter(Item.due_date <= due_before)
+    if due_after:
+        query = query.filter(Item.due_date >= due_after)
+    if assigned_to:
+        query = query.filter(Item.assigned_to == assigned_to)
+    if created_by:
+        query = query.filter(Item.created_by == created_by)
 
     # Sort: unchecked items by sort_order, checked items by checked_at desc
     return query.order_by(Item.is_checked, Item.sort_order).all()
