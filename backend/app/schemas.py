@@ -21,6 +21,24 @@ class Magnitude(str, Enum):
     LARGE = "L"
 
 
+class Priority(str, Enum):
+    """Valid priority levels for task items."""
+
+    URGENT = "urgent"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class ItemStatus(str, Enum):
+    """Valid status values for task items."""
+
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+    BLOCKED = "blocked"
+
+
 # ============================================================================
 # User Schemas
 # ============================================================================
@@ -177,6 +195,9 @@ class ItemCreate(ItemBase):
     """Schema for creating a single item."""
 
     assigned_to: str | None = Field(None, min_length=36, max_length=36)
+    priority: Priority | None = None
+    due_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    status: ItemStatus | None = None
 
 
 class ItemBatchCreate(BaseModel):
@@ -194,6 +215,9 @@ class ItemUpdate(BaseModel):
     category_id: str | None = None
     magnitude: Magnitude | None = None
     assigned_to: str | None = Field(None, min_length=36, max_length=36)
+    priority: Priority | None = None
+    due_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    status: ItemStatus | None = None
     sort_order: int | None = None
 
 
@@ -208,6 +232,11 @@ class ItemResponse(ItemBase):
     checked_at: str | None
     assigned_to: str | None = None
     assigned_to_name: str | None = None
+    priority: str | None = None
+    due_date: str | None = None
+    status: str | None = None
+    created_by: str | None = None
+    created_by_name: str | None = None
     sort_order: int
     created_at: str
     updated_at: str

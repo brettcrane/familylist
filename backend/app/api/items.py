@@ -164,13 +164,14 @@ def create_items(
     check_list_access(db, list_id, current_user, require_edit=True)
 
     # Validate assigned_to references
+    creator_id = current_user.id if current_user else None
     if isinstance(data, ItemBatchCreate):
         for item_data in data.items:
             _validate_assigned_to(db, list_id, item_data.assigned_to)
-        items = item_service.create_items_batch(db, list_id, data.items)
+        items = item_service.create_items_batch(db, list_id, data.items, created_by=creator_id)
     else:
         _validate_assigned_to(db, list_id, data.assigned_to)
-        items = [item_service.create_item(db, list_id, data)]
+        items = [item_service.create_item(db, list_id, data, created_by=creator_id)]
 
     # Get notification context before returning (db session still active)
     recipient_ids = get_notification_recipients(db, list_id)

@@ -465,6 +465,204 @@ class TestItemEndpoints:
         assert items[2]["assigned_to"] is None
 
 
+    # ========================================================================
+    # Task management fields: priority, due_date, status, created_by
+    # ========================================================================
+
+    def test_create_item_with_priority(self, client, auth_headers, created_list):
+        """Test creating an item with priority."""
+        list_id = created_list["id"]
+        item_data = {"name": "Urgent Task", "priority": "urgent"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()[0]["priority"] == "urgent"
+
+    def test_invalid_priority_rejected(self, client, auth_headers, created_list):
+        """Test that invalid priority values are rejected."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad", "priority": "critical"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_create_item_with_due_date(self, client, auth_headers, created_list):
+        """Test creating an item with due date."""
+        list_id = created_list["id"]
+        item_data = {"name": "Due Task", "due_date": "2026-03-15"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()[0]["due_date"] == "2026-03-15"
+
+    def test_invalid_due_date_format_rejected(self, client, auth_headers, created_list):
+        """Test that invalid due date format is rejected."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad", "due_date": "March 15"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_create_item_with_status(self, client, auth_headers, created_list):
+        """Test creating an item with status."""
+        list_id = created_list["id"]
+        item_data = {"name": "In Progress", "status": "in_progress"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        assert response.json()[0]["status"] == "in_progress"
+
+    def test_invalid_status_rejected(self, client, auth_headers, created_list):
+        """Test that invalid status values are rejected."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad", "status": "cancelled"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_status_done_syncs_is_checked(self, client, auth_headers, created_list):
+        """Test that setting status=done also sets is_checked=True."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Task", "status": "open"},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.put(
+            f"/api/items/{item_id}", json={"status": "done"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "done"
+        assert response.json()["is_checked"] is True
+
+    def test_status_open_syncs_is_checked_false(self, client, auth_headers, created_list):
+        """Test that setting status=open sets is_checked=False."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Task", "status": "open"},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+
+        # Set to done first
+        client.put(f"/api/items/{item_id}", json={"status": "done"}, headers=auth_headers)
+
+        # Set back to in_progress
+        response = client.put(
+            f"/api/items/{item_id}", json={"status": "in_progress"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "in_progress"
+        assert response.json()["is_checked"] is False
+
+    def test_check_syncs_status_to_done(self, client, auth_headers, created_list):
+        """Test that checking a task item syncs status to done."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Task", "status": "open"},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["status"] == "done"
+        assert response.json()["is_checked"] is True
+
+    def test_uncheck_syncs_status_to_open(self, client, auth_headers, created_list):
+        """Test that unchecking a task item syncs status to open."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Task", "status": "open"},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+
+        # Check it first
+        client.post(f"/api/items/{item_id}/check", headers=auth_headers)
+
+        response = client.post(f"/api/items/{item_id}/uncheck", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["status"] == "open"
+        assert response.json()["is_checked"] is False
+
+    def test_grocery_item_no_status_sync(self, client, auth_headers, created_list):
+        """Test that checking a grocery item (no status) doesn't set status."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Milk"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.post(f"/api/items/{item_id}/check", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["status"] is None
+        assert response.json()["is_checked"] is True
+
+    def test_item_response_includes_task_fields(self, client, auth_headers, created_list):
+        """Test that item response includes all new task fields."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
+        )
+        data = response.json()[0]
+        assert "priority" in data
+        assert "due_date" in data
+        assert "status" in data
+        assert "created_by" in data
+        assert "created_by_name" in data
+
+    def test_update_priority_lifecycle(self, client, auth_headers, created_list):
+        """Test setting, changing, and clearing priority."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        # Set priority
+        response = client.put(
+            f"/api/items/{item_id}", json={"priority": "high"}, headers=auth_headers
+        )
+        assert response.json()["priority"] == "high"
+
+        # Change priority
+        response = client.put(
+            f"/api/items/{item_id}", json={"priority": "low"}, headers=auth_headers
+        )
+        assert response.json()["priority"] == "low"
+
+        # Clear priority
+        response = client.put(
+            f"/api/items/{item_id}", json={"priority": None}, headers=auth_headers
+        )
+        assert response.json()["priority"] is None
+
+    def test_invalid_priority_on_update(self, client, auth_headers, created_list):
+        """Test that invalid priority values are rejected on update."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.put(
+            f"/api/items/{item_id}", json={"priority": "critical"}, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""
 

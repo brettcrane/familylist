@@ -166,7 +166,7 @@ class TestListTypes:
         [
             ("grocery", ["Produce", "Dairy", "Meat & Seafood"]),
             ("packing", ["Clothing", "Toiletries", "Electronics"]),
-            ("tasks", ["High Priority", "Normal", "Low Priority"]),
+            ("tasks", ["Health", "Home", "Finance"]),
         ],
     )
     def test_list_type_categories(
