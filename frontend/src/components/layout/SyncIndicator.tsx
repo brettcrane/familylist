@@ -12,7 +12,7 @@ function getOnlineSnapshot() {
 }
 
 export function SyncIndicator() {
-  const isOnline = useSyncExternalStore(subscribeOnline, getOnlineSnapshot);
+  const isOnline = useSyncExternalStore(subscribeOnline, getOnlineSnapshot, () => true);
 
   return (
     <AnimatePresence>

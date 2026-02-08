@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, onlineManager, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQueryClient, onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { get, set, del } from 'idb-keyval';
@@ -23,15 +23,16 @@ import {
 // Check if Clerk is configured
 const isClerkConfigured = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-// Create a client
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,        // 5 min — list data is fine slightly stale
-      gcTime: 24 * 60 * 60 * 1000,      // 24h — keep for offline across sessions
+      gcTime: ONE_DAY_MS,               // 24h — keep for offline across sessions
       retry: 1,
       refetchOnWindowFocus: true,
-      networkMode: 'offlineFirst',       // Serve cached data immediately, refetch in bg
+      networkMode: 'offlineFirst',       // Allow queries to fire even when offline (use cache instead of pausing)
     },
     mutations: {
       retry: 1,
@@ -42,9 +43,16 @@ const queryClient = new QueryClient({
 // IndexedDB-backed persister for React Query cache
 const persister = createAsyncStoragePersister({
   storage: {
-    getItem: (key) => get(key),
-    setItem: (key, value) => set(key, value),
-    removeItem: (key) => del(key),
+    getItem: (key) => get(key).catch((e) => {
+      console.warn('IndexedDB read failed, falling back to memory-only cache:', e);
+      return null;
+    }),
+    setItem: (key, value) => set(key, value).catch((e) => {
+      console.warn('IndexedDB write failed:', e);
+    }),
+    removeItem: (key) => del(key).catch((e) => {
+      console.warn('IndexedDB delete failed:', e);
+    }),
   },
   key: 'familylists-query-cache',
   throttleTime: 1000,
@@ -52,38 +60,25 @@ const persister = createAsyncStoragePersister({
 
 const persistOptions = {
   persister,
-  maxAge: 24 * 60 * 60 * 1000, // 24h
+  maxAge: ONE_DAY_MS,
   dehydrateOptions: {
+    // Persist all list-related queries (list index + individual list details with items)
     shouldDehydrateQuery: (query: { state: { status: string }; queryKey: readonly unknown[] }) =>
       query.state.status === 'success' &&
       query.queryKey[0] === 'lists',
   },
 };
 
-// Wire React Query's online manager to browser events
-onlineManager.setEventListener((setOnline) => {
-  const handleOnline = () => setOnline(true);
-  const handleOffline = () => setOnline(false);
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-  return () => {
-    window.removeEventListener('online', handleOnline);
-    window.removeEventListener('offline', handleOffline);
-  };
-});
-
-/** Invalidate all queries when reconnecting */
-function useReconnectRefresh() {
-  const qc = useQueryClient();
+/** Invalidate all queries when the browser reconnects to the network. */
+function useReconnectRefresh(): void {
+  const client = useQueryClient();
   useEffect(() => {
-    return onlineManager.subscribe((online) => {
-      if (online) {
-        qc.resumePausedMutations().then(() => {
-          qc.invalidateQueries();
-        });
+    return onlineManager.subscribe((isOnline) => {
+      if (isOnline) {
+        client.invalidateQueries();
       }
     });
-  }, [qc]);
+  }, [client]);
 }
 
 function LoadingScreen() {

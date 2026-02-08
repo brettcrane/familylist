@@ -17,7 +17,7 @@ cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
 // ============================================================================
-// API Caching — Network-First for offline reads
+// API Caching — Network-First for offline reads (3s network timeout before cache fallback)
 // ============================================================================
 
 registerRoute(
@@ -38,7 +38,11 @@ registerRoute(
 // Allow the app to clear the API cache (e.g. on logout)
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'CLEAR_API_CACHE') {
-    event.waitUntil(caches.delete('familylists-api-cache'));
+    event.waitUntil(
+      caches.delete('familylists-api-cache').catch((e) => {
+        console.error('Service worker failed to delete API cache:', e);
+      })
+    );
   }
 });
 
