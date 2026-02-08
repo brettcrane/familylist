@@ -293,6 +293,7 @@ class ListUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     icon: str | None = None
     color: str | None = None
+    owner_id: str | None = Field(None, description="User ID (UUID) of the list owner. Only settable via API key auth.")
 
 
 class ListResponse(ListBase):
