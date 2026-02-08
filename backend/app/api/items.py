@@ -18,7 +18,7 @@ from app.schemas import (
     ItemUpdate,
 )
 from app.serializers import item_to_response
-from app.models import ListShare
+from app.models import ListShare, User as UserModel
 from app.services import item_service, list_service
 from app.services.event_broadcaster import ListEvent, event_broadcaster
 from app.services.notification_queue import notification_queue
@@ -26,6 +26,18 @@ from app.services.notification_queue import notification_queue
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["items"], dependencies=[Depends(get_auth)])
+
+
+def _validate_assigned_to(db: Session, assigned_to: str | None) -> None:
+    """Validate that assigned_to references an existing user."""
+    if assigned_to is None:
+        return
+    user = db.query(UserModel).filter(UserModel.id == assigned_to).first()
+    if not user:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot assign to user: user not found",
+        )
 
 
 def get_notification_recipients(db: Session, list_id: str) -> list[str]:
@@ -140,9 +152,13 @@ def create_items(
 
     check_list_access(db, list_id, current_user, require_edit=True)
 
+    # Validate assigned_to references
     if isinstance(data, ItemBatchCreate):
+        for item_data in data.items:
+            _validate_assigned_to(db, item_data.assigned_to)
         items = item_service.create_items_batch(db, list_id, data.items)
     else:
+        _validate_assigned_to(db, data.assigned_to)
         items = [item_service.create_item(db, list_id, data)]
 
     # Get notification context before returning (db session still active)
@@ -182,6 +198,11 @@ def update_item(
         raise HTTPException(status_code=404, detail="Item not found")
 
     check_list_access(db, item.list_id, current_user, require_edit=True)
+
+    # Validate assigned_to if being updated
+    update_fields = data.model_dump(exclude_unset=True)
+    if "assigned_to" in update_fields:
+        _validate_assigned_to(db, data.assigned_to)
 
     updated = item_service.update_item(db, item, data)
 

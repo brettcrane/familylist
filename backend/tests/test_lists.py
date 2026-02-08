@@ -113,6 +113,46 @@ class TestListEndpoints:
         original = create_response.json()
         assert len(data["categories"]) == len(original["categories"])
 
+    def test_duplicate_preserves_magnitude_not_assigned_to(
+        self, client, auth_headers, sample_list_data, db_session
+    ):
+        """Test that duplication preserves magnitude but NOT assigned_to."""
+        from app.models import User
+
+        # Create a user to assign
+        user = User(clerk_user_id="clerk_dup_test", display_name="Dup User")
+        db_session.add(user)
+        db_session.commit()
+
+        # Create a list
+        create_response = client.post("/api/lists", json=sample_list_data, headers=auth_headers)
+        list_id = create_response.json()["id"]
+
+        # Add an item with magnitude and assigned_to
+        item_data = {"name": "Important Task", "magnitude": "L", "assigned_to": user.id}
+        client.post(f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers)
+
+        # Duplicate the list
+        duplicate_data = {"name": "Duplicated", "as_template": False}
+        response = client.post(
+            f"/api/lists/{list_id}/duplicate", json=duplicate_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        dup_data = response.json()
+        dup_list_id = dup_data["id"]
+
+        # Get items from duplicated list
+        items_response = client.get(
+            f"/api/lists/{dup_list_id}/items", headers=auth_headers
+        )
+        dup_items = items_response.json()
+        assert len(dup_items) == 1
+
+        # Magnitude should be preserved
+        assert dup_items[0]["magnitude"] == "L"
+        # assigned_to should NOT be copied
+        assert dup_items[0]["assigned_to"] is None
+
 
 class TestListTypes:
     """Test different list types."""

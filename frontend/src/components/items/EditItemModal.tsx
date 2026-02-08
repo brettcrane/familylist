@@ -8,7 +8,8 @@ import { useCreateCategory } from '../../hooks/useCategories';
 import { useListShares, useCurrentUser } from '../../hooks/useShares';
 import { useUIStore } from '../../stores/uiStore';
 import { getErrorMessage } from '../../api/client';
-import { MAGNITUDE_CONFIG, getUserColor } from '../../types/api';
+import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS } from '../../types/api';
+import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
 import type { Item, Category, ItemUpdate, Magnitude } from '../../types/api';
 
@@ -24,13 +25,6 @@ interface EditItemModalProps {
   ownerId?: string | null;
   ownerName?: string | null;
 }
-
-const MAGNITUDE_OPTIONS: { value: Magnitude | null; label: string }[] = [
-  { value: null, label: 'None' },
-  { value: 'S', label: 'Small' },
-  { value: 'M', label: 'Medium' },
-  { value: 'L', label: 'Large' },
-];
 
 export function EditItemModal({
   item,
@@ -66,7 +60,7 @@ export function EditItemModal({
   const createCategory = useCreateCategory(listId);
 
   // Fetch shares and current user for assigned-to dropdown
-  const { data: shares } = useListShares(isShared ? listId : undefined);
+  const { data: shares, isError: sharesError, isLoading: sharesLoading } = useListShares(isShared ? listId : undefined);
   const { data: currentUser } = useCurrentUser();
 
   // Reset state when item changes
@@ -758,6 +752,14 @@ export function EditItemModal({
                                 <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
                               )}
                             </button>
+                          )}
+
+                          {/* Loading/error states for shares */}
+                          {sharesLoading && (
+                            <p className="px-3 py-2 text-sm text-[var(--color-text-muted)]">Loading members...</p>
+                          )}
+                          {sharesError && (
+                            <p className="px-3 py-2 text-sm text-[var(--color-destructive)]">Failed to load members</p>
                           )}
 
                           {/* Shared members */}

@@ -310,6 +310,109 @@ class TestItemEndpoints:
         assert "assigned_to_name" in data
         assert data["assigned_to_name"] is None
 
+    def test_invalid_magnitude_on_update(self, client, auth_headers, created_list):
+        """Test that invalid magnitude values are rejected on update."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": "X"}, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_create_item_with_assigned_to(self, client, auth_headers, created_list, db_session):
+        """Test creating an item assigned to a valid user."""
+        from app.models import User
+
+        # Create a user to assign to
+        user = User(clerk_user_id="clerk_assignee", display_name="Jane Doe")
+        db_session.add(user)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        item_data = {"name": "Assigned Task", "assigned_to": user.id}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.json()[0]
+        assert data["assigned_to"] == user.id
+        assert data["assigned_to_name"] == "Jane Doe"
+
+    def test_update_item_assigned_to(self, client, auth_headers, created_list, db_session):
+        """Test updating an item's assignment to a valid user."""
+        from app.models import User
+
+        user = User(clerk_user_id="clerk_assignee_2", display_name="Bob Smith")
+        db_session.add(user)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+        assert create_response.json()[0]["assigned_to"] is None
+
+        # Assign to user
+        response = client.put(
+            f"/api/items/{item_id}", json={"assigned_to": user.id}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["assigned_to"] == user.id
+        assert response.json()["assigned_to_name"] == "Bob Smith"
+
+        # Unassign
+        response = client.put(
+            f"/api/items/{item_id}", json={"assigned_to": None}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["assigned_to"] is None
+        assert response.json()["assigned_to_name"] is None
+
+    def test_create_item_with_invalid_assigned_to(self, client, auth_headers, created_list):
+        """Test that assigning to a non-existent user returns 422."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad Assignment", "assigned_to": "nonexistent-user-id"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+        assert "user not found" in response.json()["detail"].lower()
+
+    def test_update_item_with_invalid_assigned_to(self, client, auth_headers, created_list):
+        """Test that updating assignment to a non-existent user returns 422."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.put(
+            f"/api/items/{item_id}",
+            json={"assigned_to": "nonexistent-user-id"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+        assert "user not found" in response.json()["detail"].lower()
+
+    def test_batch_create_with_invalid_assigned_to(self, client, auth_headers, created_list):
+        """Test that batch create rejects items with invalid assigned_to."""
+        list_id = created_list["id"]
+        batch_data = {
+            "items": [
+                {"name": "Good Item"},
+                {"name": "Bad Item", "assigned_to": "nonexistent-user-id"},
+            ]
+        }
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""

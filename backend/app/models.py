@@ -160,7 +160,13 @@ class Item(Base):
     checked_by_user = relationship("User", foreign_keys=[checked_by], back_populates="checked_items")
     assigned_to_user = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_items")
 
-    __table_args__ = (Index("idx_items_list_id", "list_id"),)
+    __table_args__ = (
+        Index("idx_items_list_id", "list_id"),
+        CheckConstraint(
+            "magnitude IS NULL OR magnitude IN ('S', 'M', 'L')",
+            name="ck_item_magnitude",
+        ),
+    )
 
 
 class CategoryLearning(Base):

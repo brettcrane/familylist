@@ -38,7 +38,7 @@ DEFAULT_CATEGORIES: dict[str, list[str]] = {
 
 def get_all_lists(db: Session, include_templates: bool = False) -> list[List]:
     """Get all lists, optionally including templates."""
-    query = db.query(List)
+    query = db.query(List).options(joinedload(List.owner))
     if not include_templates:
         query = query.filter(List.is_template == False)  # noqa: E712
     return query.order_by(List.created_at.desc()).all()
@@ -58,7 +58,7 @@ def get_lists_for_user(
         List of lists the user has access to (owned + shared)
     """
     # Get lists owned by the user
-    owned_query = db.query(List).filter(List.owner_id == user_id)
+    owned_query = db.query(List).options(joinedload(List.owner)).filter(List.owner_id == user_id)
     if not include_templates:
         owned_query = owned_query.filter(List.is_template == False)  # noqa: E712
 
@@ -66,7 +66,7 @@ def get_lists_for_user(
     shared_list_ids = (
         db.query(ListShare.list_id).filter(ListShare.user_id == user_id).subquery()
     )
-    shared_query = db.query(List).filter(List.id.in_(shared_list_ids))
+    shared_query = db.query(List).options(joinedload(List.owner)).filter(List.id.in_(shared_list_ids))
     if not include_templates:
         shared_query = shared_query.filter(List.is_template == False)  # noqa: E712
 
@@ -143,6 +143,7 @@ def get_list_with_items(db: Session, list_id: str) -> List | None:
     return (
         db.query(List)
         .options(
+            joinedload(List.owner),
             joinedload(List.categories),
             joinedload(List.items).joinedload(Item.checked_by_user),
             joinedload(List.items).joinedload(Item.assigned_to_user),

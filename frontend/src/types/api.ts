@@ -61,6 +61,8 @@ export interface ItemCreate {
   quantity?: number;
   notes?: string | null;
   category_id?: string | null;
+  magnitude?: Magnitude | null;
+  assigned_to?: string | null;
 }
 
 /** Batch item create request */
@@ -268,21 +270,11 @@ export const MAGNITUDE_CONFIG: Record<Magnitude, { label: string; textClass: str
   },
 };
 
-/** Colors for user avatar badges */
-const AVATAR_COLORS = [
-  '#4A90D9', '#D94A6B', '#5CB85C', '#F0AD4E',
-  '#9B59B6', '#E67E22', '#1ABC9C', '#E74C3C',
-  '#3498DB', '#2ECC71',
+/** Magnitude dropdown options (derived from MAGNITUDE_CONFIG) */
+export const MAGNITUDE_OPTIONS: { value: Magnitude | null; label: string }[] = [
+  { value: null, label: 'None' },
+  ...(['S', 'M', 'L'] as Magnitude[]).map(m => ({ value: m, label: MAGNITUDE_CONFIG[m].label })),
 ];
-
-/** Get a deterministic color for a user ID */
-export function getUserColor(userId: string): string {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = ((hash << 5) - hash + userId.charCodeAt(i)) | 0;
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 /** Category color mapping */
 export const CATEGORY_COLORS: Record<string, string> = {

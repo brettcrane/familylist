@@ -3,9 +3,10 @@ import clsx from 'clsx';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
 import { useHasPendingMutation } from '../../hooks/useOfflineQueue';
-import { MAGNITUDE_CONFIG, getUserColor } from '../../types/api';
+import { MAGNITUDE_CONFIG } from '../../types/api';
+import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
-import type { Item } from '../../types/api';
+import type { Item, Magnitude } from '../../types/api';
 
 interface ItemRowProps {
   item: Item;
@@ -157,12 +158,12 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
           </span>
         </span>
       )}
-      {!isEditing && item.magnitude && (
+      {!isEditing && item.magnitude && item.magnitude in MAGNITUDE_CONFIG && (
         <span
           className={clsx(
             'px-1.5 py-0.5 rounded-full font-bold flex-shrink-0',
-            MAGNITUDE_CONFIG[item.magnitude].textClass,
-            MAGNITUDE_CONFIG[item.magnitude].bgClass,
+            MAGNITUDE_CONFIG[item.magnitude as Magnitude].textClass,
+            MAGNITUDE_CONFIG[item.magnitude as Magnitude].bgClass,
           )}
           style={{ fontSize: '10px' }}
         >
