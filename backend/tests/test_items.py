@@ -859,6 +859,105 @@ class TestItemFiltering:
         )
         assert len(response.json()) == 1
 
+    def test_filter_by_created_by(self, client, auth_headers, created_list, db_session):
+        """Test filtering items by created_by user ID."""
+        from app.models import User
+
+        creator = User(clerk_user_id="clerk_creator_test", display_name="Creator")
+        db_session.add(creator)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        # Create items - one will have created_by set via direct DB manipulation
+        # since API key auth doesn't set created_by
+        from app.models import Item
+        item = Item(
+            list_id=list_id, name="AI Created", created_by=creator.id, sort_order=0
+        )
+        db_session.add(item)
+        db_session.commit()
+
+        # Create a regular item via API (created_by will be None under API key auth)
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Manual Item"},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?created_by={creator.id}",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "AI Created"
+
+    def test_filter_due_date_range(self, client, auth_headers, created_list):
+        """Test combining due_before and due_after for a date range."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Early", "due_date": "2026-01-15"},
+                {"name": "In Range", "due_date": "2026-03-15"},
+                {"name": "Late", "due_date": "2026-06-15"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_after=2026-02-01&due_before=2026-04-01",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "In Range"
+
+    def test_filter_due_date_boundary_inclusive(self, client, auth_headers, created_list):
+        """Test that due_before and due_after include the boundary date itself."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Boundary", "due_date": "2026-03-15"},
+            headers=auth_headers,
+        )
+
+        # due_before=2026-03-15 should include items due ON that date (<=)
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_before=2026-03-15",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+        # due_after=2026-03-15 should include items due ON that date (>=)
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_after=2026-03-15",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+    def test_filter_invalid_status_rejected(self, client, auth_headers, created_list):
+        """Test that invalid status filter values return 422."""
+        list_id = created_list["id"]
+        response = client.get(
+            f"/api/lists/{list_id}/items?status=cancelled",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+        assert "Invalid status" in response.json()["detail"]
+
+    def test_filter_invalid_priority_rejected(self, client, auth_headers, created_list):
+        """Test that invalid priority filter values return 422."""
+        list_id = created_list["id"]
+        response = client.get(
+            f"/api/lists/{list_id}/items?priority=critical",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+        assert "Invalid priority" in response.json()["detail"]
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""

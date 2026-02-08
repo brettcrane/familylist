@@ -18,6 +18,8 @@ class TestUserLookup:
         assert len(data) == 1
         assert data[0]["display_name"] == "Brett Crane"
         assert data[0]["id"] == user.id
+        # Should not expose email
+        assert "email" not in data[0]
 
     def test_lookup_case_insensitive(self, client, auth_headers, db_session):
         """Test that name lookup is case insensitive."""

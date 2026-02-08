@@ -15,7 +15,9 @@ from app.schemas import (
     ItemCheckRequest,
     ItemCreate,
     ItemResponse,
+    ItemStatus,
     ItemUpdate,
+    Priority,
 )
 from app.serializers import item_to_response
 from app.services import item_service, list_service
@@ -150,9 +152,31 @@ def get_items(
 
     check_list_access(db, list_id, current_user, require_edit=False)
 
-    # Parse comma-separated filter values
-    statuses = [s.strip() for s in status.split(",")] if status else None
-    priorities = [p.strip() for p in priority.split(",")] if priority else None
+    # Parse and validate comma-separated filter values
+    valid_statuses = {s.value for s in ItemStatus}
+    valid_priorities = {p.value for p in Priority}
+
+    statuses = None
+    if status:
+        statuses = [s.strip() for s in status.split(",")]
+        invalid = [s for s in statuses if s not in valid_statuses]
+        if invalid:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid status values: {', '.join(invalid)}. "
+                f"Valid values: {', '.join(sorted(valid_statuses))}",
+            )
+
+    priorities = None
+    if priority:
+        priorities = [p.strip() for p in priority.split(",")]
+        invalid = [p for p in priorities if p not in valid_priorities]
+        if invalid:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid priority values: {', '.join(invalid)}. "
+                f"Valid values: {', '.join(sorted(valid_priorities))}",
+            )
 
     items = item_service.get_items_by_list(
         db, list_id,

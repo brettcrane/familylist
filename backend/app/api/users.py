@@ -38,10 +38,11 @@ async def lookup_users(
     users = (
         db.query(User)
         .filter(func.lower(User.display_name).contains(name.lower()))
+        .limit(20)
         .all()
     )
     return [
-        {"id": u.id, "display_name": u.display_name, "email": u.email}
+        {"id": u.id, "display_name": u.display_name}
         for u in users
     ]
 
