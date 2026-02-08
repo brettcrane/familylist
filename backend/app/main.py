@@ -74,7 +74,13 @@ app.include_router(stream.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 
 
-@app.get("/api/health", response_model=HealthResponse, tags=["health"])
+# Mount MCP server for Claude Cowork integration (must be before SPA catch-all)
+from app.mcp_server import setup_mcp
+
+setup_mcp(app)
+
+
+@app.get("/api/health", response_model=HealthResponse, tags=["health"], operation_id="health_check")
 def health_check():
     """Health check endpoint (no authentication required)."""
     settings = get_settings()

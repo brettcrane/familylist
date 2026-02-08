@@ -20,7 +20,7 @@ from app.services import list_service
 router = APIRouter(prefix="/lists", tags=["lists"], dependencies=[Depends(get_auth)])
 
 
-@router.get("", response_model=list[ListResponse])
+@router.get("", response_model=list[ListResponse], operation_id="get_lists")
 def get_lists(
     include_templates: bool = Query(False, description="Include template lists"),
     current_user: User | None = Depends(get_current_user),
@@ -66,7 +66,7 @@ def get_lists(
     return result
 
 
-@router.post("", response_model=ListWithItemsResponse, status_code=201)
+@router.post("", response_model=ListWithItemsResponse, status_code=201, operation_id="create_list")
 def create_list(
     data: ListCreate,
     current_user: User | None = Depends(get_current_user),
@@ -85,7 +85,7 @@ def create_list(
     return new_list
 
 
-@router.get("/{list_id}", response_model=ListWithItemsResponse)
+@router.get("/{list_id}", response_model=ListWithItemsResponse, operation_id="get_list")
 def get_list(
     list_id: str,
     current_user: User | None = Depends(get_current_user),
@@ -127,7 +127,7 @@ def get_list(
     )
 
 
-@router.put("/{list_id}", response_model=ListResponse)
+@router.put("/{list_id}", response_model=ListResponse, operation_id="update_list")
 def update_list(
     list_id: str,
     data: ListUpdate,
@@ -146,7 +146,7 @@ def update_list(
     return updated
 
 
-@router.delete("/{list_id}", status_code=204)
+@router.delete("/{list_id}", status_code=204, operation_id="delete_list")
 def delete_list(
     list_id: str,
     current_user: User | None = Depends(get_current_user),
@@ -163,7 +163,7 @@ def delete_list(
     list_service.delete_list(db, list_obj)
 
 
-@router.post("/{list_id}/duplicate", response_model=ListWithItemsResponse, status_code=201)
+@router.post("/{list_id}/duplicate", response_model=ListWithItemsResponse, status_code=201, operation_id="duplicate_list")
 def duplicate_list(
     list_id: str,
     data: ListDuplicateRequest,

@@ -18,7 +18,7 @@ from app.services import category_service, list_service
 router = APIRouter(tags=["categories"], dependencies=[Depends(get_auth)])
 
 
-@router.get("/lists/{list_id}/categories", response_model=list[CategoryResponse])
+@router.get("/lists/{list_id}/categories", response_model=list[CategoryResponse], operation_id="get_categories")
 def get_categories(
     list_id: str,
     current_user: User | None = Depends(get_current_user),
@@ -35,7 +35,7 @@ def get_categories(
     return categories
 
 
-@router.post("/lists/{list_id}/categories", response_model=CategoryResponse, status_code=201)
+@router.post("/lists/{list_id}/categories", response_model=CategoryResponse, status_code=201, operation_id="create_category")
 def create_category(
     list_id: str,
     data: CategoryCreate,
