@@ -1,10 +1,12 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
 import { CategorySection, EditItemModal } from '../components/items';
 import { BottomInputBar } from '../components/items/BottomInputBar';
+import { CategoryToastStack } from '../components/items/CategoryToastStack';
+import type { RecentItemEntry } from '../components/items/CategoryToastStack';
 import { NLParseModal } from '../components/items/NLParseModal';
 import { DoneList } from '../components/done';
 import { EditListModal } from '../components/lists/EditListModal';
@@ -28,14 +30,9 @@ import { getErrorMessage } from '../api/client';
 import { ErrorState } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
-const AUTO_ACCEPT_DELAY = 2000;
+const MAX_RECENT_ENTRIES = 5;
 
-interface CategorySuggestionState {
-  itemName: string;
-  categoryName: string;
-  categoryId: string | null;
-  confidence: number;
-}
+let entryIdCounter = 0;
 
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,25 +60,17 @@ export function ListPage() {
   const [inputValue, setInputValue] = useState('');
   const [aiMode, setAiMode] = useState(false);
   const [isInputLoading, setIsInputLoading] = useState(false);
-  const [suggestion, setSuggestion] = useState<CategorySuggestionState | null>(null);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [nlModalOpen, setNlModalOpen] = useState(false);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [originalInput, setOriginalInput] = useState('');
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
+  // Non-blocking toast state
+  const [recentItems, setRecentItems] = useState<RecentItemEntry[]>([]);
+  const [pickerForEntryId, setPickerForEntryId] = useState<string | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLElement>(null);
-  const timerRef = useRef<number | null>(null);
-
-  // Clear timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
 
   // Group items by category
   const { categorizedItems, uncategorizedItems, checkedItems } = useMemo(() => {
@@ -118,14 +107,6 @@ export function ListPage() {
   const totalItems = list?.items.length || 0;
 
   // Handlers
-  const handleAddItem = (name: string, categoryId: string | null) => {
-    if (!name) return;
-    createItem.mutate({
-      name,
-      category_id: categoryId,
-    });
-  };
-
   const handleCheckItem = (itemId: string) => {
     checkItem.mutate({ id: itemId });
   };
@@ -200,6 +181,60 @@ export function ListPage() {
     );
   };
 
+  // Fire-and-forget single item creation
+  const handleSingleItem = (itemName: string) => {
+    if (!list) return;
+
+    const entryId = `entry-${++entryIdCounter}`;
+
+    // Add entry immediately
+    setRecentItems((prev) => [
+      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const, timestamp: Date.now() },
+      ...prev,
+    ].slice(0, MAX_RECENT_ENTRIES));
+
+    // Fire-and-forget async flow
+    (async () => {
+      let categoryId: string | null = null;
+      let categoryName: string | null = null;
+
+      try {
+        const result = await categorizeItem({
+          item_name: itemName,
+          list_type: list.type,
+        });
+
+        const matchedCategory = list.categories.find(
+          (cat) => cat.name.toLowerCase() === result.category.toLowerCase()
+        );
+        categoryId = matchedCategory?.id || null;
+        categoryName = result.category;
+      } catch {
+        // Categorize failed — create without category
+      }
+
+      try {
+        const newItem = await createItem.mutateAsync({
+          name: itemName,
+          category_id: categoryId,
+        });
+
+        setRecentItems((prev) =>
+          prev.map((e) =>
+            e.id === entryId
+              ? { ...e, status: 'created' as const, createdItemId: newItem.id, suggestedCategoryName: categoryName, suggestedCategoryId: categoryId }
+              : e
+          )
+        );
+      } catch (err) {
+        // Create failed — remove entry, show error
+        setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+        console.error('Failed to create item:', err);
+        showToast(getErrorMessage(err, 'Failed to add item. Please try again.'), 'error');
+      }
+    })();
+  };
+
   // Input submission
   const handleInputSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,97 +264,64 @@ export function ListPage() {
       setIsInputLoading(false);
     }
 
-    // Single item flow
-    await handleSingleItem(trimmedValue);
-  };
-
-  const handleSingleItem = async (itemName: string) => {
-    if (!list) return;
-
-    try {
-      setIsInputLoading(true);
-      const result = await categorizeItem({
-        item_name: itemName,
-        list_type: list.type,
-      });
-
-      const matchedCategory = list.categories.find(
-        (cat) => cat.name.toLowerCase() === result.category.toLowerCase()
-      );
-
-      setSuggestion({
-        itemName,
-        categoryName: result.category,
-        categoryId: matchedCategory?.id || null,
-        confidence: result.confidence,
-      });
-
-      // Start auto-accept timer
-      timerRef.current = window.setTimeout(() => {
-        acceptSuggestion(itemName, matchedCategory?.id || null);
-      }, AUTO_ACCEPT_DELAY);
-    } catch {
-      handleAddItem(itemName, null);
-      setInputValue('');
-    } finally {
-      setIsInputLoading(false);
-    }
-  };
-
-  const acceptSuggestion = (itemName: string, categoryId: string | null) => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-    if (!itemName) return;
-    handleAddItem(itemName, categoryId);
+    // Single item flow — clear input immediately, fire-and-forget
     setInputValue('');
-    setSuggestion(null);
+    handleSingleItem(trimmedValue);
   };
 
-  const handleAcceptSuggestion = () => {
-    if (suggestion) {
-      acceptSuggestion(suggestion.itemName, suggestion.categoryId);
+  // Toast handlers
+  const handleToastDismiss = useCallback((entryId: string) => {
+    setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+    setPickerForEntryId((prev) => (prev === entryId ? null : prev));
+  }, []);
+
+  const handleToastChangeCategory = useCallback((entryId: string) => {
+    setPickerForEntryId(entryId);
+  }, []);
+
+  const handleToastSelectCategory = useCallback((entryId: string, categoryId: string | null) => {
+    const entry = recentItems.find((e) => e.id === entryId);
+    if (!entry?.createdItemId || !list) {
+      setPickerForEntryId(null);
+      return;
     }
-  };
 
-  const handleChangeCategory = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-    setShowCategoryPicker(true);
-  };
-
-  const handleSelectCategory = (categoryId: string | null) => {
-    if (suggestion && list) {
-      const selectedCategory = list.categories.find((c) => c.id === categoryId);
-      const selectedCategoryName = selectedCategory?.name || 'Uncategorized';
-
-      if (selectedCategoryName !== suggestion.categoryName) {
-        submitFeedback({
-          item_name: suggestion.itemName,
-          list_type: list.type,
-          correct_category: selectedCategoryName,
-        }).catch((err) => {
-          console.warn('Category feedback submission failed:', {
-            itemName: suggestion.itemName,
-            category: selectedCategoryName,
-            error: err,
-          });
-        });
+    // Update item category
+    updateItem.mutate(
+      { id: entry.createdItemId, data: { category_id: categoryId } },
+      {
+        onError: (error) => {
+          console.error('Failed to update item category:', error);
+          showToast(getErrorMessage(error, 'Failed to change category.'), 'error');
+        },
       }
+    );
 
-      acceptSuggestion(suggestion.itemName, categoryId);
+    // Submit feedback if category changed
+    const selectedCategory = list.categories.find((c) => c.id === categoryId);
+    const selectedCategoryName = selectedCategory?.name || 'Uncategorized';
+    if (selectedCategoryName !== entry.suggestedCategoryName) {
+      submitFeedback({
+        item_name: entry.itemName,
+        list_type: list.type,
+        correct_category: selectedCategoryName,
+      }).catch((err) => {
+        console.warn('Category feedback submission failed:', {
+          itemName: entry.itemName,
+          category: selectedCategoryName,
+          error: err,
+        });
+      });
     }
-    setShowCategoryPicker(false);
-  };
 
-  const handleDismissSuggestion = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-    setSuggestion(null);
-    setShowCategoryPicker(false);
-  };
+    // Remove entry and close picker
+    setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+    setPickerForEntryId(null);
+  }, [recentItems, list, updateItem, showToast]);
+
+  const handleToastClosePicker = useCallback(() => {
+    setPickerForEntryId(null);
+  }, []);
 
   const handleNlConfirm = (items: ParsedItem[]) => {
     if (!list) return;
@@ -328,7 +330,10 @@ export function ListPage() {
       const matchedCategory = list.categories.find(
         (cat) => cat.name.toLowerCase() === item.category.toLowerCase()
       );
-      handleAddItem(item.name, matchedCategory?.id || null);
+      createItem.mutate({
+        name: item.name,
+        category_id: matchedCategory?.id || null,
+      });
     });
 
     setNlModalOpen(false);
@@ -467,26 +472,30 @@ export function ListPage() {
         </AnimatePresence>
       </Main>
 
-      {/* Bottom input bar - always visible, thumb-friendly */}
-      <BottomInputBar
-        ref={inputRef}
-        listType={list.type}
-        inputValue={inputValue}
-        onInputChange={setInputValue}
-        onInputSubmit={handleInputSubmit}
-        isLoading={isInputLoading}
-        aiMode={aiMode}
-        onAiModeToggle={() => setAiMode(!aiMode)}
-        inputDisabled={!!suggestion || isInputLoading}
-        suggestion={suggestion}
-        showCategoryPicker={showCategoryPicker}
-        categories={list.categories}
-        autoAcceptDelay={AUTO_ACCEPT_DELAY}
-        onAcceptSuggestion={handleAcceptSuggestion}
-        onChangeCategory={handleChangeCategory}
-        onSelectCategory={handleSelectCategory}
-        onDismissSuggestion={handleDismissSuggestion}
-      />
+      {/* Bottom area: toast stack + input bar */}
+      <div className="sticky bottom-0 z-40 safe-bottom">
+        <CategoryToastStack
+          entries={recentItems}
+          categories={list.categories}
+          listType={list.type}
+          pickerForEntryId={pickerForEntryId}
+          onDismiss={handleToastDismiss}
+          onChangeCategory={handleToastChangeCategory}
+          onSelectCategory={handleToastSelectCategory}
+          onClosePicker={handleToastClosePicker}
+        />
+        <BottomInputBar
+          ref={inputRef}
+          listType={list.type}
+          inputValue={inputValue}
+          onInputChange={setInputValue}
+          onInputSubmit={handleInputSubmit}
+          isLoading={isInputLoading}
+          aiMode={aiMode}
+          onAiModeToggle={() => setAiMode(!aiMode)}
+          inputDisabled={isInputLoading}
+        />
+      </div>
 
       {/* Natural language parse modal */}
       <NLParseModal
