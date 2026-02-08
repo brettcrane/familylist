@@ -14,7 +14,7 @@ from app.services import user_service  # Still needed for get_user_by_id
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me", response_model=UserResponse, operation_id="get_current_user")
+@router.get("/me", response_model=UserResponse, operation_id="get_me")
 async def get_current_user_info(
     current_user: User = Depends(require_user),
 ):
@@ -47,7 +47,7 @@ async def lookup_users(
     ]
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse, operation_id="get_user")
 async def get_user(
     user_id: str,
     current_user: User = Depends(require_user),

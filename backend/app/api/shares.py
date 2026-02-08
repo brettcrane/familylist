@@ -20,7 +20,7 @@ from app.services import list_service, user_service
 router = APIRouter(prefix="/lists/{list_id}/shares", tags=["shares"])
 
 
-@router.get("", response_model=list[ListShareWithUserResponse])
+@router.get("", response_model=list[ListShareWithUserResponse], operation_id="get_list_shares")
 async def get_list_shares(
     list_id: str,
     current_user: User = Depends(require_user),
@@ -75,7 +75,7 @@ async def get_list_shares(
     return result
 
 
-@router.post("", response_model=ListShareWithUserResponse, status_code=201)
+@router.post("", response_model=ListShareWithUserResponse, status_code=201, operation_id="share_list")
 async def share_list_by_email(
     list_id: str,
     data: ListShareByEmailRequest,
@@ -133,7 +133,7 @@ async def share_list_by_email(
     )
 
 
-@router.patch("/{share_id}", response_model=ListShareWithUserResponse)
+@router.patch("/{share_id}", response_model=ListShareWithUserResponse, operation_id="update_share_permission")
 async def update_share_permission(
     list_id: str,
     share_id: str,
@@ -186,7 +186,7 @@ async def update_share_permission(
     )
 
 
-@router.delete("/{share_id}", status_code=204)
+@router.delete("/{share_id}", status_code=204, operation_id="revoke_share")
 async def revoke_share(
     list_id: str,
     share_id: str,

@@ -58,7 +58,7 @@ def create_category(
     return category
 
 
-@router.put("/categories/{category_id}", response_model=CategoryResponse)
+@router.put("/categories/{category_id}", response_model=CategoryResponse, operation_id="update_category")
 def update_category(
     category_id: str,
     data: CategoryUpdate,
@@ -82,7 +82,7 @@ def update_category(
     return updated
 
 
-@router.delete("/categories/{category_id}", status_code=204)
+@router.delete("/categories/{category_id}", status_code=204, operation_id="delete_category")
 def delete_category(
     category_id: str,
     current_user: User | None = Depends(get_current_user),
@@ -98,7 +98,7 @@ def delete_category(
     category_service.delete_category(db, category)
 
 
-@router.post("/lists/{list_id}/categories/reorder", response_model=list[CategoryResponse])
+@router.post("/lists/{list_id}/categories/reorder", response_model=list[CategoryResponse], operation_id="reorder_categories")
 def reorder_categories(
     list_id: str,
     data: CategoryReorder,

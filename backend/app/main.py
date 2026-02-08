@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from app.api import ai, categories, items, lists, push, shares, stream, users
 from app.config import get_settings
 from app.database import create_indexes, get_db_context, init_db
+from app.mcp_server import setup_mcp
 from app.schemas import HealthResponse
 from app.services.ai_service import ai_service
 
@@ -74,10 +75,12 @@ app.include_router(stream.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 
 
-# Mount MCP server for Claude Cowork integration (must be before SPA catch-all)
-from app.mcp_server import setup_mcp
-
-setup_mcp(app)
+# Mount MCP server — must be before the SPA catch-all (/{path:path})
+# which would otherwise shadow GET /mcp with index.html.
+try:
+    setup_mcp(app)
+except Exception:
+    logger.exception("Failed to mount MCP server — continuing without MCP")
 
 
 @app.get("/api/health", response_model=HealthResponse, tags=["health"], operation_id="health_check")
