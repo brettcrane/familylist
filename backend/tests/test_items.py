@@ -68,14 +68,14 @@ class TestItemEndpoints:
 
         # Get unchecked items (should be empty)
         response = client.get(
-            f"/api/lists/{list_id}/items?status=unchecked", headers=auth_headers
+            f"/api/lists/{list_id}/items?is_checked=unchecked", headers=auth_headers
         )
         assert response.status_code == 200
         assert len(response.json()) == 0
 
         # Get checked items (should have 1)
         response = client.get(
-            f"/api/lists/{list_id}/items?status=checked", headers=auth_headers
+            f"/api/lists/{list_id}/items?is_checked=checked", headers=auth_headers
         )
         assert response.status_code == 200
         assert len(response.json()) == 1
@@ -182,7 +182,7 @@ class TestItemEndpoints:
 
         # Verify both are checked
         get_response = client.get(
-            f"/api/lists/{list_id}/items?status=checked", headers=auth_headers
+            f"/api/lists/{list_id}/items?is_checked=checked", headers=auth_headers
         )
         assert len(get_response.json()) == 2
 
@@ -193,13 +193,13 @@ class TestItemEndpoints:
 
         # Verify all items are now unchecked
         get_response = client.get(
-            f"/api/lists/{list_id}/items?status=unchecked", headers=auth_headers
+            f"/api/lists/{list_id}/items?is_checked=unchecked", headers=auth_headers
         )
         assert len(get_response.json()) == 2
 
         # Verify no items are checked
         get_response = client.get(
-            f"/api/lists/{list_id}/items?status=checked", headers=auth_headers
+            f"/api/lists/{list_id}/items?is_checked=checked", headers=auth_headers
         )
         assert len(get_response.json()) == 0
 
@@ -741,6 +741,302 @@ class TestItemEndpoints:
             f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
         )
         assert response.status_code == 422
+
+
+class TestItemFiltering:
+    """Test suite for item filtering query params."""
+
+    def test_filter_by_task_status(self, client, auth_headers, created_list):
+        """Test filtering items by task status."""
+        list_id = created_list["id"]
+        # Create items with different statuses
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Open Task", "status": "open"},
+                {"name": "In Progress", "status": "in_progress"},
+                {"name": "Done Task", "status": "done"},
+                {"name": "Grocery Item"},
+            ]},
+            headers=auth_headers,
+        )
+
+        # Filter for open items
+        response = client.get(
+            f"/api/lists/{list_id}/items?status=open", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "Open Task"
+
+    def test_filter_by_comma_separated_status(self, client, auth_headers, created_list):
+        """Test filtering by multiple statuses."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Open", "status": "open"},
+                {"name": "In Progress", "status": "in_progress"},
+                {"name": "Done", "status": "done"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?status=open,in_progress", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+
+    def test_filter_by_priority(self, client, auth_headers, created_list):
+        """Test filtering items by priority."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Urgent", "priority": "urgent"},
+                {"name": "Low", "priority": "low"},
+                {"name": "No Priority"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?priority=urgent", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "Urgent"
+
+    def test_filter_by_comma_separated_priority(self, client, auth_headers, created_list):
+        """Test filtering by multiple priorities."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Urgent", "priority": "urgent"},
+                {"name": "High", "priority": "high"},
+                {"name": "Low", "priority": "low"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?priority=urgent,high", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+
+    def test_filter_by_due_before(self, client, auth_headers, created_list):
+        """Test filtering items due before a date."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Soon", "due_date": "2026-02-10"},
+                {"name": "Later", "due_date": "2026-06-15"},
+                {"name": "No Date"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_before=2026-03-01", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "Soon"
+
+    def test_filter_by_due_after(self, client, auth_headers, created_list):
+        """Test filtering items due after a date."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Soon", "due_date": "2026-02-10"},
+                {"name": "Later", "due_date": "2026-06-15"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_after=2026-03-01", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "Later"
+
+    def test_filter_by_assigned_to(self, client, auth_headers, created_list, db_session):
+        """Test filtering items by assigned_to."""
+        from app.models import ListShare, User
+
+        user = User(clerk_user_id="clerk_filter_test", display_name="Filter User")
+        db_session.add(user)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        share = ListShare(list_id=list_id, user_id=user.id, permission="edit")
+        db_session.add(share)
+        db_session.commit()
+
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Assigned", "assigned_to": user.id},
+                {"name": "Unassigned"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?assigned_to={user.id}", headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "Assigned"
+
+    def test_filter_combines_multiple_params(self, client, auth_headers, created_list):
+        """Test combining multiple filter parameters."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Urgent Open", "priority": "urgent", "status": "open"},
+                {"name": "Urgent Done", "priority": "urgent", "status": "done"},
+                {"name": "Low Open", "priority": "low", "status": "open"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?priority=urgent&status=open",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "Urgent Open"
+
+    def test_is_checked_param_replaces_status(self, client, auth_headers, created_list):
+        """Test that is_checked param works for checked/unchecked filtering."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [{"name": "Item 1"}, {"name": "Item 2"}]},
+            headers=auth_headers,
+        )
+        item_id = create_response.json()[0]["id"]
+        client.post(f"/api/items/{item_id}/check", headers=auth_headers)
+
+        # is_checked=checked
+        response = client.get(
+            f"/api/lists/{list_id}/items?is_checked=checked", headers=auth_headers
+        )
+        assert len(response.json()) == 1
+
+        # is_checked=unchecked
+        response = client.get(
+            f"/api/lists/{list_id}/items?is_checked=unchecked", headers=auth_headers
+        )
+        assert len(response.json()) == 1
+
+    def test_filter_by_created_by(self, client, auth_headers, created_list, db_session):
+        """Test filtering items by created_by user ID."""
+        from app.models import User
+
+        creator = User(clerk_user_id="clerk_creator_test", display_name="Creator")
+        db_session.add(creator)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        # Create items - one will have created_by set via direct DB manipulation
+        # since API key auth doesn't set created_by
+        from app.models import Item
+        item = Item(
+            list_id=list_id, name="AI Created", created_by=creator.id, sort_order=0
+        )
+        db_session.add(item)
+        db_session.commit()
+
+        # Create a regular item via API (created_by will be None under API key auth)
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Manual Item"},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?created_by={creator.id}",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "AI Created"
+
+    def test_filter_due_date_range(self, client, auth_headers, created_list):
+        """Test combining due_before and due_after for a date range."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"items": [
+                {"name": "Early", "due_date": "2026-01-15"},
+                {"name": "In Range", "due_date": "2026-03-15"},
+                {"name": "Late", "due_date": "2026-06-15"},
+            ]},
+            headers=auth_headers,
+        )
+
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_after=2026-02-01&due_before=2026-04-01",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["name"] == "In Range"
+
+    def test_filter_due_date_boundary_inclusive(self, client, auth_headers, created_list):
+        """Test that due_before and due_after include the boundary date itself."""
+        list_id = created_list["id"]
+        client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Boundary", "due_date": "2026-03-15"},
+            headers=auth_headers,
+        )
+
+        # due_before=2026-03-15 should include items due ON that date (<=)
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_before=2026-03-15",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+        # due_after=2026-03-15 should include items due ON that date (>=)
+        response = client.get(
+            f"/api/lists/{list_id}/items?due_after=2026-03-15",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+    def test_filter_invalid_status_rejected(self, client, auth_headers, created_list):
+        """Test that invalid status filter values return 422."""
+        list_id = created_list["id"]
+        response = client.get(
+            f"/api/lists/{list_id}/items?status=cancelled",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+        assert "Invalid status" in response.json()["detail"]
+
+    def test_filter_invalid_priority_rejected(self, client, auth_headers, created_list):
+        """Test that invalid priority filter values return 422."""
+        list_id = created_list["id"]
+        response = client.get(
+            f"/api/lists/{list_id}/items?priority=critical",
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+        assert "Invalid priority" in response.json()["detail"]
 
 
 class TestCategoryEndpoints:

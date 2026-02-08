@@ -15,7 +15,9 @@ from app.schemas import (
     ItemCheckRequest,
     ItemCreate,
     ItemResponse,
+    ItemStatus,
     ItemUpdate,
+    Priority,
 )
 from app.serializers import item_to_response
 from app.services import item_service, list_service
@@ -133,18 +135,59 @@ async def publish_event_async(
 @router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
 def get_items(
     list_id: str,
-    status: str = Query("all", pattern="^(all|checked|unchecked)$"),
+    is_checked: str = Query("all", pattern="^(all|checked|unchecked)$"),
+    status: str | None = Query(None, description="Comma-separated task statuses: open,in_progress,done,blocked"),
+    priority: str | None = Query(None, description="Comma-separated priorities: urgent,high,medium,low"),
+    due_before: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    due_after: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    assigned_to: str | None = Query(None),
+    created_by: str | None = Query(None),
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get items for a list, optionally filtered by status."""
+    """Get items for a list with optional filters."""
     list_obj = list_service.get_list_by_id(db, list_id)
     if not list_obj:
         raise HTTPException(status_code=404, detail="List not found")
 
     check_list_access(db, list_id, current_user, require_edit=False)
 
-    items = item_service.get_items_by_list(db, list_id, status=status)
+    # Parse and validate comma-separated filter values
+    valid_statuses = {s.value for s in ItemStatus}
+    valid_priorities = {p.value for p in Priority}
+
+    statuses = None
+    if status:
+        statuses = [s.strip() for s in status.split(",")]
+        invalid = [s for s in statuses if s not in valid_statuses]
+        if invalid:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid status values: {', '.join(invalid)}. "
+                f"Valid values: {', '.join(sorted(valid_statuses))}",
+            )
+
+    priorities = None
+    if priority:
+        priorities = [p.strip() for p in priority.split(",")]
+        invalid = [p for p in priorities if p not in valid_priorities]
+        if invalid:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid priority values: {', '.join(invalid)}. "
+                f"Valid values: {', '.join(sorted(valid_priorities))}",
+            )
+
+    items = item_service.get_items_by_list(
+        db, list_id,
+        is_checked=is_checked,
+        status=statuses,
+        priority=priorities,
+        due_before=due_before,
+        due_after=due_after,
+        assigned_to=assigned_to,
+        created_by=created_by,
+    )
     return [item_to_response(item) for item in items]
 
 

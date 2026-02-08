@@ -6,10 +6,10 @@ import type { Item, ItemCreate, ItemBatchCreate, ItemUpdate, ItemCheckRequest } 
  */
 export function getItems(
   listId: string,
-  status?: 'all' | 'checked' | 'unchecked',
+  isChecked?: 'all' | 'checked' | 'unchecked',
   signal?: AbortSignal
 ): Promise<Item[]> {
-  const params = status ? `?status=${status}` : '';
+  const params = isChecked ? `?is_checked=${isChecked}` : '';
   return get<Item[]>(`/lists/${listId}/items${params}`, signal);
 }
 
