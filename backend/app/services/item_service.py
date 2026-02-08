@@ -3,7 +3,7 @@
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Item, utc_now
-from app.schemas import ItemCreate, ItemUpdate
+from app.schemas import ItemCreate, ItemStatus, ItemUpdate
 
 
 def get_items_by_list(
@@ -13,6 +13,7 @@ def get_items_by_list(
     query = db.query(Item).options(
         joinedload(Item.checked_by_user),
         joinedload(Item.assigned_to_user),
+        joinedload(Item.created_by_user),
     ).filter(Item.list_id == list_id)
 
     if status == "checked":
@@ -29,10 +30,13 @@ def get_item_by_id(db: Session, item_id: str) -> Item | None:
     return db.query(Item).options(
         joinedload(Item.checked_by_user),
         joinedload(Item.assigned_to_user),
+        joinedload(Item.created_by_user),
     ).filter(Item.id == item_id).first()
 
 
-def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
+def create_item(
+    db: Session, list_id: str, data: ItemCreate, created_by: str | None = None
+) -> Item:
     """Create a new item."""
     # Get max sort_order for this list
     max_order = (
@@ -51,15 +55,25 @@ def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
         category_id=data.category_id,
         magnitude=data.magnitude,
         assigned_to=data.assigned_to,
+        priority=data.priority,
+        due_date=data.due_date,
+        status=data.status,
+        created_by=created_by,
         sort_order=next_order,
     )
+    # Sync: status=done at create time → mark checked
+    if data.status == ItemStatus.DONE:
+        item.is_checked = True
+        item.checked_at = utc_now()
     db.add(item)
     db.commit()
     db.refresh(item)
     return item
 
 
-def create_items_batch(db: Session, list_id: str, items_data: list[ItemCreate]) -> list[Item]:
+def create_items_batch(
+    db: Session, list_id: str, items_data: list[ItemCreate], created_by: str | None = None
+) -> list[Item]:
     """Create multiple items at once."""
     # Get max sort_order for this list
     max_order = (
@@ -80,8 +94,16 @@ def create_items_batch(db: Session, list_id: str, items_data: list[ItemCreate]) 
             category_id=data.category_id,
             magnitude=data.magnitude,
             assigned_to=data.assigned_to,
+            priority=data.priority,
+            due_date=data.due_date,
+            status=data.status,
+            created_by=created_by,
             sort_order=next_order + idx,
         )
+        # Sync: status=done at create time → mark checked
+        if data.status == ItemStatus.DONE:
+            item.is_checked = True
+            item.checked_at = utc_now()
         db.add(item)
         items.append(item)
 
@@ -92,11 +114,30 @@ def create_items_batch(db: Session, list_id: str, items_data: list[ItemCreate]) 
 
 
 def update_item(db: Session, item: Item, data: ItemUpdate) -> Item:
-    """Update an item."""
+    """Update an item.
+
+    Bidirectional sync between status and is_checked for task items:
+    - Setting status=done → is_checked=True
+    - Setting status to open/in_progress/blocked → is_checked=False
+    """
     update_data = data.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
         setattr(item, field, value)
+
+    # Bidirectional sync between status and is_checked for task items
+    if "status" in update_data:
+        if update_data["status"] == ItemStatus.DONE.value:
+            item.is_checked = True
+            item.checked_at = utc_now()
+        elif update_data["status"] in (
+            ItemStatus.OPEN.value,
+            ItemStatus.IN_PROGRESS.value,
+            ItemStatus.BLOCKED.value,
+        ):
+            item.is_checked = False
+            item.checked_at = None
+            item.checked_by = None
 
     item.updated_at = utc_now()
     db.commit()
@@ -115,6 +156,9 @@ def check_item(db: Session, item: Item, user_id: str | None = None) -> Item:
     item.is_checked = True
     item.checked_at = utc_now()
     item.checked_by = user_id
+    # Sync status for task items
+    if item.status is not None:
+        item.status = ItemStatus.DONE.value
     item.updated_at = utc_now()
     db.commit()
     db.refresh(item)
@@ -126,6 +170,9 @@ def uncheck_item(db: Session, item: Item) -> Item:
     item.is_checked = False
     item.checked_at = None
     item.checked_by = None
+    # Sync status for task items
+    if item.status is not None:
+        item.status = ItemStatus.OPEN.value
     item.updated_at = utc_now()
     db.commit()
     db.refresh(item)
@@ -156,6 +203,9 @@ def restore_checked_items(db: Session, list_id: str) -> int:
         item.is_checked = False
         item.checked_at = None
         item.checked_by = None
+        # Sync status for task items
+        if item.status is not None:
+            item.status = ItemStatus.OPEN.value
         item.updated_at = utc_now()
 
     db.commit()

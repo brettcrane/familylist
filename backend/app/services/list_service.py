@@ -29,9 +29,11 @@ DEFAULT_CATEGORIES: dict[str, list[str]] = {
         "Other",
     ],
     ListType.TASKS: [
-        "High Priority",
-        "Normal",
-        "Low Priority",
+        "Health",
+        "Home",
+        "Finance",
+        "Family",
+        "Work",
     ],
 }
 
@@ -137,8 +139,8 @@ def get_list_by_id(db: Session, list_id: str) -> List | None:
 def get_list_with_items(db: Session, list_id: str) -> List | None:
     """Get a list by ID with owner, categories, and items eagerly loaded.
 
-    Items include checked_by_user and assigned_to_user relationships.
-    This avoids N+1 queries when serializing items with user names.
+    Items include checked_by_user, assigned_to_user, and created_by_user
+    relationships. This avoids N+1 queries when serializing items with user names.
     """
     return (
         db.query(List)
@@ -147,6 +149,7 @@ def get_list_with_items(db: Session, list_id: str) -> List | None:
             joinedload(List.categories),
             joinedload(List.items).joinedload(Item.checked_by_user),
             joinedload(List.items).joinedload(Item.assigned_to_user),
+            joinedload(List.items).joinedload(Item.created_by_user),
         )
         .filter(List.id == list_id)
         .first()
@@ -252,6 +255,9 @@ def duplicate_list(
                 quantity=item.quantity,
                 notes=item.notes,
                 magnitude=item.magnitude,
+                priority=item.priority,
+                due_date=item.due_date,
+                status=item.status,
                 sort_order=item.sort_order,
             )
             db.add(new_item)

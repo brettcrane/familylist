@@ -202,7 +202,7 @@ def _run_migrations() -> None:
             conn.commit()
             logger.info(f"Applied {len(migrations)} migrations to users table")
 
-        # Add magnitude and assigned_to columns to items table
+        # Add new columns to items table
         result = conn.execute(text("PRAGMA table_info(items)"))
         item_columns = {row[1] for row in result.fetchall()}
 
@@ -215,14 +215,62 @@ def _run_migrations() -> None:
             item_migrations.append(
                 "ALTER TABLE items ADD COLUMN assigned_to VARCHAR(36) REFERENCES users(id)"
             )
+        if "priority" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN priority VARCHAR(6)"
+            )
+        if "due_date" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN due_date VARCHAR(10)"
+            )
+        if "status" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN status VARCHAR(11)"
+            )
+        if "created_by" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN created_by VARCHAR(36) REFERENCES users(id)"
+            )
 
         for migration in item_migrations:
-            conn.execute(text(migration))
-            logger.info(f"Migration applied: {migration}")
+            try:
+                conn.execute(text(migration))
+                logger.info(f"Migration applied: {migration}")
+            except Exception as e:
+                logger.warning(f"Item migration skipped (may already exist): {e}")
 
         if item_migrations:
             conn.commit()
             logger.info(f"Applied {len(item_migrations)} migrations to items table")
+
+        # Seed Claude system user if not exists.
+        # This user row is used as the created_by value for items created via the
+        # Cowork MCP integration. The frontend shows an "AI" badge for items with
+        # this created_by ID (see CLAUDE_SYSTEM_USER_ID in models.py and api.ts).
+        from app.models import CLAUDE_SYSTEM_USER_ID
+
+        try:
+            result = conn.execute(text(
+                "SELECT id FROM users WHERE id = :id"
+            ), {"id": CLAUDE_SYSTEM_USER_ID})
+            if not result.fetchone():
+                from app.models import utc_now
+                now = utc_now()
+                conn.execute(text(
+                    "INSERT INTO users (id, clerk_user_id, display_name, email, created_at, updated_at) "
+                    "VALUES (:id, :clerk_id, :name, :email, :now, :now)"
+                ), {
+                    "id": CLAUDE_SYSTEM_USER_ID,
+                    "clerk_id": "claude-system",
+                    "name": "Claude",
+                    "email": "claude@system.local",
+                    "now": now,
+                })
+                conn.commit()
+                logger.info("Created Claude system user")
+        except Exception as e:
+            conn.rollback()
+            logger.warning(f"Claude system user seed skipped: {e}")
 
 
 def create_indexes(db: Session) -> None:
