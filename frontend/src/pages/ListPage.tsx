@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
@@ -71,6 +71,14 @@ export function ListPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLElement>(null);
+  const mountedRef = useRef(true);
+  const recentItemsRef = useRef(recentItems);
+  recentItemsRef.current = recentItems;
+
+  // Track mounted state for fire-and-forget cleanup
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Group items by category
   const { categorizedItems, uncategorizedItems, checkedItems } = useMemo(() => {
@@ -189,7 +197,7 @@ export function ListPage() {
 
     // Add entry immediately
     setRecentItems((prev) => [
-      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const, timestamp: Date.now() },
+      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const },
       ...prev,
     ].slice(0, MAX_RECENT_ENTRIES));
 
@@ -209,15 +217,22 @@ export function ListPage() {
         );
         categoryId = matchedCategory?.id || null;
         categoryName = result.category;
-      } catch {
-        // Categorize failed — create without category
+      } catch (err) {
+        console.warn('AI categorization failed, creating item without category:', {
+          itemName,
+          error: err,
+        });
       }
+
+      if (!mountedRef.current) return;
 
       try {
         const newItem = await createItem.mutateAsync({
           name: itemName,
           category_id: categoryId,
         });
+
+        if (!mountedRef.current) return;
 
         setRecentItems((prev) =>
           prev.map((e) =>
@@ -227,7 +242,7 @@ export function ListPage() {
           )
         );
       } catch (err) {
-        // Create failed — remove entry, show error
+        if (!mountedRef.current) return;
         setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
         console.error('Failed to create item:', err);
         showToast(getErrorMessage(err, 'Failed to add item. Please try again.'), 'error');
@@ -280,8 +295,9 @@ export function ListPage() {
   }, []);
 
   const handleToastSelectCategory = useCallback((entryId: string, categoryId: string | null) => {
-    const entry = recentItems.find((e) => e.id === entryId);
+    const entry = recentItemsRef.current.find((e) => e.id === entryId);
     if (!entry?.createdItemId || !list) {
+      console.warn('Category change ignored: entry no longer available', { entryId });
       setPickerForEntryId(null);
       return;
     }
@@ -317,7 +333,7 @@ export function ListPage() {
     // Remove entry and close picker
     setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
     setPickerForEntryId(null);
-  }, [recentItems, list, updateItem, showToast]);
+  }, [list, updateItem, showToast]);
 
   const handleToastClosePicker = useCallback(() => {
     setPickerForEntryId(null);
@@ -330,10 +346,18 @@ export function ListPage() {
       const matchedCategory = list.categories.find(
         (cat) => cat.name.toLowerCase() === item.category.toLowerCase()
       );
-      createItem.mutate({
-        name: item.name,
-        category_id: matchedCategory?.id || null,
-      });
+      createItem.mutate(
+        {
+          name: item.name,
+          category_id: matchedCategory?.id || null,
+        },
+        {
+          onError: (error) => {
+            console.error('Failed to create parsed item:', { name: item.name, error });
+            showToast(getErrorMessage(error, `Failed to add "${item.name}".`), 'error');
+          },
+        }
+      );
     });
 
     setNlModalOpen(false);
@@ -477,7 +501,6 @@ export function ListPage() {
         <CategoryToastStack
           entries={recentItems}
           categories={list.categories}
-          listType={list.type}
           pickerForEntryId={pickerForEntryId}
           onDismiss={handleToastDismiss}
           onChangeCategory={handleToastChangeCategory}

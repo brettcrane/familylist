@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import type { Category, ListType } from '../../types/api';
+import type { Category } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
@@ -12,14 +12,12 @@ export interface RecentItemEntry {
   createdItemId: string | null;
   suggestedCategoryName: string | null;
   suggestedCategoryId: string | null;
-  status: 'categorizing' | 'created' | 'error';
-  timestamp: number;
+  status: 'categorizing' | 'created';
 }
 
 interface CategoryToastStackProps {
   entries: RecentItemEntry[];
   categories: Category[];
-  listType: ListType;
   pickerForEntryId: string | null;
   onDismiss: (entryId: string) => void;
   onChangeCategory: (entryId: string) => void;
