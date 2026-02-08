@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PencilSquareIcon, UserGroupIcon, DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, UserGroupIcon, DocumentDuplicateIcon, TrashIcon, FolderIcon } from '@heroicons/react/24/outline';
 import { useUIStore } from '../../stores/uiStore';
 import { useDuplicateList } from '../../hooks/useLists';
 import { getErrorMessage } from '../../api/client';
@@ -22,6 +22,7 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
   const openDeleteListDialog = useUIStore((state) => state.openDeleteListDialog);
   const openShareListModal = useUIStore((state) => state.openShareListModal);
   const showToast = useUIStore((state) => state.showToast);
+  const openMoveToFolderModal = useUIStore((state) => state.openMoveToFolderModal);
 
   const duplicateList = useDuplicateList();
 
@@ -81,6 +82,11 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
       console.error('Failed to duplicate list:', { listId: list.id, error: err });
       showToast(getErrorMessage(err, 'Failed to duplicate list'), 'error');
     }
+  };
+
+  const handleMoveToFolder = () => {
+    openMoveToFolderModal(list.id);
+    onClose();
   };
 
   const handleDelete = () => {
@@ -159,6 +165,14 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
               >
                 <DocumentDuplicateIcon className="w-4 h-4" />
                 <span className="text-sm">Duplicate</span>
+              </button>
+
+              <button
+                onClick={handleMoveToFolder}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+              >
+                <FolderIcon className="w-4 h-4" />
+                <span className="text-sm">Move to folder...</span>
               </button>
 
               {/* Divider */}

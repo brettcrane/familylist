@@ -12,6 +12,8 @@ interface ListCardProps {
   list: List;
   itemCount?: number;
   checkedCount?: number;
+  /** When true, disables click navigation and long-press context menu (used in organize mode). */
+  disableInteraction?: boolean;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -33,7 +35,7 @@ function formatRelativeTime(dateString: string): string {
   });
 }
 
-export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProps) {
+export function ListCard({ list, itemCount = 0, checkedCount = 0, disableInteraction = false }: ListCardProps) {
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -49,9 +51,11 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
   const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
 
   const longPressHandlers = useLongPress({
-    onLongPress: () => openMenu(),
+    onLongPress: () => {
+      if (!disableInteraction) openMenu();
+    },
     onClick: () => {
-      navigate(`/lists/${list.id}`);
+      if (!disableInteraction) navigate(`/lists/${list.id}`);
     },
     threshold: 500,
   });

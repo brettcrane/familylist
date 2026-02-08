@@ -30,6 +30,12 @@ export interface ShareListModalState {
   listId: string | null;
 }
 
+/** Move to folder modal state */
+export interface MoveToFolderModalState {
+  open: boolean;
+  listId: string | null;
+}
+
 /** Toast state */
 export interface Toast {
   id: string;
@@ -65,6 +71,10 @@ interface UIState {
   shareListModal: ShareListModalState;
   openShareListModal: (listId: string) => void;
   closeShareListModal: () => void;
+
+  moveToFolderModal: MoveToFolderModalState;
+  openMoveToFolderModal: (listId: string) => void;
+  closeMoveToFolderModal: () => void;
 
   // Close all modals at once
   closeAllModals: () => void;
@@ -137,12 +147,19 @@ export const useUIStore = create<UIState>()(
       closeShareListModal: () =>
         set({ shareListModal: { open: false, listId: null } }),
 
+      moveToFolderModal: { open: false, listId: null },
+      openMoveToFolderModal: (listId) =>
+        set({ moveToFolderModal: { open: true, listId } }),
+      closeMoveToFolderModal: () =>
+        set({ moveToFolderModal: { open: false, listId: null } }),
+
       closeAllModals: () =>
         set({
           isCreateListModalOpen: false,
           editListModal: { open: false, listId: null },
           deleteListDialog: { open: false, listId: null, listName: '', itemCount: 0 },
           shareListModal: { open: false, listId: null },
+          moveToFolderModal: { open: false, listId: null },
         }),
 
       // Tab state
