@@ -13,6 +13,14 @@ class ListType(str, Enum):
     TASKS = "tasks"
 
 
+class Magnitude(str, Enum):
+    """Valid magnitude (effort sizing) values."""
+
+    SMALL = "S"
+    MEDIUM = "M"
+    LARGE = "L"
+
+
 # ============================================================================
 # User Schemas
 # ============================================================================
@@ -162,12 +170,13 @@ class ItemBase(BaseModel):
     quantity: int = Field(default=1, ge=1)
     notes: str | None = None
     category_id: str | None = None
+    magnitude: Magnitude | None = None
 
 
 class ItemCreate(ItemBase):
     """Schema for creating a single item."""
 
-    pass
+    assigned_to: str | None = Field(None, min_length=36, max_length=36)
 
 
 class ItemBatchCreate(BaseModel):
@@ -183,6 +192,8 @@ class ItemUpdate(BaseModel):
     quantity: int | None = Field(None, ge=1)
     notes: str | None = None
     category_id: str | None = None
+    magnitude: Magnitude | None = None
+    assigned_to: str | None = Field(None, min_length=36, max_length=36)
     sort_order: int | None = None
 
 
@@ -195,6 +206,8 @@ class ItemResponse(ItemBase):
     checked_by: str | None
     checked_by_name: str | None = None
     checked_at: str | None
+    assigned_to: str | None = None
+    assigned_to_name: str | None = None
     sort_order: int
     created_at: str
     updated_at: str
@@ -241,6 +254,7 @@ class ListResponse(ListBase):
 
     id: str
     owner_id: str | None
+    owner_name: str | None = None
     is_template: bool
     created_at: str
     updated_at: str

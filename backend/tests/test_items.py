@@ -247,6 +247,223 @@ class TestItemEndpoints:
         assert response.status_code == 200
         assert response.json()["restored_count"] == 0
 
+    def test_create_item_with_magnitude(self, client, auth_headers, created_list):
+        """Test creating an item with magnitude set."""
+        list_id = created_list["id"]
+        item_data = {"name": "Big Task", "magnitude": "L"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data[0]["magnitude"] == "L"
+
+    def test_update_item_magnitude(self, client, auth_headers, created_list):
+        """Test updating item magnitude through its lifecycle."""
+        list_id = created_list["id"]
+        # Create item without magnitude
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+        assert create_response.json()[0]["magnitude"] is None
+
+        # Set to S
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": "S"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["magnitude"] == "S"
+
+        # Change to M
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": "M"}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["magnitude"] == "M"
+
+        # Clear magnitude
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": None}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["magnitude"] is None
+
+    def test_invalid_magnitude_rejected(self, client, auth_headers, created_list):
+        """Test that invalid magnitude values are rejected."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad Item", "magnitude": "X"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_item_response_includes_assigned_fields(self, client, auth_headers, created_list):
+        """Test that item response includes assigned_to fields."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Test"}, headers=auth_headers
+        )
+        data = response.json()[0]
+        assert "assigned_to" in data
+        assert data["assigned_to"] is None
+        assert "assigned_to_name" in data
+        assert data["assigned_to_name"] is None
+
+    def test_invalid_magnitude_on_update(self, client, auth_headers, created_list):
+        """Test that invalid magnitude values are rejected on update."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.put(
+            f"/api/items/{item_id}", json={"magnitude": "X"}, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    def test_create_item_with_assigned_to(self, client, auth_headers, created_list, db_session):
+        """Test creating an item assigned to a valid user."""
+        from app.models import ListShare, User
+
+        # Create a user and give them access to the list
+        user = User(clerk_user_id="clerk_assignee", display_name="Jane Doe")
+        db_session.add(user)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        share = ListShare(list_id=list_id, user_id=user.id, permission="edit")
+        db_session.add(share)
+        db_session.commit()
+
+        item_data = {"name": "Assigned Task", "assigned_to": user.id}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        data = response.json()[0]
+        assert data["assigned_to"] == user.id
+        assert data["assigned_to_name"] == "Jane Doe"
+
+    def test_update_item_assigned_to(self, client, auth_headers, created_list, db_session):
+        """Test updating an item's assignment to a valid user."""
+        from app.models import ListShare, User
+
+        user = User(clerk_user_id="clerk_assignee_2", display_name="Bob Smith")
+        db_session.add(user)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        share = ListShare(list_id=list_id, user_id=user.id, permission="edit")
+        db_session.add(share)
+        db_session.commit()
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+        assert create_response.json()[0]["assigned_to"] is None
+
+        # Assign to user
+        response = client.put(
+            f"/api/items/{item_id}", json={"assigned_to": user.id}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["assigned_to"] == user.id
+        assert response.json()["assigned_to_name"] == "Bob Smith"
+
+        # Unassign
+        response = client.put(
+            f"/api/items/{item_id}", json={"assigned_to": None}, headers=auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["assigned_to"] is None
+        assert response.json()["assigned_to_name"] is None
+
+    def test_create_item_with_invalid_assigned_to(self, client, auth_headers, created_list):
+        """Test that assigning to a non-existent user returns 422."""
+        list_id = created_list["id"]
+        item_data = {"name": "Bad Assignment", "assigned_to": "00000000-0000-0000-0000-000000000000"}
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=item_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+        assert "user not found" in response.json()["detail"].lower()
+
+    def test_update_item_with_invalid_assigned_to(self, client, auth_headers, created_list):
+        """Test that updating assignment to a non-existent user returns 422."""
+        list_id = created_list["id"]
+        create_response = client.post(
+            f"/api/lists/{list_id}/items", json={"name": "Task"}, headers=auth_headers
+        )
+        item_id = create_response.json()[0]["id"]
+
+        response = client.put(
+            f"/api/items/{item_id}",
+            json={"assigned_to": "00000000-0000-0000-0000-000000000000"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+        assert "user not found" in response.json()["detail"].lower()
+
+    def test_batch_create_with_invalid_assigned_to(self, client, auth_headers, created_list):
+        """Test that batch create rejects items with invalid assigned_to."""
+        list_id = created_list["id"]
+        batch_data = {
+            "items": [
+                {"name": "Good Item"},
+                {"name": "Bad Item", "assigned_to": "00000000-0000-0000-0000-000000000000"},
+            ]
+        }
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+        )
+        assert response.status_code == 422
+
+        # Verify no items leaked (batch is atomic)
+        items_response = client.get(f"/api/lists/{list_id}/items", headers=auth_headers)
+        assert len(items_response.json()) == 0
+
+    def test_batch_create_with_valid_magnitude_and_assigned_to(
+        self, client, auth_headers, created_list, db_session
+    ):
+        """Test that batch create preserves magnitude and assigned_to on each item."""
+        from app.models import User, ListShare
+
+        # Create a user and share the list with them
+        user = User(clerk_user_id="clerk_batch_test", display_name="Batch User")
+        db_session.add(user)
+        db_session.commit()
+
+        list_id = created_list["id"]
+        share = ListShare(list_id=list_id, user_id=user.id, permission="edit")
+        db_session.add(share)
+        db_session.commit()
+
+        batch_data = {
+            "items": [
+                {"name": "Small Task", "magnitude": "S"},
+                {"name": "Large Assigned", "magnitude": "L", "assigned_to": user.id},
+                {"name": "Plain Item"},
+            ]
+        }
+        response = client.post(
+            f"/api/lists/{list_id}/items", json=batch_data, headers=auth_headers
+        )
+        assert response.status_code == 201
+        items = response.json()
+        assert len(items) == 3
+
+        assert items[0]["magnitude"] == "S"
+        assert items[0]["assigned_to"] is None
+
+        assert items[1]["magnitude"] == "L"
+        assert items[1]["assigned_to"] == user.id
+        assert items[1]["assigned_to_name"] == "Batch User"
+
+        assert items[2]["magnitude"] is None
+        assert items[2]["assigned_to"] is None
+
 
 class TestCategoryEndpoints:
     """Test suite for category endpoints."""

@@ -10,7 +10,10 @@ def get_items_by_list(
     db: Session, list_id: str, status: str = "all"
 ) -> list[Item]:
     """Get items for a list, filtered by status."""
-    query = db.query(Item).options(joinedload(Item.checked_by_user)).filter(Item.list_id == list_id)
+    query = db.query(Item).options(
+        joinedload(Item.checked_by_user),
+        joinedload(Item.assigned_to_user),
+    ).filter(Item.list_id == list_id)
 
     if status == "checked":
         query = query.filter(Item.is_checked == True)  # noqa: E712
@@ -23,7 +26,10 @@ def get_items_by_list(
 
 def get_item_by_id(db: Session, item_id: str) -> Item | None:
     """Get an item by ID."""
-    return db.query(Item).options(joinedload(Item.checked_by_user)).filter(Item.id == item_id).first()
+    return db.query(Item).options(
+        joinedload(Item.checked_by_user),
+        joinedload(Item.assigned_to_user),
+    ).filter(Item.id == item_id).first()
 
 
 def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
@@ -43,6 +49,8 @@ def create_item(db: Session, list_id: str, data: ItemCreate) -> Item:
         quantity=data.quantity,
         notes=data.notes,
         category_id=data.category_id,
+        magnitude=data.magnitude,
+        assigned_to=data.assigned_to,
         sort_order=next_order,
     )
     db.add(item)
@@ -70,6 +78,8 @@ def create_items_batch(db: Session, list_id: str, items_data: list[ItemCreate]) 
             quantity=data.quantity,
             notes=data.notes,
             category_id=data.category_id,
+            magnitude=data.magnitude,
+            assigned_to=data.assigned_to,
             sort_order=next_order + idx,
         )
         db.add(item)

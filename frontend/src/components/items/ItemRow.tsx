@@ -3,7 +3,10 @@ import clsx from 'clsx';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
 import { useHasPendingMutation } from '../../hooks/useOfflineQueue';
-import type { Item } from '../../types/api';
+import { MAGNITUDE_CONFIG } from '../../types/api';
+import { getUserColor } from '../../utils/colors';
+import { getInitials } from '../../utils/strings';
+import type { Item, Magnitude } from '../../types/api';
 
 interface ItemRowProps {
   item: Item;
@@ -143,6 +146,31 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
         )}
       </div>
 
+      {/* Badges - between content and ellipsis */}
+      {!isEditing && item.assigned_to && item.assigned_to_name && (
+        <span
+          className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: getUserColor(item.assigned_to) }}
+          title={`Assigned to ${item.assigned_to_name}`}
+        >
+          <span className="text-white font-bold" style={{ fontSize: '9px' }}>
+            {getInitials(item.assigned_to_name)}
+          </span>
+        </span>
+      )}
+      {!isEditing && item.magnitude && item.magnitude in MAGNITUDE_CONFIG && (
+        <span
+          className={clsx(
+            'px-1.5 py-0.5 rounded-full font-bold flex-shrink-0',
+            MAGNITUDE_CONFIG[item.magnitude as Magnitude].textClass,
+            MAGNITUDE_CONFIG[item.magnitude as Magnitude].bgClass,
+          )}
+          style={{ fontSize: '10px' }}
+        >
+          {item.magnitude}
+        </span>
+      )}
+
       {/* More options button - 44px tap target with negative margin to not inflate row height */}
       {onEdit && !isEditing && (
         <button
@@ -160,7 +188,7 @@ export function ItemRow({ item, onCheck, onEdit, onNameChange }: ItemRowProps) {
             'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30'
           )}
           aria-label={`Edit details for ${item.name}`}
-          title="Edit category, quantity, notes"
+          title="Edit item details"
         >
           <EllipsisHorizontalIcon className="w-5 h-5" />
         </button>

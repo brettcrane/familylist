@@ -1,6 +1,9 @@
 /** List type enum matching backend */
 export type ListType = 'grocery' | 'packing' | 'tasks';
 
+/** Magnitude (effort sizing) for items */
+export type Magnitude = 'S' | 'M' | 'L';
+
 /** User response from API */
 export interface User {
   id: string;
@@ -40,10 +43,13 @@ export interface Item {
   name: string;
   quantity: number;
   notes: string | null;
+  magnitude: Magnitude | null;
   is_checked: boolean;
   checked_by: string | null;
   checked_by_name: string | null;
   checked_at: string | null;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -55,6 +61,8 @@ export interface ItemCreate {
   quantity?: number;
   notes?: string | null;
   category_id?: string | null;
+  magnitude?: Magnitude | null;
+  assigned_to?: string | null;
 }
 
 /** Batch item create request */
@@ -68,6 +76,8 @@ export interface ItemUpdate {
   quantity?: number;
   notes?: string | null;
   category_id?: string | null;
+  magnitude?: Magnitude | null;
+  assigned_to?: string | null;
   sort_order?: number;
 }
 
@@ -84,6 +94,7 @@ export interface List {
   icon: string | null;
   color: string | null;
   owner_id: string | null;
+  owner_name: string | null;
   is_template: boolean;
   created_at: string;
   updated_at: string;
@@ -239,6 +250,31 @@ export const AI_MODE_HINTS: Record<ListType, string> = {
   packing: 'AI will suggest items to pack',
   tasks: 'AI will break this into tasks',
 };
+
+/** Magnitude display configuration */
+export const MAGNITUDE_CONFIG: Record<Magnitude, { label: string; textClass: string; bgClass: string }> = {
+  S: {
+    label: 'Small',
+    textClass: 'text-[var(--color-text-muted)]',
+    bgClass: 'bg-[var(--color-bg-secondary)]',
+  },
+  M: {
+    label: 'Medium',
+    textClass: 'text-[var(--color-pending)]',
+    bgClass: 'bg-[var(--color-pending)]/15',
+  },
+  L: {
+    label: 'Large',
+    textClass: 'text-[var(--color-destructive)]',
+    bgClass: 'bg-[var(--color-destructive)]/15',
+  },
+};
+
+/** Magnitude dropdown options (derived from MAGNITUDE_CONFIG) */
+export const MAGNITUDE_OPTIONS: { value: Magnitude | null; label: string }[] = [
+  { value: null, label: 'None' },
+  ...(['S', 'M', 'L'] as Magnitude[]).map(m => ({ value: m, label: MAGNITUDE_CONFIG[m].label })),
+];
 
 /** Category color mapping */
 export const CATEGORY_COLORS: Record<string, string> = {

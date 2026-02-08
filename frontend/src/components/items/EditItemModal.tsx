@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
-import { ChevronDownIcon, CheckIcon, PlusIcon, MinusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, CheckIcon, PlusIcon, MinusIcon, TrashIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { Button } from '../ui/Button';
 import { CategoryIcon } from '../icons/CategoryIcons';
 import { useCreateCategory } from '../../hooks/useCategories';
+import { useListShares, useCurrentUser } from '../../hooks/useShares';
 import { useUIStore } from '../../stores/uiStore';
 import { getErrorMessage } from '../../api/client';
-import type { Item, Category, ItemUpdate } from '../../types/api';
+import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS } from '../../types/api';
+import { getUserColor } from '../../utils/colors';
+import { getInitials } from '../../utils/strings';
+import type { Item, Category, ItemUpdate, Magnitude } from '../../types/api';
 
 interface EditItemModalProps {
   item: Item | null;
@@ -17,6 +21,9 @@ interface EditItemModalProps {
   onDelete: (itemId: string) => void;
   onClose: () => void;
   isSaving?: boolean;
+  isShared?: boolean;
+  ownerId?: string | null;
+  ownerName?: string | null;
 }
 
 export function EditItemModal({
@@ -27,21 +34,34 @@ export function EditItemModal({
   onDelete,
   onClose,
   isSaving = false,
+  isShared = false,
+  ownerId,
+  ownerName,
 }: EditItemModalProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
+  const [magnitude, setMagnitude] = useState<Magnitude | null>(null);
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [effortDropdownOpen, setEffortDropdownOpen] = useState(false);
+  const [assignedDropdownOpen, setAssignedDropdownOpen] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newlyCreatedCategory, setNewlyCreatedCategory] = useState<{ id: string; name: string } | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const effortDropdownRef = useRef<HTMLDivElement>(null);
+  const assignedDropdownRef = useRef<HTMLDivElement>(null);
   const newCategoryInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = useUIStore((state) => state.showToast);
   const createCategory = useCreateCategory(listId);
+
+  // Fetch shares and current user for assigned-to dropdown
+  const { data: shares, isError: sharesError, isLoading: sharesLoading } = useListShares(isShared ? listId : undefined);
+  const { data: currentUser } = useCurrentUser();
 
   // Reset state when item changes
   useEffect(() => {
@@ -49,8 +69,12 @@ export function EditItemModal({
       setSelectedCategoryId(item.category_id);
       setQuantity(item.quantity);
       setNotes(item.notes || '');
+      setMagnitude(item.magnitude);
+      setAssignedTo(item.assigned_to);
       setHasChanges(false);
       setCategoryDropdownOpen(false);
+      setEffortDropdownOpen(false);
+      setAssignedDropdownOpen(false);
       setIsCreatingCategory(false);
       setNewCategoryName('');
       setNewlyCreatedCategory(null);
@@ -71,17 +95,22 @@ export function EditItemModal({
       const categoryChanged = selectedCategoryId !== item.category_id;
       const quantityChanged = quantity !== item.quantity;
       const notesChanged = (notes || '') !== (item.notes || '');
-      setHasChanges(categoryChanged || quantityChanged || notesChanged);
+      const magnitudeChanged = magnitude !== item.magnitude;
+      const assignedChanged = assignedTo !== item.assigned_to;
+      setHasChanges(categoryChanged || quantityChanged || notesChanged || magnitudeChanged || assignedChanged);
     }
-  }, [item, selectedCategoryId, quantity, notes]);
+  }, [item, selectedCategoryId, quantity, notes, magnitude, assignedTo]);
 
-  // Handle Escape key to close modal (with proper state sequence)
+  // Handle Escape key - close innermost open UI element first, then modal
   useEffect(() => {
     if (!item) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        // Close in sequence: category creation -> dropdown -> modal
-        if (isCreatingCategory) {
+        if (assignedDropdownOpen) {
+          setAssignedDropdownOpen(false);
+        } else if (effortDropdownOpen) {
+          setEffortDropdownOpen(false);
+        } else if (isCreatingCategory) {
           setIsCreatingCategory(false);
           setNewCategoryName('');
           setCategoryError(null);
@@ -94,24 +123,45 @@ export function EditItemModal({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [item, onClose, categoryDropdownOpen, isCreatingCategory]);
+  }, [item, onClose, categoryDropdownOpen, isCreatingCategory, effortDropdownOpen, assignedDropdownOpen]);
 
-  // Close dropdown when clicking outside
+  // Close category dropdown when clicking outside
   useEffect(() => {
     if (!categoryDropdownOpen) return;
-
     const handleClickOutside = (e: MouseEvent) => {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
         setCategoryDropdownOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [categoryDropdownOpen]);
 
+  // Close effort dropdown when clicking outside
+  useEffect(() => {
+    if (!effortDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (effortDropdownRef.current && !effortDropdownRef.current.contains(e.target as Node)) {
+        setEffortDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [effortDropdownOpen]);
+
+  // Close assigned dropdown when clicking outside
+  useEffect(() => {
+    if (!assignedDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (assignedDropdownRef.current && !assignedDropdownRef.current.contains(e.target as Node)) {
+        setAssignedDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [assignedDropdownOpen]);
+
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Close if dragged down more than 100px or with enough velocity
     if (info.offset.y > 100 || info.velocity.y > 500) {
       onClose();
     }
@@ -130,6 +180,12 @@ export function EditItemModal({
     if ((notes || '') !== (item.notes || '')) {
       updates.notes = notes || null;
     }
+    if (magnitude !== item.magnitude) {
+      updates.magnitude = magnitude;
+    }
+    if (assignedTo !== item.assigned_to) {
+      updates.assigned_to = assignedTo;
+    }
 
     onSave(item.id, updates);
   };
@@ -142,7 +198,6 @@ export function EditItemModal({
     const trimmedName = newCategoryName.trim();
     if (!trimmedName) return;
 
-    // Check for duplicate category names (case-insensitive)
     const isDuplicate = categories.some(
       (cat) => cat.name.toLowerCase() === trimmedName.toLowerCase()
     );
@@ -155,7 +210,6 @@ export function EditItemModal({
 
     try {
       const newCategory = await createCategory.mutateAsync({ name: trimmedName });
-      // Store newly created category to handle race condition with query refresh
       setNewlyCreatedCategory({ id: newCategory.id, name: newCategory.name });
       setSelectedCategoryId(newCategory.id);
       setIsCreatingCategory(false);
@@ -169,14 +223,35 @@ export function EditItemModal({
     }
   };
 
-  // Sort categories by sort_order (memoized to avoid re-sorting on every render)
+  // Sort categories by sort_order
   const sortedCategories = useMemo(
     () => [...categories].sort((a, b) => a.sort_order - b.sort_order),
     [categories]
   );
-  // Handle newly created category that may not be in the list yet (race condition)
+  // Handle newly created category that may not be in the list yet (race condition with query refresh)
   const selectedCategory = sortedCategories.find(c => c.id === selectedCategoryId)
     || (newlyCreatedCategory?.id === selectedCategoryId ? newlyCreatedCategory as Category : null);
+
+  // Build assigned-to options
+  const assignedUserName = useMemo(() => {
+    if (!assignedTo) return null;
+    if (currentUser && assignedTo === currentUser.id) return currentUser.display_name;
+    if (ownerId && assignedTo === ownerId && ownerName) return ownerName;
+    const share = shares?.find(s => s.user.id === assignedTo);
+    if (share) return share.user.display_name;
+    return item?.assigned_to_name || null;
+  }, [assignedTo, currentUser, ownerId, ownerName, shares, item]);
+
+  const sortedMembers = useMemo(() => {
+    if (!shares) return [];
+    return shares
+      .filter(s => {
+        if (currentUser && s.user.id === currentUser.id) return false;
+        if (ownerId && s.user.id === ownerId) return false;
+        return true;
+      })
+      .sort((a, b) => a.user.display_name.localeCompare(b.user.display_name));
+  }, [shares, currentUser, ownerId]);
 
   return (
     <AnimatePresence>
@@ -206,7 +281,7 @@ export function EditItemModal({
             onDragEnd={handleDragEnd}
             className="fixed inset-x-0 bottom-0 z-[var(--z-modal)] bg-[var(--color-bg-primary)] rounded-t-3xl shadow-2xl max-h-[70vh] overflow-hidden"
           >
-            {/* Drag handle - larger touch target, touch-none to prevent pull-to-refresh */}
+            {/* Drag handle - touch-none prevents pull-to-refresh interference */}
             <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
               <div className="w-10 h-1.5 bg-[var(--color-text-muted)]/40 rounded-full" />
             </div>
@@ -216,14 +291,48 @@ export function EditItemModal({
               <h2 id="edit-item-title" className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
                 Edit Item
               </h2>
-              <p className="mt-0.5 text-sm text-[var(--color-text-secondary)] font-medium truncate">
-                {item.name}
-              </p>
+              <div className="mt-0.5 flex items-center justify-between gap-3">
+                <p className="text-sm text-[var(--color-text-secondary)] font-medium truncate mr-3">
+                  {item.name}
+                </p>
+                {/* Quantity stepper in header */}
+                <div className="flex items-center h-9 bg-[var(--color-bg-secondary)] rounded-xl flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(-1)}
+                    disabled={quantity <= 1}
+                    className={clsx(
+                      'w-8 h-full flex items-center justify-center transition-colors rounded-l-xl',
+                      'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
+                      'disabled:opacity-40 disabled:cursor-not-allowed'
+                    )}
+                  >
+                    <MinusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  </button>
+                  <div className="w-8 text-center">
+                    <span className="font-display text-lg font-bold text-[var(--color-text-primary)]">
+                      {quantity}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(1)}
+                    disabled={quantity >= 99}
+                    className={clsx(
+                      'w-8 h-full flex items-center justify-center transition-colors rounded-r-xl',
+                      'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
+                      'disabled:opacity-40 disabled:cursor-not-allowed'
+                    )}
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Content - compact layout */}
+            {/* Content */}
             <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: 'calc(70vh - 140px)' }}>
-              {/* Category and Quantity row - side by side */}
+              {/* Category and Effort row - side by side */}
               <div className="flex gap-3 items-start">
                 {/* Category Dropdown */}
                 <div className="flex-1" ref={categoryDropdownRef}>
@@ -258,7 +367,6 @@ export function EditItemModal({
                       )} />
                     </button>
 
-                    {/* Dropdown menu */}
                     <AnimatePresence>
                       {categoryDropdownOpen && (
                         <motion.div
@@ -270,7 +378,6 @@ export function EditItemModal({
                           aria-label="Category options"
                           className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden max-h-52 overflow-y-auto"
                         >
-                          {/* Uncategorized option */}
                           <button
                             type="button"
                             role="option"
@@ -320,10 +427,8 @@ export function EditItemModal({
                             </button>
                           ))}
 
-                          {/* Divider */}
                           <div className="h-px bg-[var(--color-text-muted)]/10 my-1" />
 
-                          {/* Create new category */}
                           {isCreatingCategory ? (
                             <div className="p-2">
                               <div className="flex gap-2">
@@ -337,7 +442,7 @@ export function EditItemModal({
                                       e.preventDefault();
                                       handleCreateCategory();
                                     } else if (e.key === 'Escape') {
-                                      e.stopPropagation(); // Prevent global handler from also firing
+                                      e.stopPropagation();
                                       setIsCreatingCategory(false);
                                       setNewCategoryName('');
                                       setCategoryError(null);
@@ -390,48 +495,94 @@ export function EditItemModal({
                   </div>
                 </div>
 
-                {/* Quantity - compact stepper */}
-                <div className="w-28">
+                {/* Effort Dropdown */}
+                <div className="flex-1" ref={effortDropdownRef}>
                   <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-                    Qty
+                    Effort
                   </label>
-                  <div className="flex items-center h-11 bg-[var(--color-bg-secondary)] rounded-xl">
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={() => handleQuantityChange(-1)}
-                      disabled={quantity <= 1}
+                      onClick={() => setEffortDropdownOpen(!effortDropdownOpen)}
+                      aria-expanded={effortDropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-label="Select effort"
                       className={clsx(
-                        'w-9 h-full flex items-center justify-center transition-colors rounded-l-xl',
-                        'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
-                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                        'w-full h-11 px-3 rounded-xl border-2 transition-all',
+                        'flex items-center justify-between gap-2',
+                        'bg-[var(--color-bg-secondary)]',
+                        effortDropdownOpen
+                          ? 'border-[var(--color-accent)]'
+                          : 'border-transparent hover:border-[var(--color-text-muted)]/30'
                       )}
                     >
-                      <MinusIcon className="w-4 h-4" strokeWidth={2.5} />
-                    </button>
-
-                    <div className="flex-1 text-center">
-                      <span className="font-display text-xl font-bold text-[var(--color-text-primary)]">
-                        {quantity}
+                      <span className={clsx(
+                        'text-sm truncate',
+                        magnitude ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'
+                      )}>
+                        {magnitude ? MAGNITUDE_CONFIG[magnitude].label : 'None'}
                       </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleQuantityChange(1)}
-                      disabled={quantity >= 99}
-                      className={clsx(
-                        'w-9 h-full flex items-center justify-center transition-colors rounded-r-xl',
-                        'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
-                        'disabled:opacity-40 disabled:cursor-not-allowed'
-                      )}
-                    >
-                      <PlusIcon className="w-4 h-4" strokeWidth={2.5} />
+                      <ChevronDownIcon className={clsx(
+                        'w-4 h-4 text-[var(--color-text-muted)] transition-transform flex-shrink-0',
+                        effortDropdownOpen && 'rotate-180'
+                      )} />
                     </button>
+
+                    <AnimatePresence>
+                      {effortDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          role="listbox"
+                          aria-label="Effort options"
+                          className="absolute top-full left-0 right-0 mt-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden"
+                        >
+                          {MAGNITUDE_OPTIONS.map((option) => (
+                            <button
+                              key={option.label}
+                              type="button"
+                              role="option"
+                              aria-selected={magnitude === option.value}
+                              onClick={() => {
+                                setMagnitude(option.value);
+                                setEffortDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                magnitude === option.value && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                {option.value && (
+                                  <span
+                                    className={clsx(
+                                      'px-1.5 py-0.5 rounded-full font-bold',
+                                      MAGNITUDE_CONFIG[option.value].textClass,
+                                      MAGNITUDE_CONFIG[option.value].bgClass,
+                                    )}
+                                    style={{ fontSize: '10px' }}
+                                  >
+                                    {option.value}
+                                  </span>
+                                )}
+                                <span className="text-sm text-[var(--color-text-primary)]">{option.label}</span>
+                              </div>
+                              {magnitude === option.value && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               </div>
 
-              {/* Notes - more compact */}
+              {/* Notes */}
               <div>
                 <label
                   htmlFor="item-notes"
@@ -454,6 +605,203 @@ export function EditItemModal({
                   )}
                 />
               </div>
+
+              {/* Assigned to - only for shared lists */}
+              {isShared && (
+                <div ref={assignedDropdownRef}>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
+                    Assigned to
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAssignedDropdownOpen(!assignedDropdownOpen)}
+                      aria-expanded={assignedDropdownOpen}
+                      aria-haspopup="listbox"
+                      aria-label="Assign to user"
+                      className={clsx(
+                        'w-full h-11 px-3 rounded-xl border-2 transition-all',
+                        'flex items-center justify-between gap-2',
+                        'bg-[var(--color-bg-secondary)]',
+                        assignedDropdownOpen
+                          ? 'border-[var(--color-accent)]'
+                          : 'border-transparent hover:border-[var(--color-text-muted)]/30'
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {assignedTo && assignedUserName ? (
+                          <>
+                            <span
+                              className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: getUserColor(assignedTo) }}
+                            >
+                              <span className="text-white font-bold" style={{ fontSize: '8px' }}>
+                                {getInitials(assignedUserName)}
+                              </span>
+                            </span>
+                            <span className="text-sm text-[var(--color-text-primary)] truncate">
+                              {currentUser && assignedTo === currentUser.id
+                                ? `Me (${assignedUserName})`
+                                : assignedUserName}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-[var(--color-text-muted)]">Anyone</span>
+                        )}
+                      </div>
+                      <ChevronUpIcon className={clsx(
+                        'w-4 h-4 text-[var(--color-text-muted)] transition-transform flex-shrink-0',
+                        assignedDropdownOpen && 'rotate-180'
+                      )} />
+                    </button>
+
+                    <AnimatePresence>
+                      {assignedDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          role="listbox"
+                          aria-label="Assignment options"
+                          className="absolute bottom-full left-0 right-0 mb-1 z-[calc(var(--z-modal)+10)] bg-[var(--color-bg-card)] rounded-xl shadow-lg border border-[var(--color-text-muted)]/10 overflow-hidden max-h-52 overflow-y-auto"
+                        >
+                          {/* Anyone option */}
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={assignedTo === null}
+                            onClick={() => {
+                              setAssignedTo(null);
+                              setAssignedDropdownOpen(false);
+                            }}
+                            className={clsx(
+                              'w-full px-3 py-2.5 flex items-center justify-between',
+                              'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                              assignedTo === null && 'bg-[var(--color-accent)]/5'
+                            )}
+                          >
+                            <span className="text-sm text-[var(--color-text-primary)]">Anyone</span>
+                            {assignedTo === null && (
+                              <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                            )}
+                          </button>
+
+                          {/* Me option */}
+                          {currentUser && (
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={assignedTo === currentUser.id}
+                              onClick={() => {
+                                setAssignedTo(currentUser.id);
+                                setAssignedDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                assignedTo === currentUser.id && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: getUserColor(currentUser.id) }}
+                                >
+                                  <span className="text-white font-bold" style={{ fontSize: '8px' }}>
+                                    {getInitials(currentUser.display_name)}
+                                  </span>
+                                </span>
+                                <span className="text-sm text-[var(--color-text-primary)]">
+                                  Me ({currentUser.display_name})
+                                </span>
+                              </div>
+                              {assignedTo === currentUser.id && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+                          )}
+
+                          {/* Owner option (if current user is not the owner) */}
+                          {ownerId && ownerName && (!currentUser || currentUser.id !== ownerId) && (
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={assignedTo === ownerId}
+                              onClick={() => {
+                                setAssignedTo(ownerId);
+                                setAssignedDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                assignedTo === ownerId && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: getUserColor(ownerId) }}
+                                >
+                                  <span className="text-white font-bold" style={{ fontSize: '8px' }}>
+                                    {getInitials(ownerName)}
+                                  </span>
+                                </span>
+                                <span className="text-sm text-[var(--color-text-primary)]">{ownerName}</span>
+                              </div>
+                              {assignedTo === ownerId && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+                          )}
+
+                          {/* Loading/error states for shares */}
+                          {sharesLoading && (
+                            <p className="px-3 py-2 text-sm text-[var(--color-text-muted)]">Loading members...</p>
+                          )}
+                          {sharesError && (
+                            <p className="px-3 py-2 text-sm text-[var(--color-destructive)]">Failed to load members</p>
+                          )}
+
+                          {/* Shared members */}
+                          {sortedMembers.map((share) => (
+                            <button
+                              key={share.user.id}
+                              type="button"
+                              role="option"
+                              aria-selected={assignedTo === share.user.id}
+                              onClick={() => {
+                                setAssignedTo(share.user.id);
+                                setAssignedDropdownOpen(false);
+                              }}
+                              className={clsx(
+                                'w-full px-3 py-2.5 flex items-center justify-between',
+                                'hover:bg-[var(--color-bg-secondary)] transition-colors',
+                                assignedTo === share.user.id && 'bg-[var(--color-accent)]/5'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: getUserColor(share.user.id) }}
+                                >
+                                  <span className="text-white font-bold" style={{ fontSize: '8px' }}>
+                                    {getInitials(share.user.display_name)}
+                                  </span>
+                                </span>
+                                <span className="text-sm text-[var(--color-text-primary)]">{share.user.display_name}</span>
+                              </div>
+                              {assignedTo === share.user.id && (
+                                <CheckIcon className="w-4 h-4 text-[var(--color-accent)]" />
+                              )}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}

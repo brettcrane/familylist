@@ -202,6 +202,28 @@ def _run_migrations() -> None:
             conn.commit()
             logger.info(f"Applied {len(migrations)} migrations to users table")
 
+        # Add magnitude and assigned_to columns to items table
+        result = conn.execute(text("PRAGMA table_info(items)"))
+        item_columns = {row[1] for row in result.fetchall()}
+
+        item_migrations = []
+        if "magnitude" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN magnitude VARCHAR(1)"
+            )
+        if "assigned_to" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN assigned_to VARCHAR(36) REFERENCES users(id)"
+            )
+
+        for migration in item_migrations:
+            conn.execute(text(migration))
+            logger.info(f"Migration applied: {migration}")
+
+        if item_migrations:
+            conn.commit()
+            logger.info(f"Applied {len(item_migrations)} migrations to items table")
+
 
 def create_indexes(db: Session) -> None:
     """Create additional indexes not handled by SQLAlchemy."""

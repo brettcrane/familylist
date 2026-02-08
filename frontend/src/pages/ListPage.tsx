@@ -183,7 +183,6 @@ export function ListPage() {
         onError: (error) => {
           console.error('Failed to update item:', error);
           showToast(getErrorMessage(error, 'Failed to save changes. Please try again.'), 'error');
-          setEditingItem(null);
         },
       }
     );
@@ -512,6 +511,9 @@ export function ListPage() {
         onDelete={handleDeleteItem}
         onClose={() => setEditingItem(null)}
         isSaving={updateItem.isPending}
+        isShared={list.is_shared ?? false}
+        ownerId={list.owner_id}
+        ownerName={list.owner_name ?? null}
       />
     </Layout>
   );
