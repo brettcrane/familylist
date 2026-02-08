@@ -1,17 +1,9 @@
 import { forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { CheckIcon, PencilSquareIcon, XMarkIcon, PlusIcon, SparklesIcon } from '@heroicons/react/24/outline';
-import type { Category, ListType } from '../../types/api';
-import { CATEGORY_COLORS, AI_MODE_PLACEHOLDERS, AI_MODE_HINTS } from '../../types/api';
-import { CategoryIcon } from '../icons/CategoryIcons';
-
-interface CategorySuggestionState {
-  itemName: string;
-  categoryName: string;
-  categoryId: string | null;
-  confidence: number;
-}
+import { PlusIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import type { ListType } from '../../types/api';
+import { AI_MODE_PLACEHOLDERS, AI_MODE_HINTS } from '../../types/api';
 
 interface BottomInputBarProps {
   listType: ListType;
@@ -22,15 +14,6 @@ interface BottomInputBarProps {
   aiMode: boolean;
   onAiModeToggle: () => void;
   inputDisabled: boolean;
-  // Category suggestion props
-  suggestion: CategorySuggestionState | null;
-  showCategoryPicker: boolean;
-  categories: Category[];
-  autoAcceptDelay: number;
-  onAcceptSuggestion: () => void;
-  onChangeCategory: () => void;
-  onSelectCategory: (categoryId: string | null) => void;
-  onDismissSuggestion: () => void;
 }
 
 export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
@@ -44,163 +27,14 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
       aiMode,
       onAiModeToggle,
       inputDisabled,
-      suggestion,
-      showCategoryPicker,
-      categories,
-      autoAcceptDelay,
-      onAcceptSuggestion,
-      onChangeCategory,
-      onSelectCategory,
-      onDismissSuggestion,
     },
     ref
   ) {
     const placeholder = aiMode ? AI_MODE_PLACEHOLDERS[listType] : 'Add item...';
     const hintText = AI_MODE_HINTS[listType];
 
-    const categoryColor = suggestion
-      ? CATEGORY_COLORS[suggestion.categoryName] || 'var(--color-accent)'
-      : 'var(--color-accent)';
-
     return (
-      <div className="sticky bottom-0 z-40 safe-bottom bg-[var(--color-bg-primary)] border-t border-[var(--color-text-muted)]/10">
-        {/* Category suggestion - appears above input */}
-        <AnimatePresence>
-          {suggestion && !showCategoryPicker && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="px-4 pt-3">
-                <div
-                  className="flex items-center justify-between p-3 rounded-xl"
-                  style={{ backgroundColor: `${categoryColor}15` }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <CategoryIcon category={suggestion.categoryName} className="w-5 h-5" style={{ color: categoryColor }} />
-                    <div>
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {suggestion.itemName}
-                      </p>
-                      <p className="text-xs" style={{ color: categoryColor }}>
-                        {suggestion.categoryName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {/* Countdown ring with checkmark */}
-                    <button
-                      onClick={onAcceptSuggestion}
-                      className="relative w-9 h-9 flex items-center justify-center"
-                      aria-label="Accept category"
-                    >
-                      <svg className="w-9 h-9 -rotate-90 absolute" viewBox="0 0 36 36">
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r="16"
-                          fill="none"
-                          stroke={categoryColor}
-                          strokeWidth="2"
-                          strokeOpacity="0.2"
-                        />
-                        <motion.circle
-                          cx="18"
-                          cy="18"
-                          r="16"
-                          fill="none"
-                          stroke={categoryColor}
-                          strokeWidth="2"
-                          strokeDasharray="100.5"
-                          initial={{ strokeDashoffset: 0 }}
-                          animate={{ strokeDashoffset: 100.5 }}
-                          transition={{ duration: autoAcceptDelay / 1000, ease: 'linear' }}
-                        />
-                      </svg>
-                      <CheckIcon className="w-4 h-4 relative z-10" style={{ color: categoryColor }} />
-                    </button>
-
-                    {/* Change button */}
-                    <button
-                      onClick={onChangeCategory}
-                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                      aria-label="Change category"
-                    >
-                      <PencilSquareIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Category picker - appears above input */}
-        <AnimatePresence>
-          {showCategoryPicker && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="px-4 pt-3">
-                <div className="bg-[var(--color-bg-card)] rounded-xl border border-[var(--color-text-muted)]/15 shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-text-muted)]/10">
-                    <span className="text-sm font-medium text-[var(--color-text-secondary)]">
-                      Category for "{suggestion?.itemName}"
-                    </span>
-                    <button
-                      onClick={onDismissSuggestion}
-                      className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--color-bg-secondary)]"
-                    >
-                      <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-0.5 p-1.5 max-h-52 overflow-y-auto">
-                    {categories.map((category) => {
-                      const color = CATEGORY_COLORS[category.name] || 'var(--color-text-muted)';
-                      const isSelected = category.id === suggestion?.categoryId;
-                      return (
-                        <button
-                          key={category.id}
-                          onClick={() => onSelectCategory(category.id)}
-                          className={clsx(
-                            'flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors',
-                            isSelected
-                              ? 'bg-[var(--color-accent)]/10'
-                              : 'hover:bg-[var(--color-bg-secondary)]'
-                          )}
-                        >
-                          <CategoryIcon category={category.name} className="w-4 h-4" style={{ color }} />
-                          <span
-                            className="text-sm font-medium truncate"
-                            style={{ color: isSelected ? 'var(--color-accent)' : color }}
-                          >
-                            {category.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => onSelectCategory(null)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-[var(--color-bg-secondary)] transition-colors"
-                    >
-                      <CategoryIcon category="Uncategorized" className="w-4 h-4 text-[var(--color-text-muted)]" />
-                      <span className="text-sm font-medium text-[var(--color-text-muted)]">
-                        Uncategorized
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+      <div className="bg-[var(--color-bg-primary)] border-t border-[var(--color-text-muted)]/10">
         {/* Input row */}
         <div className="px-4 py-3">
           <form onSubmit={onInputSubmit} className="flex gap-2 items-center">
