@@ -37,7 +37,6 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
   const uid = userId ?? '_default';
   const {
     organizeMode,
-    hasFolders,
     organizeLists,
     ensureSortOrder,
     createFolder,
