@@ -55,6 +55,16 @@ export function FolderSection({ folder, lists, organizeMode }: FolderSectionProp
     if (renaming) renameRef.current?.focus();
   }, [renaming]);
 
+  // Close menu on Escape key
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [menuOpen]);
+
   const commitRename = () => {
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== folder.name) {
@@ -67,7 +77,9 @@ export function FolderSection({ folder, lists, organizeMode }: FolderSectionProp
 
   const handleDelete = () => {
     setMenuOpen(false);
-    deleteFolder(folder.id);
+    if (window.confirm(`Delete folder "${folder.name}"? Lists will be moved to unfiled.`)) {
+      deleteFolder(folder.id);
+    }
   };
 
   return (

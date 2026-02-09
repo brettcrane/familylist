@@ -23,6 +23,7 @@ import { ListGrid } from './ListGrid';
 import { SortableListCard } from './SortableListCard';
 import { FolderSection } from './FolderSection';
 import { ListCard } from './ListCard';
+import { InlineFolderInput } from './InlineFolderInput';
 
 interface OrganizedListGridProps {
   lists: List[];
@@ -44,10 +45,8 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
   } = useOrganization();
 
   const [creatingFolder, setCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Sync sort order whenever list data changes
   useEffect(() => {
     if (lists.length > 0) ensureSortOrder(lists);
   }, [lists, ensureSortOrder]);
@@ -87,10 +86,14 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
         }
       }
 
-      // Reorder within sort order
       const oldIndex = sortOrder.indexOf(activeIdStr);
       const newIndex = sortOrder.indexOf(overIdStr);
-      if (oldIndex === -1 || newIndex === -1) return;
+      if (oldIndex === -1 || newIndex === -1) {
+        console.warn('handleDragEnd: ID not found in sortOrder, reorder skipped', {
+          activeId: activeIdStr, overId: overIdStr, oldIndex, newIndex,
+        });
+        return;
+      }
 
       const newOrder = [...sortOrder];
       newOrder.splice(oldIndex, 1);
@@ -100,7 +103,8 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
     [sortOrder, setSortOrder, moveListToFolder, folders, toggleFolderCollapse]
   );
 
-  // If not organizing and no folders, use plain grid
+  const handleDragCancel = useCallback(() => setActiveId(null), []);
+
   if (!organizeMode && !hasFolders) {
     return <ListGrid lists={lists} isLoading={isLoading} />;
   }
@@ -109,16 +113,6 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
     return <ListGrid lists={[]} isLoading />;
   }
 
-  const handleCreateFolder = () => {
-    const trimmed = newFolderName.trim();
-    if (trimmed) {
-      createFolder(trimmed);
-      setNewFolderName('');
-      setCreatingFolder(false);
-    }
-  };
-
-  // Collect all sortable IDs
   const allSortableIds = [
     ...lists.map((l) => l.id),
     ...Object.keys(folders),
@@ -132,6 +126,7 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <SortableContext items={allSortableIds} strategy={rectSortingStrategy}>
         <div className="p-4 space-y-2">
@@ -152,15 +147,14 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
 
             return (
               <FolderSection
-                key={section.folder!.id}
-                folder={section.folder!}
+                key={section.folder.id}
+                folder={section.folder}
                 lists={section.lists}
                 organizeMode={organizeMode}
               />
             );
           })}
 
-          {/* Create folder button — organize mode only */}
           {organizeMode && !creatingFolder && (
             <motion.button
               initial={{ opacity: 0 }}
@@ -174,34 +168,19 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
             </motion.button>
           )}
 
-          {/* Inline folder creation */}
           {organizeMode && creatingFolder && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 py-2 px-4 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-accent)]/30"
             >
-              <IconFolder className="w-4 h-4 text-[var(--color-accent)]" stroke={1.5} />
-              <input
-                autoFocus
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreateFolder();
-                  if (e.key === 'Escape') {
-                    setCreatingFolder(false);
-                    setNewFolderName('');
-                  }
+              <InlineFolderInput
+                onConfirm={(name) => {
+                  createFolder(name);
+                  setCreatingFolder(false);
                 }}
-                onBlur={() => {
-                  if (newFolderName.trim()) {
-                    handleCreateFolder();
-                  } else {
-                    setCreatingFolder(false);
-                  }
-                }}
-                placeholder="Folder name..."
-                className="flex-1 min-w-0 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+                onCancel={() => setCreatingFolder(false)}
+                autoSubmitOnBlur
+                className="flex items-center gap-2 py-2 px-4 rounded-lg bg-[var(--color-bg-card)] border border-[var(--color-accent)]/30"
               />
             </motion.div>
           )}

@@ -5,6 +5,7 @@ import { PlusIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { IconFolder } from '@tabler/icons-react';
 import { useUIStore } from '../../stores/uiStore';
 import { useOrganization } from '../../hooks/useOrganization';
+import { InlineFolderInput } from './InlineFolderInput';
 
 export function MoveToFolderModal() {
   const moveToFolderModal = useUIStore((s) => s.moveToFolderModal);
@@ -17,7 +18,6 @@ export function MoveToFolderModal() {
   } = useOrganization();
 
   const [creatingNew, setCreatingNew] = useState(false);
-  const [newName, setNewName] = useState('');
 
   const { open, listId } = moveToFolderModal;
   const currentFolderId = listId ? listToFolder[listId] ?? null : null;
@@ -32,14 +32,12 @@ export function MoveToFolderModal() {
 
   const handleClose = () => {
     setCreatingNew(false);
-    setNewName('');
     closeMoveToFolderModal();
   };
 
-  const handleCreateAndMove = () => {
-    const trimmed = newName.trim();
-    if (!trimmed || !listId) return;
-    const folder = createFolder(trimmed);
+  const handleCreateAndMove = (name: string) => {
+    if (!listId) return;
+    const folder = createFolder(name);
     moveListToFolder(listId, folder.id);
     handleClose();
   };
@@ -115,7 +113,6 @@ export function MoveToFolderModal() {
                 </button>
               ))}
 
-              {/* Create new folder */}
               {!creatingNew ? (
                 <button
                   onClick={() => setCreatingNew(true)}
@@ -125,30 +122,12 @@ export function MoveToFolderModal() {
                   <span className="text-sm font-medium">New folder</span>
                 </button>
               ) : (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-bg-secondary)]">
-                  <IconFolder className="w-4 h-4 text-[var(--color-accent)]" stroke={1.5} />
-                  <input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCreateAndMove();
-                      if (e.key === 'Escape') {
-                        setCreatingNew(false);
-                        setNewName('');
-                      }
-                    }}
-                    placeholder="Folder name..."
-                    className="flex-1 min-w-0 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none py-1"
-                  />
-                  <button
-                    onClick={handleCreateAndMove}
-                    disabled={!newName.trim()}
-                    className="text-sm font-medium text-[var(--color-accent)] disabled:opacity-40"
-                  >
-                    Create
-                  </button>
-                </div>
+                <InlineFolderInput
+                  onConfirm={handleCreateAndMove}
+                  onCancel={() => setCreatingNew(false)}
+                  showSubmitButton
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--color-bg-secondary)]"
+                />
               )}
             </div>
           </motion.div>

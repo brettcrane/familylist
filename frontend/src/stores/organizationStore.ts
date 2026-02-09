@@ -1,18 +1,16 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-/** Folder definition */
 export interface Folder {
   id: string;
   name: string;
   collapsed: boolean;
 }
 
-/** Per-user organization data */
 export interface UserOrganization {
   folders: Record<string, Folder>;
   listToFolder: Record<string, string>;
-  /** Ordered IDs — folder IDs and list IDs interleaved. Lists not present here sort last. */
+  /** Flat sequence of folder IDs and unfiled list IDs. Items not present sort last. */
   sortOrder: string[];
 }
 
@@ -26,9 +24,46 @@ function generateFolderId(): string {
   return `folder-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function updateUserOrg(
+  state: { users: Record<string, UserOrganization> },
+  userId: string,
+  fn: (org: UserOrganization) => Partial<UserOrganization>
+) {
+  const org = state.users[userId] ?? emptyOrganization();
+  return {
+    users: { ...state.users, [userId]: { ...org, ...fn(org) } },
+  };
+}
+
+/** Graceful localStorage wrapper — logs warnings instead of crashing on quota/security errors. */
+const safeLocalStorage = {
+  getItem: (name: string) => {
+    try {
+      return localStorage.getItem(name);
+    } catch (e) {
+      console.warn('Organization store: failed to read from localStorage:', e);
+      return null;
+    }
+  },
+  setItem: (name: string, value: string) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (e) {
+      console.warn('Organization store: failed to persist to localStorage:', e);
+    }
+  },
+  removeItem: (name: string) => {
+    try {
+      localStorage.removeItem(name);
+    } catch (e) {
+      console.warn('Organization store: failed to remove from localStorage:', e);
+    }
+  },
+};
+
 /** Organization store — per-user list ordering and folders, persisted to localStorage. */
 interface OrganizationState {
-  /** Whether organize mode is currently active */
+  /** Whether organize mode is currently active (not persisted) */
   organizeMode: boolean;
   setOrganizeMode: (enabled: boolean) => void;
 
@@ -44,7 +79,7 @@ interface OrganizationState {
 
   moveListToFolder: (userId: string, listId: string, folderId: string | null) => void;
 
-  /** Replace the full sort order array (after drag-and-drop). */
+  /** Replace the full sort order array. */
   setSortOrder: (userId: string, order: string[]) => void;
 }
 
@@ -61,115 +96,83 @@ export const useOrganizationStore = create<OrganizationState>()(
       createFolder: (userId, name) => {
         const id = generateFolderId();
         const folder: Folder = { id, name, collapsed: false };
-        set((state) => {
-          const org = state.users[userId] ?? emptyOrganization();
-          return {
-            users: {
-              ...state.users,
-              [userId]: {
-                ...org,
-                folders: { ...org.folders, [id]: folder },
-                sortOrder: [...org.sortOrder, id],
-              },
-            },
-          };
-        });
+        set((state) =>
+          updateUserOrg(state, userId, (org) => ({
+            folders: { ...org.folders, [id]: folder },
+            sortOrder: [...org.sortOrder, id],
+          }))
+        );
         return folder;
       },
 
       renameFolder: (userId, folderId, name) =>
         set((state) => {
-          const org = state.users[userId];
-          if (!org?.folders[folderId]) return state;
-          return {
-            users: {
-              ...state.users,
-              [userId]: {
-                ...org,
-                folders: {
-                  ...org.folders,
-                  [folderId]: { ...org.folders[folderId], name },
-                },
-              },
-            },
-          };
+          if (!state.users[userId]?.folders[folderId]) return state;
+          return updateUserOrg(state, userId, (org) => ({
+            folders: { ...org.folders, [folderId]: { ...org.folders[folderId], name } },
+          }));
         }),
 
       deleteFolder: (userId, folderId) =>
         set((state) => {
-          const org = state.users[userId];
-          if (!org) return state;
-          const { [folderId]: _, ...remainingFolders } = org.folders;
-          // Move lists from deleted folder to unfiled
-          const updatedMapping = { ...org.listToFolder };
-          for (const [listId, fId] of Object.entries(updatedMapping)) {
-            if (fId === folderId) delete updatedMapping[listId];
-          }
-          return {
-            users: {
-              ...state.users,
-              [userId]: {
-                ...org,
-                folders: remainingFolders,
-                listToFolder: updatedMapping,
-                sortOrder: org.sortOrder.filter((id) => id !== folderId),
-              },
-            },
-          };
+          if (!state.users[userId]) return state;
+          return updateUserOrg(state, userId, (org) => {
+            const { [folderId]: _, ...remainingFolders } = org.folders;
+            // Remove folder mappings so lists fall back to unfiled
+            const updatedMapping = { ...org.listToFolder };
+            for (const [listId, fId] of Object.entries(updatedMapping)) {
+              if (fId === folderId) delete updatedMapping[listId];
+            }
+            return {
+              folders: remainingFolders,
+              listToFolder: updatedMapping,
+              sortOrder: org.sortOrder.filter((id) => id !== folderId),
+            };
+          });
         }),
 
       toggleFolderCollapse: (userId, folderId) =>
         set((state) => {
-          const org = state.users[userId];
-          if (!org?.folders[folderId]) return state;
-          const folder = org.folders[folderId];
-          return {
-            users: {
-              ...state.users,
-              [userId]: {
-                ...org,
-                folders: {
-                  ...org.folders,
-                  [folderId]: { ...folder, collapsed: !folder.collapsed },
-                },
-              },
+          if (!state.users[userId]?.folders[folderId]) return state;
+          return updateUserOrg(state, userId, (org) => ({
+            folders: {
+              ...org.folders,
+              [folderId]: { ...org.folders[folderId], collapsed: !org.folders[folderId].collapsed },
             },
-          };
+          }));
         }),
 
       moveListToFolder: (userId, listId, folderId) =>
         set((state) => {
-          const org = state.users[userId] ?? emptyOrganization();
-          const updatedMapping = { ...org.listToFolder };
-          if (folderId === null) {
-            delete updatedMapping[listId];
-          } else {
-            updatedMapping[listId] = folderId;
+          if (folderId !== null && !state.users[userId]?.folders[folderId]) {
+            console.warn('moveListToFolder: target folder does not exist', { folderId });
+            return state;
           }
-          return {
-            users: {
-              ...state.users,
-              [userId]: { ...org, listToFolder: updatedMapping },
-            },
-          };
+          return updateUserOrg(state, userId, (org) => {
+            const updatedMapping = { ...org.listToFolder };
+            if (folderId === null) {
+              delete updatedMapping[listId];
+            } else {
+              updatedMapping[listId] = folderId;
+            }
+            return { listToFolder: updatedMapping };
+          });
         }),
 
       setSortOrder: (userId, order) =>
-        set((state) => {
-          const org = state.users[userId] ?? emptyOrganization();
-          return {
-            users: {
-              ...state.users,
-              [userId]: { ...org, sortOrder: order },
-            },
-          };
-        }),
+        set((state) => updateUserOrg(state, userId, () => ({ sortOrder: order }))),
     }),
     {
       name: 'familylists-organization',
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({
         users: state.users,
       }),
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) {
+          console.warn('Organization store: failed to rehydrate:', error);
+        }
+      },
     }
   )
 );

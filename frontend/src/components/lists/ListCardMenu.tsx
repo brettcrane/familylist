@@ -1,7 +1,8 @@
 import { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PencilSquareIcon, UserGroupIcon, DocumentDuplicateIcon, TrashIcon, FolderIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, UserGroupIcon, DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { IconFolder } from '@tabler/icons-react';
 import { useUIStore } from '../../stores/uiStore';
 import { useDuplicateList } from '../../hooks/useLists';
 import { getErrorMessage } from '../../api/client';
@@ -171,7 +172,7 @@ export function ListCardMenu({ list, open, onClose, anchorRect }: ListCardMenuPr
                 onClick={handleMoveToFolder}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <FolderIcon className="w-4 h-4" />
+                <IconFolder className="w-4 h-4" stroke={1.5} />
                 <span className="text-sm">Move to folder...</span>
               </button>
 

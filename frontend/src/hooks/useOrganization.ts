@@ -6,12 +6,15 @@ import type { List } from '../types/api';
 
 const DEFAULT_USER = '_default';
 
+// Stable empty defaults for referential equality when user has no org data
+const EMPTY_FOLDERS: Record<string, Folder> = {};
+const EMPTY_MAP: Record<string, string> = {};
+const EMPTY_ARRAY: string[] = [];
+
 /** Section of lists — either unfiled or under a folder. */
-export interface ListSection {
-  type: 'unfiled' | 'folder';
-  folder?: Folder;
-  lists: List[];
-}
+export type ListSection =
+  | { type: 'unfiled'; lists: List[] }
+  | { type: 'folder'; folder: Folder; lists: List[] };
 
 /**
  * Hook providing organization state scoped to the current user.
@@ -23,18 +26,23 @@ export function useOrganization() {
 
   const organizeMode = useOrganizationStore((s) => s.organizeMode);
   const setOrganizeMode = useOrganizationStore((s) => s.setOrganizeMode);
-  const org = useOrganizationStore((s) => s.getOrg(uid));
-  const store = useOrganizationStore();
+  const folders = useOrganizationStore((s) => s.users[uid]?.folders ?? EMPTY_FOLDERS);
+  const listToFolder = useOrganizationStore((s) => s.users[uid]?.listToFolder ?? EMPTY_MAP);
+  const sortOrder = useOrganizationStore((s) => s.users[uid]?.sortOrder ?? EMPTY_ARRAY);
 
-  const folders = org.folders;
+  // Stable action references (Zustand action functions are created once)
+  const storeCreateFolder = useOrganizationStore((s) => s.createFolder);
+  const storeRenameFolder = useOrganizationStore((s) => s.renameFolder);
+  const storeDeleteFolder = useOrganizationStore((s) => s.deleteFolder);
+  const storeToggleFolderCollapse = useOrganizationStore((s) => s.toggleFolderCollapse);
+  const storeMoveListToFolder = useOrganizationStore((s) => s.moveListToFolder);
+  const storeSetSortOrder = useOrganizationStore((s) => s.setSortOrder);
+
   const hasFolders = Object.keys(folders).length > 0;
 
-  /** Organize lists into sorted sections: unfiled first, then folders in sort order. */
+  /** Organize lists into sorted sections: unfiled (if any remain or no folders exist), then folders, all ordered by sortOrder. */
   const organizeLists = useCallback(
     (lists: List[]): ListSection[] => {
-      const { listToFolder, sortOrder } = org;
-
-      // Bucket lists into unfiled vs folder
       const unfiled: List[] = [];
       const folderBuckets: Record<string, List[]> = {};
       for (const f of Object.keys(folders)) {
@@ -50,7 +58,6 @@ export function useOrganization() {
         }
       }
 
-      // Build position map from sortOrder for sorting
       const posMap = new Map(sortOrder.map((id, i) => [id, i]));
       const byPos = (a: { id: string }, b: { id: string }) => {
         const pa = posMap.get(a.id) ?? Infinity;
@@ -58,10 +65,8 @@ export function useOrganization() {
         return pa - pb;
       };
 
-      // Sort unfiled lists
       unfiled.sort(byPos);
 
-      // Sort folders and their contained lists
       const sortedFolderIds = Object.keys(folders).sort((a, b) => {
         const pa = posMap.get(a) ?? Infinity;
         const pb = posMap.get(b) ?? Infinity;
@@ -86,49 +91,50 @@ export function useOrganization() {
 
       return sections;
     },
-    [org, folders, hasFolders]
+    [folders, listToFolder, sortOrder, hasFolders]
   );
 
   /**
-   * Ensure every list ID and folder ID appears in sortOrder exactly once.
-   * Removes stale IDs and appends any new lists from API.
+   * Reconcile sortOrder with current lists and folders:
+   * removes IDs for deleted lists/folders and appends newly created ones.
    */
   const ensureSortOrder = useCallback(
     (lists: List[]) => {
-      const { sortOrder } = org;
-      const existingSet = new Set(sortOrder);
+      // Read current state at call time to avoid stale closures
+      const currentOrg = useOrganizationStore.getState().getOrg(uid);
+      const { sortOrder: currentSortOrder, folders: currentFolders } = currentOrg;
+      const existingSet = new Set(currentSortOrder);
       const allIds = new Set<string>();
 
       for (const l of lists) allIds.add(l.id);
-      for (const fId of Object.keys(folders)) allIds.add(fId);
+      for (const fId of Object.keys(currentFolders)) allIds.add(fId);
 
-      const cleaned = sortOrder.filter((id) => allIds.has(id));
-      const missing = lists
-        .filter((l) => !existingSet.has(l.id))
-        .map((l) => l.id);
+      const cleaned = currentSortOrder.filter((id) => allIds.has(id));
+      const missingLists = lists.filter((l) => !existingSet.has(l.id)).map((l) => l.id);
+      const missingFolders = Object.keys(currentFolders).filter((fId) => !existingSet.has(fId));
+      const missing = [...missingLists, ...missingFolders];
 
-      if (missing.length > 0 || cleaned.length !== sortOrder.length) {
-        store.setSortOrder(uid, [...cleaned, ...missing]);
+      if (missing.length > 0 || cleaned.length !== currentSortOrder.length) {
+        storeSetSortOrder(uid, [...cleaned, ...missing]);
       }
     },
-    [org, folders, store, uid]
+    [uid, storeSetSortOrder]
   );
 
-  // Bind store actions to current user ID
-  const createFolder = useCallback((name: string) => store.createFolder(uid, name), [store, uid]);
-  const renameFolder = useCallback((folderId: string, name: string) => store.renameFolder(uid, folderId, name), [store, uid]);
-  const deleteFolder = useCallback((folderId: string) => store.deleteFolder(uid, folderId), [store, uid]);
-  const toggleFolderCollapse = useCallback((folderId: string) => store.toggleFolderCollapse(uid, folderId), [store, uid]);
-  const moveListToFolder = useCallback((listId: string, folderId: string | null) => store.moveListToFolder(uid, listId, folderId), [store, uid]);
-  const setSortOrder = useCallback((order: string[]) => store.setSortOrder(uid, order), [store, uid]);
+  const createFolder = useCallback((name: string) => storeCreateFolder(uid, name), [storeCreateFolder, uid]);
+  const renameFolder = useCallback((folderId: string, name: string) => storeRenameFolder(uid, folderId, name), [storeRenameFolder, uid]);
+  const deleteFolder = useCallback((folderId: string) => storeDeleteFolder(uid, folderId), [storeDeleteFolder, uid]);
+  const toggleFolderCollapse = useCallback((folderId: string) => storeToggleFolderCollapse(uid, folderId), [storeToggleFolderCollapse, uid]);
+  const moveListToFolder = useCallback((listId: string, folderId: string | null) => storeMoveListToFolder(uid, listId, folderId), [storeMoveListToFolder, uid]);
+  const setSortOrder = useCallback((order: string[]) => storeSetSortOrder(uid, order), [storeSetSortOrder, uid]);
 
   return {
     organizeMode,
     setOrganizeMode,
     folders,
     hasFolders,
-    listToFolder: org.listToFolder,
-    sortOrder: org.sortOrder,
+    listToFolder,
+    sortOrder,
     organizeLists,
     ensureSortOrder,
     createFolder,
