@@ -29,6 +29,7 @@ export function FolderSection({ folder, lists, organizeMode }: FolderSectionProp
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
   const renameRef = useRef<HTMLInputElement>(null);
+  const renameCancelledRef = useRef(false);
 
   const {
     attributes,
@@ -66,6 +67,10 @@ export function FolderSection({ folder, lists, organizeMode }: FolderSectionProp
   }, [menuOpen]);
 
   const commitRename = () => {
+    if (renameCancelledRef.current) {
+      renameCancelledRef.current = false;
+      return;
+    }
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== folder.name) {
       renameFolder(folder.id, trimmed);
@@ -135,6 +140,7 @@ export function FolderSection({ folder, lists, organizeMode }: FolderSectionProp
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') {
+                renameCancelledRef.current = true;
                 setRenameValue(folder.name);
                 setRenaming(false);
               }

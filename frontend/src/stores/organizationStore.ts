@@ -115,7 +115,7 @@ export const useOrganizationStore = create<OrganizationState>()(
 
       deleteFolder: (userId, folderId) =>
         set((state) => {
-          if (!state.users[userId]) return state;
+          if (!state.users[userId]?.folders[folderId]) return state;
           return updateUserOrg(state, userId, (org) => {
             const { [folderId]: _, ...remainingFolders } = org.folders;
             // Remove folder mappings so lists fall back to unfiled

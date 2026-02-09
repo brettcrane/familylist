@@ -27,6 +27,7 @@ export function MoveToFolderModal() {
     if (listId) {
       moveListToFolder(listId, folderId);
     }
+    setCreatingNew(false);
     closeMoveToFolderModal();
   };
 

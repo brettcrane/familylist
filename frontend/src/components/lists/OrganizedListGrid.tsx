@@ -18,7 +18,9 @@ import { motion } from 'framer-motion';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { IconFolder } from '@tabler/icons-react';
 import type { List } from '../../types/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { useOrganization } from '../../hooks/useOrganization';
+import { useOrganizationStore } from '../../stores/organizationStore';
 import { ListGrid } from './ListGrid';
 import { SortableListCard } from './SortableListCard';
 import { FolderSection } from './FolderSection';
@@ -31,6 +33,8 @@ interface OrganizedListGridProps {
 }
 
 export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) {
+  const { userId } = useAuth();
+  const uid = userId ?? '_default';
   const {
     organizeMode,
     hasFolders,
@@ -39,7 +43,6 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
     createFolder,
     moveListToFolder,
     setSortOrder,
-    sortOrder,
     folders,
     toggleFolderCollapse,
   } = useOrganization();
@@ -86,8 +89,10 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
         }
       }
 
-      const oldIndex = sortOrder.indexOf(activeIdStr);
-      const newIndex = sortOrder.indexOf(overIdStr);
+      // Read fresh state to avoid stale closure on rapid drags
+      const currentSortOrder = useOrganizationStore.getState().getOrg(uid).sortOrder;
+      const oldIndex = currentSortOrder.indexOf(activeIdStr);
+      const newIndex = currentSortOrder.indexOf(overIdStr);
       if (oldIndex === -1 || newIndex === -1) {
         console.warn('handleDragEnd: ID not found in sortOrder, reorder skipped', {
           activeId: activeIdStr, overId: overIdStr, oldIndex, newIndex,
@@ -95,12 +100,12 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
         return;
       }
 
-      const newOrder = [...sortOrder];
+      const newOrder = [...currentSortOrder];
       newOrder.splice(oldIndex, 1);
       newOrder.splice(newIndex, 0, activeIdStr);
       setSortOrder(newOrder);
     },
-    [sortOrder, setSortOrder, moveListToFolder, folders, toggleFolderCollapse]
+    [uid, setSortOrder, moveListToFolder, folders, toggleFolderCollapse]
   );
 
   const handleDragCancel = useCallback(() => setActiveId(null), []);
