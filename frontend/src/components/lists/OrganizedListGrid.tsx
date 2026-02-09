@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -58,7 +58,7 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
   const listMap = useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   );
 
