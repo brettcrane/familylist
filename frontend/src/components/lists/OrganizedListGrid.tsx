@@ -110,12 +110,9 @@ export function OrganizedListGrid({ lists, isLoading }: OrganizedListGridProps) 
 
   const handleDragCancel = useCallback(() => setActiveId(null), []);
 
-  if (!organizeMode && !hasFolders) {
+  // Delegate loading/empty states to ListGrid (has skeleton + empty message)
+  if (isLoading || lists.length === 0) {
     return <ListGrid lists={lists} isLoading={isLoading} />;
-  }
-
-  if (isLoading) {
-    return <ListGrid lists={[]} isLoading />;
   }
 
   const allSortableIds = [
