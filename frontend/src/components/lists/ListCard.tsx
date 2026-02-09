@@ -64,12 +64,12 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0, disableInterac
     <>
       <div
         ref={cardRef}
-        {...longPressHandlers}
-        className="cursor-pointer select-none"
+        {...(disableInteraction ? {} : longPressHandlers)}
+        className={disableInteraction ? 'select-none' : 'cursor-pointer select-none'}
       >
         <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={disableInteraction ? undefined : { scale: 1.02 }}
+          whileTap={disableInteraction ? undefined : { scale: 0.98 }}
           className={clsx(
             'p-4 rounded-xl',
             'bg-[var(--color-bg-card)]',

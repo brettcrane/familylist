@@ -14,7 +14,6 @@ export function SortableListCard({ list, organizeMode }: SortableListCardProps) 
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -28,17 +27,16 @@ export function SortableListCard({ list, organizeMode }: SortableListCardProps) 
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={organizeMode ? 'relative cursor-grab active:cursor-grabbing touch-manipulation' : 'relative'}
+      {...(organizeMode ? { ...attributes, ...listeners } : {})}
+    >
       {organizeMode && (
-        <button
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          className="absolute -left-1 top-1/2 -translate-y-1/2 z-10 cursor-grab active:cursor-grabbing p-1.5 rounded-lg bg-[var(--color-bg-card)] shadow-sm border border-[var(--color-text-muted)]/10 touch-manipulation"
-          aria-label={`Reorder ${list.name}`}
-        >
+        <div className="absolute -left-1 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-lg bg-[var(--color-bg-card)] shadow-sm border border-[var(--color-text-muted)]/10 pointer-events-none">
           <Bars3Icon className="w-4 h-4 text-[var(--color-text-muted)]" />
-        </button>
+        </div>
       )}
 
       <ListCard

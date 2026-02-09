@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import { Squares2X2Icon, CheckIcon } from '@heroicons/react/24/outline';
+import { ArrowsUpDownIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useOrganization } from '../../hooks/useOrganization';
 
 export function OrganizeButton() {
@@ -22,7 +22,7 @@ export function OrganizeButton() {
       {organizeMode ? (
         <CheckIcon className="w-5 h-5" strokeWidth={2.5} />
       ) : (
-        <Squares2X2Icon className="w-5 h-5" />
+        <ArrowsUpDownIcon className="w-5 h-5" />
       )}
     </motion.button>
   );
