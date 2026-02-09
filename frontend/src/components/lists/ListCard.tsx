@@ -12,6 +12,8 @@ interface ListCardProps {
   list: List;
   itemCount?: number;
   checkedCount?: number;
+  /** When true, disables click navigation and long-press context menu (used in organize mode). */
+  disableInteraction?: boolean;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -33,7 +35,7 @@ function formatRelativeTime(dateString: string): string {
   });
 }
 
-export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProps) {
+export function ListCard({ list, itemCount = 0, checkedCount = 0, disableInteraction = false }: ListCardProps) {
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -49,9 +51,11 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
   const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
 
   const longPressHandlers = useLongPress({
-    onLongPress: () => openMenu(),
+    onLongPress: () => {
+      if (!disableInteraction) openMenu();
+    },
     onClick: () => {
-      navigate(`/lists/${list.id}`);
+      if (!disableInteraction) navigate(`/lists/${list.id}`);
     },
     threshold: 500,
   });
@@ -109,26 +113,28 @@ export function ListCard({ list, itemCount = 0, checkedCount = 0 }: ListCardProp
             <h3 className="font-semibold text-[var(--color-text-primary)] truncate min-w-0 flex-1">
               {list.name}
             </h3>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                openMenu(e.currentTarget.getBoundingClientRect());
-              }}
-              onMouseDown={stopPropagation}
-              onTouchStart={stopPropagation}
-              className={clsx(
-                'w-11 h-11 -mr-2 -my-1 rounded-lg flex-shrink-0',
-                'flex items-center justify-center',
-                'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]',
-                'hover:bg-[var(--color-text-muted)]/10 active:bg-[var(--color-text-muted)]/10',
-                'transition-colors touch-manipulation',
-                'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30'
-              )}
-              aria-label={`Options for ${list.name}`}
-            >
-              <EllipsisHorizontalIcon className="w-5 h-5" />
-            </button>
+            {!disableInteraction && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openMenu(e.currentTarget.getBoundingClientRect());
+                }}
+                onMouseDown={stopPropagation}
+                onTouchStart={stopPropagation}
+                className={clsx(
+                  'w-11 h-11 -mr-2 -my-1 rounded-lg flex-shrink-0',
+                  'flex items-center justify-center',
+                  'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]',
+                  'hover:bg-[var(--color-text-muted)]/10 active:bg-[var(--color-text-muted)]/10',
+                  'transition-colors touch-manipulation',
+                  'focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30'
+                )}
+                aria-label={`Options for ${list.name}`}
+              >
+                <EllipsisHorizontalIcon className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           {/* Progress row: Bar (~2/3) + Count (right-aligned) */}

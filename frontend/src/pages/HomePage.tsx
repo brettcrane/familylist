@@ -3,7 +3,10 @@ import { motion } from 'framer-motion';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Layout, Main, Header } from '../components/layout';
 import { PullToRefresh, ErrorState } from '../components/ui';
-import { ListGrid, CreateListModal } from '../components/lists';
+import { CreateListModal } from '../components/lists';
+import { OrganizedListGrid } from '../components/lists/OrganizedListGrid';
+import { OrganizeButton } from '../components/lists/OrganizeButton';
+import { MoveToFolderModal } from '../components/lists/MoveToFolderModal';
 import { EditListModal } from '../components/lists/EditListModal';
 import { DeleteListDialog } from '../components/lists/DeleteListDialog';
 import { ShareListModal } from '../components/lists/ShareListModal';
@@ -21,14 +24,14 @@ export function HomePage() {
 
   return (
     <Layout>
-      <Header title="FamilyLists" />
+      <Header title="FamilyLists" actions={<OrganizeButton />} />
 
       <Main className="relative">
         <PullToRefresh onRefresh={handleRefresh} className="h-full">
           {error ? (
             <ErrorState title="Couldn't load lists" error={error} onRetry={() => refetch()} />
           ) : (
-            <ListGrid lists={lists || []} isLoading={isLoading} />
+            <OrganizedListGrid lists={lists || []} isLoading={isLoading} />
           )}
         </PullToRefresh>
 
@@ -50,6 +53,7 @@ export function HomePage() {
       <EditListModal />
       <DeleteListDialog />
       <ShareListModal />
+      <MoveToFolderModal />
     </Layout>
   );
 }
