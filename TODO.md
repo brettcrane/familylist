@@ -22,7 +22,13 @@
 
 - [ ] **Subtask / parent-child item hierarchy** - Add `parent_id` (self-referential FK) to Item model for subtask support. Enables project decomposition (e.g., "Estate Planning" → will, POA, healthcare proxy). UI would show indented subtasks under parent items with collapsible groups. Blocked-until semantics optional. Only relevant for task-type lists.
 
-- [ ] **Focus view (Today / This Week)** - Filtered landing view for task lists showing only: overdue items, due this week, urgent/high priority, assigned to current user. Frontend-only filter on existing data (no new backend endpoints beyond the filtering added in Cowork Step 2). Default mobile landing screen.
+- [x] **Focus view + Tracker view (PR #35)** - Implemented as view modes within the To Do tab for task-type lists. Focus View groups items into time-bucketed sections (Today, This Week, Coming Up, Later, Blocked) with person sub-groups. Tracker View shows stat cards, stacked bar chart, and overdue list. View switcher with Categories/Focus/Tracker modes, persisted via Zustand.
+
+- [ ] **"My Items" filter** - Add a toggle/filter to show only items assigned to the current user. Useful across all views (Categories, Focus, Tracker) for shared task lists. Could be a filter chip next to the ViewModeSwitcher, or a person-selector dropdown. Uses `useCurrentUser()` to match `item.assigned_to`. Should degrade gracefully for API-key auth (no current user = filter unavailable).
+
+- [ ] **Item search** - Add a search bar to filter items by name within a list. Could be a collapsible search input in the list header or above the view content. Frontend-only text filter on the existing items array (no backend search endpoint needed). Should work across all view modes and list types. Consider: debounced input, highlight matching text, clear button, empty state for no matches.
+
+- [x] **PWA update prompt (PR #36)** - Non-intrusive dismissible banner when a new service worker takes control. `useServiceWorkerUpdate` hook listens for `controllerchange`, `UpdateBanner` shows accent-colored top bar with Reload + dismiss. Works with existing `skipWaiting()` + `clientsClaim()` strategy. Try-catch for graceful degradation in restricted contexts.
 
 - [ ] **LLM parsing test coverage** - `LLMParsingService` has zero unit tests. Priority:
   1. Unit tests for `_extract_json()` — structured output `{"items": [...]}`, bare arrays, markdown code blocks, empty/invalid inputs
