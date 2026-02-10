@@ -3,8 +3,7 @@ import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
-import { CategorySection, EditItemModal } from '../components/items';
-import { FilterBar } from '../components/items/FilterBar';
+import { CategorySection, EditItemModal, FilterBar } from '../components/items';
 import { ViewModeSwitcher, FocusView, TrackerView } from '../components/views';
 import { BottomInputBar } from '../components/items/BottomInputBar';
 import { CategoryToastStack } from '../components/items/CategoryToastStack';
@@ -89,37 +88,34 @@ export function ListPage() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Split items into checked/unchecked
-  const checkedItems = useMemo(
-    () => list?.items.filter((item) => item.is_checked) ?? [],
-    [list]
-  );
+  const showMyItemsChip = (list?.is_shared ?? false) && !!currentUser;
 
-  // All unchecked items (for Focus/Tracker views)
-  const uncheckedItems = useMemo(
-    () => list?.items.filter((item) => !item.is_checked) ?? [],
-    [list]
-  );
+  // Filter and group items into a single memo
+  const { filteredUnchecked, filteredChecked, filteredCategorized, filteredUncategorized, isFiltering, hasUncheckedItems } = useMemo(() => {
+    if (!list) return { filteredUnchecked: [] as Item[], filteredChecked: [] as Item[], filteredCategorized: new Map<string, Item[]>(), filteredUncategorized: [] as Item[], isFiltering: false, hasUncheckedItems: false };
 
-  // Apply search + myItems filters
-  const isFiltering = !!(searchQuery.trim() || (myItemsOnly && currentUser));
-  const { filteredUnchecked, filteredChecked, filteredCategorized, filteredUncategorized } = useMemo(() => {
+    const shouldFilterMine = myItemsOnly && !!currentUser && showMyItemsChip;
+    const trimmedQuery = searchQuery.trim();
+    const isFiltering = !!(trimmedQuery || shouldFilterMine);
+
     const applyFilters = (items: Item[]) => {
       let result = items;
-      if (myItemsOnly && currentUser) {
-        result = result.filter((i) => i.assigned_to === currentUser.id);
+      if (shouldFilterMine) {
+        result = result.filter((i) => i.assigned_to === currentUser!.id);
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+      if (trimmedQuery) {
+        const q = trimmedQuery.toLowerCase();
         result = result.filter((i) => i.name.toLowerCase().includes(q));
       }
       return result;
     };
 
-    const fUnchecked = applyFilters(uncheckedItems);
-    const fChecked = applyFilters(checkedItems);
+    const unchecked = list.items.filter((item) => !item.is_checked);
+    const checked = list.items.filter((item) => item.is_checked);
 
-    // Recompute category grouping from filtered unchecked
+    const fUnchecked = applyFilters(unchecked);
+    const fChecked = applyFilters(checked);
+
     const categorized = new Map<string, Item[]>();
     const uncategorized: Item[] = [];
     fUnchecked.forEach((item) => {
@@ -136,13 +132,16 @@ export function ListPage() {
       filteredChecked: fChecked,
       filteredCategorized: categorized,
       filteredUncategorized: uncategorized,
+      isFiltering,
+      hasUncheckedItems: unchecked.length > 0,
     };
-  }, [uncheckedItems, checkedItems, myItemsOnly, currentUser, searchQuery]);
+  }, [list, myItemsOnly, currentUser, searchQuery, showMyItemsChip]);
 
   const uncheckedCount = filteredUnchecked.length;
   const checkedCount = filteredChecked.length;
-  const totalItems = list?.items.length || 0;
-  const showMyItemsChip = (list?.is_shared ?? false) && !!currentUser;
+  const totalItems = isFiltering
+    ? filteredUnchecked.length + filteredChecked.length
+    : list?.items.length || 0;
 
   // Handlers
   const handleCheckItem = (itemId: string) => {
@@ -465,7 +464,7 @@ export function ListPage() {
         )}
 
         {/* Filter bar — shown when list has items */}
-        {(list.items.length > 0) && (
+        {list.items.length > 0 && (
           <FilterBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -479,7 +478,7 @@ export function ListPage() {
           {activeTab === 'todo' ? (
             <div key="todo" className="pb-24">
               {/* View mode switcher — tasks lists only */}
-              {list.type === 'tasks' && uncheckedCount > 0 && <ViewModeSwitcher />}
+              {list.type === 'tasks' && hasUncheckedItems && <ViewModeSwitcher />}
 
               {uncheckedCount === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">

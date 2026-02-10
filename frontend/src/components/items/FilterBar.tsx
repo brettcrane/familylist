@@ -19,35 +19,27 @@ export function FilterBar({
 }: FilterBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input when search icon area is clicked
-  const focusInput = () => inputRef.current?.focus();
-
   // Clear search on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && searchQuery) {
+      if (e.key === 'Escape' && inputRef.current?.value) {
         onSearchChange('');
-        inputRef.current?.blur();
+        inputRef.current.blur();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [searchQuery, onSearchChange]);
+  }, [onSearchChange]);
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       {/* Search input */}
       <div className="relative flex-1">
-        <button
-          type="button"
-          onClick={focusInput}
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
-          tabIndex={-1}
-          aria-hidden
-        >
+        <label htmlFor="filter-search" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
           <MagnifyingGlassIcon className="h-4 w-4" />
-        </button>
+        </label>
         <input
+          id="filter-search"
           ref={inputRef}
           type="text"
           value={searchQuery}

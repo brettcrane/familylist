@@ -4,3 +4,4 @@ export * from './NLParseModal';
 export * from './BottomInputBar';
 export * from './CategoryToastStack';
 export * from './EditItemModal';
+export * from './FilterBar';
