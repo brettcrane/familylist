@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Item } from '../types/api';
-import { getLocalDateStr, getDateOffsetStr, daysOverdue, getWeekBucket } from '../utils/dates';
+import { getLocalDateStr, getDateOffsetStr, daysOverdue, getWeekBucket, computeWeekBuckets } from '../utils/dates';
 import { getUserColor } from '../utils/colors';
 
 export interface TrackerStats {
@@ -41,7 +41,8 @@ const UNASSIGNED_COLOR = '#94A3B8'; // slate-400
 
 export function useTrackerStats(items: Item[]): TrackerData {
   return useMemo(() => {
-    const today = getLocalDateStr();
+    const bucketBounds = computeWeekBuckets();
+    const today = bucketBounds.today;
     const weekEnd = getDateOffsetStr(7);
     const monthEnd = getDateOffsetStr(30);
 
@@ -86,7 +87,7 @@ export function useTrackerStats(items: Item[]): TrackerData {
       }
 
       // Timeline bucket
-      const bucket = getWeekBucket(item.due_date);
+      const bucket = getWeekBucket(item.due_date, bucketBounds);
       const personMap = bucketPeople.get(bucket);
       if (personMap) {
         const existing = personMap.get(personKey);

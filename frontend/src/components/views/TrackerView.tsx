@@ -11,6 +11,7 @@ interface TrackerViewProps {
   isShared: boolean;
   onCheckItem: (itemId: string) => void;
   onEditItem: (item: Item) => void;
+  onNameChange: (itemId: string, newName: string) => void;
 }
 
 const STAT_CARDS: {
@@ -31,6 +32,7 @@ export function TrackerView({
   isShared: _isShared,
   onCheckItem,
   onEditItem,
+  onNameChange,
 }: TrackerViewProps) {
   const { stats, timeline, overdueItems, people } = useTrackerStats(items);
 
@@ -83,6 +85,7 @@ export function TrackerView({
                 listType={listType}
                 onCheck={() => onCheckItem(item.id)}
                 onEdit={() => onEditItem(item)}
+                onNameChange={(newName) => onNameChange(item.id, newName)}
               />
               <span
                 className={clsx(

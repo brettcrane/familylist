@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useUIStore } from '../../stores/uiStore';
+import { ItemRow } from '../items/ItemRow';
 import type { PersonGroup as PersonGroupType } from '../../hooks/useFocusItems';
 import { PersonGroup } from './PersonGroup';
 import type { Item, ListType } from '../../types/api';
@@ -25,6 +26,7 @@ const SECTION_COLORS: Record<string, string> = {
   'focus-today': 'var(--color-accent)',
   'focus-week': 'var(--color-pending)',
   'focus-coming': 'var(--color-text-muted)',
+  'focus-later': 'var(--color-text-muted)',
   'focus-blocked': 'var(--color-destructive)',
 };
 
@@ -44,15 +46,16 @@ export function FocusSection({
   const isCollapsed = useUIStore((s) => s.isCategoryCollapsed(listId, sectionId));
   const toggleCategory = useUIStore((s) => s.toggleCategory);
 
-  // Set default collapse state on first render
+  // Apply default collapse state on first mount
   const initializedRef = useRef(false);
   useEffect(() => {
     if (!initializedRef.current && defaultCollapsed && !isCollapsed) {
-      // If default is collapsed but store says expanded (first visit), collapse it
-      // Only do this if the key has never been toggled (i.e., not in the store)
+      toggleCategory(listId, sectionId);
     }
     initializedRef.current = true;
-  }, [defaultCollapsed, isCollapsed]);
+    // Only run on mount — defaultCollapsed is static per section
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalItems = personGroups.reduce((sum, g) => sum + g.items.length, 0);
   const accentColor = SECTION_COLORS[sectionId] ?? 'var(--color-text-muted)';
@@ -106,18 +109,16 @@ export function FocusSection({
             className="overflow-hidden"
           >
             {flat ? (
-              // Flat rendering (Blocked section)
               personGroups.flatMap((group) =>
                 group.items.map((item) => (
-                  <div key={item.id}>
-                    <ItemRowWrapper
-                      item={item}
-                      listType={listType}
-                      onCheckItem={onCheckItem}
-                      onEditItem={onEditItem}
-                      onNameChange={onNameChange}
-                    />
-                  </div>
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    listType={listType}
+                    onCheck={() => onCheckItem(item.id)}
+                    onEdit={() => onEditItem(item)}
+                    onNameChange={(newName) => onNameChange(item.id, newName)}
+                  />
                 ))
               )
             ) : (
@@ -138,32 +139,5 @@ export function FocusSection({
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-// Inline wrapper to avoid circular import — just renders ItemRow
-import { ItemRow } from '../items/ItemRow';
-
-function ItemRowWrapper({
-  item,
-  listType,
-  onCheckItem,
-  onEditItem,
-  onNameChange,
-}: {
-  item: Item;
-  listType: ListType;
-  onCheckItem: (itemId: string) => void;
-  onEditItem: (item: Item) => void;
-  onNameChange: (itemId: string, newName: string) => void;
-}) {
-  return (
-    <ItemRow
-      item={item}
-      listType={listType}
-      onCheck={() => onCheckItem(item.id)}
-      onEdit={() => onEditItem(item)}
-      onNameChange={(newName) => onNameChange(item.id, newName)}
-    />
   );
 }

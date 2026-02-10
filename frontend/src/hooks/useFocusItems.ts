@@ -113,6 +113,7 @@ export function useFocusItems(items: Item[], currentUserId: string | null): Focu
     const dueToday: Item[] = [];
     const dueThisWeek: Item[] = [];  // tomorrow through +7d
     const comingUp: Item[] = [];     // +8d through +30d
+    const later: Item[] = [];       // beyond 30d
     const blocked: Item[] = [];
     const noDueDate: Item[] = [];
 
@@ -135,8 +136,9 @@ export function useFocusItems(items: Item[], currentUserId: string | null): Focu
         dueThisWeek.push(item);
       } else if (item.due_date <= monthEnd) {
         comingUp.push(item);
+      } else {
+        later.push(item);
       }
-      // Beyond 30 days: excluded from Focus entirely
     }
 
     // Sort overdue by most overdue first
@@ -180,6 +182,7 @@ export function useFocusItems(items: Item[], currentUserId: string | null): Focu
     // Sort each bucket
     thisWeekItems.sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''));
     comingUp.sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''));
+    later.sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''));
 
     // Build sections
     const sections: FocusSection[] = [];
@@ -207,6 +210,15 @@ export function useFocusItems(items: Item[], currentUserId: string | null): Focu
         id: 'focus-coming',
         label: 'Coming Up',
         personGroups: groupByPerson(comingUp, currentUserId),
+        defaultCollapsed: true,
+      });
+    }
+
+    if (later.length > 0) {
+      sections.push({
+        id: 'focus-later',
+        label: 'Later',
+        personGroups: groupByPerson(later, currentUserId),
         defaultCollapsed: true,
       });
     }

@@ -475,6 +475,7 @@ export function ListPage() {
                   isShared={list.is_shared ?? false}
                   onCheckItem={handleCheckItem}
                   onEditItem={handleEditItem}
+                  onNameChange={handleNameChange}
                 />
               ) : (
                 <>

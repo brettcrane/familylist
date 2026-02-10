@@ -174,7 +174,7 @@ export const useUIStore = create<UIState>()(
       setActiveTab: (tab) => set({ activeTab: tab }),
 
       // Task view mode
-      taskViewMode: 'focus',
+      taskViewMode: 'categories',
       setTaskViewMode: (mode) => set({ taskViewMode: mode }),
 
       // Toast notifications

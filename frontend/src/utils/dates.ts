@@ -49,25 +49,34 @@ export function isDateInRange(dateStr: string, start: string, end: string): bool
   return dateStr >= start && dateStr <= end;
 }
 
-/** Get which week bucket a date falls into relative to today. */
-export function getWeekBucket(dateStr: string): string {
-  const today = getLocalDateStr();
-  if (dateStr < today) return 'Overdue';
+export interface WeekBucketBoundaries {
+  today: string;
+  week1: string;
+  week2: string;
+  week3: string;
+  week4: string;
+  week5: string;
+}
 
-  const end1 = getDateOffsetStr(7);
-  if (dateStr <= end1) return 'This Week';
+/** Pre-compute week bucket boundaries once (call outside loops). */
+export function computeWeekBuckets(): WeekBucketBoundaries {
+  return {
+    today: getLocalDateStr(),
+    week1: getDateOffsetStr(7),
+    week2: getDateOffsetStr(14),
+    week3: getDateOffsetStr(21),
+    week4: getDateOffsetStr(28),
+    week5: getDateOffsetStr(35),
+  };
+}
 
-  const end2 = getDateOffsetStr(14);
-  if (dateStr <= end2) return '+1 Week';
-
-  const end3 = getDateOffsetStr(21);
-  if (dateStr <= end3) return '+2 Weeks';
-
-  const end4 = getDateOffsetStr(28);
-  if (dateStr <= end4) return '+3 Weeks';
-
-  const end5 = getDateOffsetStr(35);
-  if (dateStr <= end5) return '+4 Weeks';
-
+/** Get which week bucket a date falls into, using pre-computed boundaries. */
+export function getWeekBucket(dateStr: string, b: WeekBucketBoundaries): string {
+  if (dateStr < b.today) return 'Overdue';
+  if (dateStr <= b.week1) return 'This Week';
+  if (dateStr <= b.week2) return '+1 Week';
+  if (dateStr <= b.week3) return '+2 Weeks';
+  if (dateStr <= b.week4) return '+3 Weeks';
+  if (dateStr <= b.week5) return '+4 Weeks';
   return 'Later';
 }
