@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
 import { CategorySection, EditItemModal } from '../components/items';
+import { ViewModeSwitcher, FocusView, TrackerView } from '../components/views';
 import { BottomInputBar } from '../components/items/BottomInputBar';
 import { CategoryToastStack } from '../components/items/CategoryToastStack';
 import type { RecentItemEntry } from '../components/items/CategoryToastStack';
@@ -46,6 +47,7 @@ export function ListPage() {
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
+  const taskViewMode = useUIStore((state) => state.taskViewMode);
   const showToast = useUIStore((state) => state.showToast);
 
   const createItem = useCreateItem(id!);
@@ -108,9 +110,13 @@ export function ListPage() {
     };
   }, [list]);
 
-  const uncheckedCount = list
-    ? list.items.filter((item) => !item.is_checked).length
-    : 0;
+  // All unchecked items (for Focus/Tracker views)
+  const uncheckedItems = useMemo(
+    () => list?.items.filter((item) => !item.is_checked) ?? [],
+    [list]
+  );
+
+  const uncheckedCount = uncheckedItems.length;
   const checkedCount = checkedItems.length;
   const totalItems = list?.items.length || 0;
 
@@ -437,9 +443,12 @@ export function ListPage() {
         <AnimatePresence mode="wait">
           {activeTab === 'todo' ? (
             <div key="todo" className="pb-24">
+              {/* View mode switcher — tasks lists only */}
+              {list.type === 'tasks' && uncheckedCount > 0 && <ViewModeSwitcher />}
+
               {uncheckedCount === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
-                  <div className="text-5xl mb-4">✨</div>
+                  <div className="text-5xl mb-4">&#x2728;</div>
                   <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
                     All caught up!
                   </h3>
@@ -447,6 +456,27 @@ export function ListPage() {
                     Add items using the field below
                   </p>
                 </div>
+              ) : list.type === 'tasks' && taskViewMode === 'focus' ? (
+                <FocusView
+                  listId={id!}
+                  items={uncheckedItems}
+                  listType={list.type}
+                  isShared={list.is_shared ?? false}
+                  categories={list.categories}
+                  onCheckItem={handleCheckItem}
+                  onEditItem={handleEditItem}
+                  onNameChange={handleNameChange}
+                />
+              ) : list.type === 'tasks' && taskViewMode === 'tracker' ? (
+                <TrackerView
+                  listId={id!}
+                  items={uncheckedItems}
+                  listType={list.type}
+                  isShared={list.is_shared ?? false}
+                  onCheckItem={handleCheckItem}
+                  onEditItem={handleEditItem}
+                  onNameChange={handleNameChange}
+                />
               ) : (
                 <>
                   {uncategorizedItems.length > 0 && (

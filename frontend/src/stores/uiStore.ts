@@ -7,6 +7,9 @@ const DEFAULT_TOAST_DURATION_MS = 4000;
 /** Theme type */
 export type Theme = 'light' | 'dark' | 'system';
 
+/** Task view mode (within the To Do tab, tasks lists only) */
+export type TaskViewMode = 'categories' | 'focus' | 'tracker';
+
 /** Collapsed categories state */
 export type CollapsedCategories = Record<string, Set<string>>;
 
@@ -82,6 +85,10 @@ interface UIState {
   // Current list tab
   activeTab: 'todo' | 'done';
   setActiveTab: (tab: 'todo' | 'done') => void;
+
+  // Task view mode (within To Do tab, tasks lists only)
+  taskViewMode: TaskViewMode;
+  setTaskViewMode: (mode: TaskViewMode) => void;
 
   // Toast notifications
   toasts: Toast[];
@@ -166,6 +173,10 @@ export const useUIStore = create<UIState>()(
       activeTab: 'todo',
       setActiveTab: (tab) => set({ activeTab: tab }),
 
+      // Task view mode
+      taskViewMode: 'categories',
+      setTaskViewMode: (mode) => set({ taskViewMode: mode }),
+
       // Toast notifications
       toasts: [],
       showToast: (message, type = 'error', duration = DEFAULT_TOAST_DURATION_MS) => {
@@ -192,6 +203,7 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         theme: state.theme,
         collapsedCategories: state.collapsedCategories,
+        taskViewMode: state.taskViewMode,
       }),
     }
   )
