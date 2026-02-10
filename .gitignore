@@ -79,3 +79,4 @@ frontend/.env.local
 .claude/skills/
 .cursor/
 .github/skills/
+.mcp.json
