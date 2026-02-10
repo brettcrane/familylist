@@ -170,13 +170,21 @@ See [TODO.md](./TODO.md) for current bugs and tasks.
 
 ## Development & Testing
 
+**IMPORTANT: Always use absolute paths or `--prefix`/`--project` flags. Never `cd` into subdirectories — the working directory persists across shell calls and causes path resolution bugs.**
+
 ```bash
-# Backend
-cd backend && uv sync && uv run uvicorn app.main:app --reload
+# Backend dev server
+uv run --project /home/brett-crane/code/familylist/backend uvicorn app.main:app --reload
 
-# Frontend
-cd frontend && npm install && npm run dev
+# Frontend dev server
+npm --prefix /home/brett-crane/code/familylist/frontend run dev
 
-# Tests
-cd backend && uv run pytest
+# Backend tests (10s per-test timeout via pytest-timeout)
+uv run --project /home/brett-crane/code/familylist/backend pytest /home/brett-crane/code/familylist/backend/tests -x -q
+
+# Frontend type check
+npm --prefix /home/brett-crane/code/familylist/frontend run build
+
+# Frontend lint
+npm --prefix /home/brett-crane/code/familylist/frontend run lint
 ```

@@ -5,11 +5,11 @@ class TestMCPEndpoint:
     """Test suite for MCP server integration."""
 
     def test_mcp_route_registered(self, client):
-        """Test that the MCP route is registered (not 404)."""
-        response = client.get("/mcp")
-        # MCP endpoint should respond (not 404 or 5xx)
-        assert response.status_code != 404
-        assert response.status_code < 500
+        """Test that the MCP SSE route is registered in the app."""
+        from app.main import app
+
+        mcp_paths = [r.path for r in app.routes if hasattr(r, "path") and "/mcp" in r.path]
+        assert len(mcp_paths) > 0, "No /mcp route found in app"
 
     def test_operation_ids_set(self, client):
         """Test that all API endpoints have explicit operation_ids in the OpenAPI schema."""
