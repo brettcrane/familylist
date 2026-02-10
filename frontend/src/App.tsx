@@ -19,6 +19,8 @@ import {
   AuthProvider,
   FallbackAuthProvider,
 } from './contexts/AuthContext';
+import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate';
+import { UpdateBanner } from './components/ui/UpdateBanner';
 
 // Check if Clerk is configured
 const isClerkConfigured = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -98,6 +100,7 @@ function LoadingScreen() {
 function ClerkAppContent() {
   // Set up auth token injection for API requests
   const { isAuthReady } = useAuthSetup();
+  const { updateAvailable, applyUpdate } = useServiceWorkerUpdate();
 
   useReconnectRefresh();
 
@@ -108,6 +111,7 @@ function ClerkAppContent() {
 
   return (
     <AuthProvider isAuthReady={isAuthReady}>
+      {updateAvailable && <UpdateBanner onReload={applyUpdate} />}
       <Routes>
         {/* Public routes */}
         <Route path="/sign-in/*" element={<SignInPage />} />
@@ -150,6 +154,8 @@ function ClerkAppContent() {
  * App content without Clerk (API key mode).
  */
 function FallbackAppContent() {
+  const { updateAvailable, applyUpdate } = useServiceWorkerUpdate();
+
   useReconnectRefresh();
 
   // Initialize theme on mount
@@ -159,6 +165,7 @@ function FallbackAppContent() {
 
   return (
     <FallbackAuthProvider>
+      {updateAvailable && <UpdateBanner onReload={applyUpdate} />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/lists/:id" element={<ListPage />} />
