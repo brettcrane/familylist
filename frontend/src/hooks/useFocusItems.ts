@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Item } from '../types/api';
-import { getLocalDateStr, getDateOffsetStr, daysOverdue } from '../utils/dates';
+import { getLocalDateStr, getDateOffsetStr } from '../utils/dates';
 
 const MAX_TODAY_PER_PERSON = 5;
 

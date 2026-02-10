@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Item } from '../types/api';
-import { getLocalDateStr, getDateOffsetStr, daysOverdue, getWeekBucket, computeWeekBuckets } from '../utils/dates';
+import { getDateOffsetStr, daysOverdue, getWeekBucket, computeWeekBuckets } from '../utils/dates';
 import { getUserColor } from '../utils/colors';
 
 export interface TrackerStats {
