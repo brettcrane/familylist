@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
 import { CategorySection, EditItemModal } from '../components/items';
+import { FilterBar } from '../components/items/FilterBar';
 import { ViewModeSwitcher, FocusView, TrackerView } from '../components/views';
 import { BottomInputBar } from '../components/items/BottomInputBar';
 import { CategoryToastStack } from '../components/items/CategoryToastStack';
@@ -15,6 +16,7 @@ import { DeleteListDialog } from '../components/lists/DeleteListDialog';
 import { ShareListModal } from '../components/lists/ShareListModal';
 import { useList } from '../hooks/useLists';
 import { useListStream } from '../hooks/useListStream';
+import { useCurrentUser } from '../hooks/useShares';
 import { useAuth } from '../contexts/AuthContext';
 import {
   useCreateItem,
@@ -49,6 +51,11 @@ export function ListPage() {
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const taskViewMode = useUIStore((state) => state.taskViewMode);
   const showToast = useUIStore((state) => state.showToast);
+  const myItemsOnly = useUIStore((state) => state.myItemsOnly);
+  const setMyItemsOnly = useUIStore((state) => state.setMyItemsOnly);
+
+  const { data: currentUser } = useCurrentUser();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const createItem = useCreateItem(id!);
   const checkItem = useCheckItem(id!);
@@ -82,20 +89,41 @@ export function ListPage() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Group items by category
-  const { categorizedItems, uncategorizedItems, checkedItems } = useMemo(() => {
-    if (!list) {
-      return { categorizedItems: new Map(), uncategorizedItems: [], checkedItems: [] };
-    }
+  // Split items into checked/unchecked
+  const checkedItems = useMemo(
+    () => list?.items.filter((item) => item.is_checked) ?? [],
+    [list]
+  );
 
+  // All unchecked items (for Focus/Tracker views)
+  const uncheckedItems = useMemo(
+    () => list?.items.filter((item) => !item.is_checked) ?? [],
+    [list]
+  );
+
+  // Apply search + myItems filters
+  const isFiltering = !!(searchQuery.trim() || (myItemsOnly && currentUser));
+  const { filteredUnchecked, filteredChecked, filteredCategorized, filteredUncategorized } = useMemo(() => {
+    const applyFilters = (items: Item[]) => {
+      let result = items;
+      if (myItemsOnly && currentUser) {
+        result = result.filter((i) => i.assigned_to === currentUser.id);
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        result = result.filter((i) => i.name.toLowerCase().includes(q));
+      }
+      return result;
+    };
+
+    const fUnchecked = applyFilters(uncheckedItems);
+    const fChecked = applyFilters(checkedItems);
+
+    // Recompute category grouping from filtered unchecked
     const categorized = new Map<string, Item[]>();
     const uncategorized: Item[] = [];
-    const checked: Item[] = [];
-
-    list.items.forEach((item) => {
-      if (item.is_checked) {
-        checked.push(item);
-      } else if (item.category_id) {
+    fUnchecked.forEach((item) => {
+      if (item.category_id) {
         const existing = categorized.get(item.category_id) || [];
         categorized.set(item.category_id, [...existing, item]);
       } else {
@@ -104,21 +132,17 @@ export function ListPage() {
     });
 
     return {
-      categorizedItems: categorized,
-      uncategorizedItems: uncategorized,
-      checkedItems: checked,
+      filteredUnchecked: fUnchecked,
+      filteredChecked: fChecked,
+      filteredCategorized: categorized,
+      filteredUncategorized: uncategorized,
     };
-  }, [list]);
+  }, [uncheckedItems, checkedItems, myItemsOnly, currentUser, searchQuery]);
 
-  // All unchecked items (for Focus/Tracker views)
-  const uncheckedItems = useMemo(
-    () => list?.items.filter((item) => !item.is_checked) ?? [],
-    [list]
-  );
-
-  const uncheckedCount = uncheckedItems.length;
-  const checkedCount = checkedItems.length;
+  const uncheckedCount = filteredUnchecked.length;
+  const checkedCount = filteredChecked.length;
   const totalItems = list?.items.length || 0;
+  const showMyItemsChip = (list?.is_shared ?? false) && !!currentUser;
 
   // Handlers
   const handleCheckItem = (itemId: string) => {
@@ -440,6 +464,17 @@ export function ListPage() {
           </div>
         )}
 
+        {/* Filter bar — shown when list has items */}
+        {(list.items.length > 0) && (
+          <FilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            myItemsOnly={myItemsOnly}
+            onMyItemsToggle={() => setMyItemsOnly(!myItemsOnly)}
+            showMyItems={showMyItemsChip}
+          />
+        )}
+
         <AnimatePresence mode="wait">
           {activeTab === 'todo' ? (
             <div key="todo" className="pb-24">
@@ -448,18 +483,40 @@ export function ListPage() {
 
               {uncheckedCount === 0 ? (
                 <div className="flex flex-col items-center justify-center p-12 text-center">
-                  <div className="text-5xl mb-4">&#x2728;</div>
-                  <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
-                    All caught up!
-                  </h3>
-                  <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-                    Add items using the field below
-                  </p>
+                  {isFiltering ? (
+                    <>
+                      <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
+                        No items match
+                      </h3>
+                      <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                        Try a different search or clear filters
+                      </p>
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setMyItemsOnly(false);
+                        }}
+                        className="mt-3 text-sm font-medium text-[var(--color-accent)] hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-5xl mb-4">&#x2728;</div>
+                      <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
+                        All caught up!
+                      </h3>
+                      <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                        Add items using the field below
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : list.type === 'tasks' && taskViewMode === 'focus' ? (
                 <FocusView
                   listId={id!}
-                  items={uncheckedItems}
+                  items={filteredUnchecked}
                   listType={list.type}
                   isShared={list.is_shared ?? false}
                   categories={list.categories}
@@ -470,7 +527,7 @@ export function ListPage() {
               ) : list.type === 'tasks' && taskViewMode === 'tracker' ? (
                 <TrackerView
                   listId={id!}
-                  items={uncheckedItems}
+                  items={filteredUnchecked}
                   listType={list.type}
                   isShared={list.is_shared ?? false}
                   onCheckItem={handleCheckItem}
@@ -479,12 +536,12 @@ export function ListPage() {
                 />
               ) : (
                 <>
-                  {uncategorizedItems.length > 0 && (
+                  {filteredUncategorized.length > 0 && (
                     <CategorySection
                       listId={id!}
                       listType={list.type}
                       category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
-                      items={uncategorizedItems}
+                      items={filteredUncategorized}
                       onCheckItem={handleCheckItem}
                       onEditItem={handleEditItem}
                       onNameChange={handleNameChange}
@@ -492,7 +549,7 @@ export function ListPage() {
                   )}
 
                   {sortedCategories.map((category) => {
-                    const items = categorizedItems.get(category.id) || [];
+                    const items = filteredCategorized.get(category.id) || [];
                     if (items.length === 0) return null;
                     return (
                       <CategorySection
@@ -513,7 +570,7 @@ export function ListPage() {
           ) : (
             <DoneList
               key="done"
-              items={checkedItems}
+              items={filteredChecked}
               categories={list.categories}
               totalItems={totalItems}
               onUncheckItem={handleUncheckItem}

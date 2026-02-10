@@ -90,6 +90,10 @@ interface UIState {
   taskViewMode: TaskViewMode;
   setTaskViewMode: (mode: TaskViewMode) => void;
 
+  // My items filter (shared lists)
+  myItemsOnly: boolean;
+  setMyItemsOnly: (value: boolean) => void;
+
   // Toast notifications
   toasts: Toast[];
   showToast: (message: string, type?: Toast['type'], duration?: number) => void;
@@ -177,6 +181,10 @@ export const useUIStore = create<UIState>()(
       taskViewMode: 'categories',
       setTaskViewMode: (mode) => set({ taskViewMode: mode }),
 
+      // My items filter
+      myItemsOnly: false,
+      setMyItemsOnly: (value) => set({ myItemsOnly: value }),
+
       // Toast notifications
       toasts: [],
       showToast: (message, type = 'error', duration = DEFAULT_TOAST_DURATION_MS) => {
@@ -204,6 +212,7 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         collapsedCategories: state.collapsedCategories,
         taskViewMode: state.taskViewMode,
+        myItemsOnly: state.myItemsOnly,
       }),
     }
   )
