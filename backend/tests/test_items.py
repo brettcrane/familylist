@@ -1112,3 +1112,60 @@ class TestCategoryEndpoints:
         # Verify new order
         for idx, cat in enumerate(data):
             assert cat["sort_order"] == idx
+
+    def test_reorder_items(self, client, auth_headers, created_list):
+        """Test reordering items within a list."""
+        list_id = created_list["id"]
+
+        # Create a few items
+        items = []
+        for name in ["Item A", "Item B", "Item C"]:
+            response = client.post(
+                f"/api/lists/{list_id}/items",
+                json={"name": name},
+                headers=auth_headers,
+            )
+            assert response.status_code == 201
+            items.append(response.json())
+
+        # Reverse the order
+        reversed_ids = [i["id"] for i in reversed(items)]
+        response = client.post(
+            f"/api/lists/{list_id}/items/reorder",
+            json={"item_ids": reversed_ids},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify new sort_order
+        for idx, item in enumerate(data):
+            assert item["sort_order"] == idx
+        assert data[0]["name"] == "Item C"
+        assert data[2]["name"] == "Item A"
+
+    def test_reorder_items_rejects_empty_list(self, client, auth_headers, created_list):
+        """Test that reordering with empty item list is rejected."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items/reorder",
+            json={"item_ids": []},
+            headers=auth_headers,
+        )
+        assert response.status_code == 422
+
+    def test_reorder_items_rejects_duplicates(self, client, auth_headers, created_list):
+        """Test that reordering with duplicate IDs is rejected."""
+        list_id = created_list["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items",
+            json={"name": "Dup test"},
+            headers=auth_headers,
+        )
+        item_id = response.json()["id"]
+        response = client.post(
+            f"/api/lists/{list_id}/items/reorder",
+            json={"item_ids": [item_id, item_id]},
+            headers=auth_headers,
+        )
+        assert response.status_code == 422

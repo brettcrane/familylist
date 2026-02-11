@@ -1,9 +1,27 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import {
+  DndContext,
+  closestCenter,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
-import { CategorySection, EditItemModal, FilterBar } from '../components/items';
+import { CategorySection, ItemRow, EditItemModal, FilterBar } from '../components/items';
+import { SortableCategorySection, CATEGORY_DND_PREFIX } from '../components/items/SortableCategorySection';
+import { SortableItemRow } from '../components/items/SortableItemRow';
 import { ViewModeSwitcher, FocusView, TrackerView } from '../components/views';
 import { BottomInputBar } from '../components/items/BottomInputBar';
 import { CategoryToastStack } from '../components/items/CategoryToastStack';
@@ -25,11 +43,13 @@ import {
   useUpdateItem,
   useClearCompleted,
   useRestoreCompleted,
+  useReorderItems,
+  useReorderCategories,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
 import { getErrorMessage } from '../api/client';
-import { ErrorState } from '../components/ui';
+import { ErrorState, ErrorBoundary } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const MAX_RECENT_ENTRIES = 5;
@@ -63,6 +83,15 @@ export function ListPage() {
   const updateItem = useUpdateItem(id!);
   const clearCompleted = useClearCompleted(id!);
   const restoreCompleted = useRestoreCompleted(id!);
+  const reorderItems = useReorderItems(id!);
+  const reorderCategories = useReorderCategories(id!);
+
+  // DnD state
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
 
   // Input state
   const [inputValue, setInputValue] = useState('');
@@ -217,6 +246,67 @@ export function ListPage() {
       }
     );
   };
+
+  // DnD handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id || !list) return;
+
+    const activeIdStr = String(active.id);
+    const overIdStr = String(over.id);
+    const activeIsCategory = activeIdStr.startsWith(CATEGORY_DND_PREFIX);
+    const overIsCategory = overIdStr.startsWith(CATEGORY_DND_PREFIX);
+
+    // Mixed drag (item onto category or vice versa) — not supported
+    if (activeIsCategory !== overIsCategory) return;
+
+    // Category reorder
+    if (activeIsCategory && overIsCategory) {
+      const activeCatId = activeIdStr.slice(CATEGORY_DND_PREFIX.length);
+      const overCatId = overIdStr.slice(CATEGORY_DND_PREFIX.length);
+      const catIds = [...list.categories]
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((c) => c.id);
+      const oldIndex = catIds.indexOf(activeCatId);
+      const newIndex = catIds.indexOf(overCatId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const newOrder = arrayMove(catIds, oldIndex, newIndex);
+      reorderCategories.mutate(newOrder, {
+        onError: (error) => {
+          showToast(getErrorMessage(error, 'Failed to reorder categories.'), 'error');
+        },
+      });
+      return;
+    }
+
+    // Item reorder within same category
+    const activeItem = list.items.find((i) => i.id === activeIdStr);
+    if (!activeItem) return;
+    const categoryId = activeItem.category_id;
+    const categoryItems = list.items
+      .filter((i) => !i.is_checked && i.category_id === categoryId)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const itemIds = categoryItems.map((i) => i.id);
+    const oldIndex = itemIds.indexOf(activeIdStr);
+    const newIndex = itemIds.indexOf(overIdStr);
+    // newIndex === -1 means the over item is in a different category — drop is ignored
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(itemIds, oldIndex, newIndex);
+    reorderItems.mutate(newOrder, {
+      onError: (error) => {
+        showToast(getErrorMessage(error, 'Failed to reorder items.'), 'error');
+      },
+    });
+  }, [list, reorderItems, reorderCategories, showToast]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragId(null);
+  }, []);
 
   // Fire-and-forget single item creation
   const handleSingleItem = (itemName: string) => {
@@ -534,36 +624,90 @@ export function ListPage() {
                   onNameChange={handleNameChange}
                 />
               ) : (
-                <>
-                  {filteredUncategorized.length > 0 && (
-                    <CategorySection
-                      listId={id!}
-                      listType={list.type}
-                      category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
-                      items={filteredUncategorized}
-                      onCheckItem={handleCheckItem}
-                      onEditItem={handleEditItem}
-                      onNameChange={handleNameChange}
-                    />
-                  )}
+                <ErrorBoundary>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
+                >
+                  <SortableContext
+                    items={sortedCategories.map((c) => `${CATEGORY_DND_PREFIX}${c.id}`)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {filteredUncategorized.length > 0 && (
+                      <SortableContext
+                        items={filteredUncategorized.filter((i) => !i.is_checked).map((i) => i.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <CategorySection
+                          listId={id!}
+                          listType={list.type}
+                          category={{ id: 'uncategorized', list_id: id!, name: 'Uncategorized', sort_order: -1 }}
+                          items={filteredUncategorized}
+                          onCheckItem={handleCheckItem}
+                          onEditItem={handleEditItem}
+                          onNameChange={handleNameChange}
+                          renderItem={(item) => (
+                            <SortableItemRow
+                              key={item.id}
+                              item={item}
+                              listType={list.type}
+                              onCheck={() => handleCheckItem(item.id)}
+                              onEdit={() => handleEditItem(item)}
+                              onNameChange={(newName) => handleNameChange(item.id, newName)}
+                            />
+                          )}
+                        />
+                      </SortableContext>
+                    )}
 
-                  {sortedCategories.map((category) => {
-                    const items = filteredCategorized.get(category.id) || [];
-                    if (items.length === 0) return null;
-                    return (
-                      <CategorySection
-                        key={category.id}
-                        listId={id!}
-                        listType={list.type}
-                        category={category}
-                        items={items}
-                        onCheckItem={handleCheckItem}
-                        onEditItem={handleEditItem}
-                        onNameChange={handleNameChange}
-                      />
-                    );
-                  })}
-                </>
+                    {sortedCategories.map((category) => {
+                      const items = filteredCategorized.get(category.id) || [];
+                      if (items.length === 0) return null;
+                      return (
+                        <SortableCategorySection
+                          key={category.id}
+                          listId={id!}
+                          listType={list.type}
+                          category={category}
+                          items={items}
+                          onCheckItem={handleCheckItem}
+                          onEditItem={handleEditItem}
+                          onNameChange={handleNameChange}
+                        />
+                      );
+                    })}
+                  </SortableContext>
+
+                  <DragOverlay>
+                    {activeDragId && (() => {
+                      if (activeDragId.startsWith(CATEGORY_DND_PREFIX)) {
+                        const catId = activeDragId.slice(CATEGORY_DND_PREFIX.length);
+                        const cat = list.categories.find((c) => c.id === catId);
+                        if (!cat) return null;
+                        return (
+                          <div className="opacity-80 rotate-1 scale-[1.02] shadow-lg rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2.5 flex items-center gap-2">
+                            <span className="font-medium text-[var(--color-text-primary)]">{cat.name}</span>
+                          </div>
+                        );
+                      }
+                      const item = list.items.find((i) => i.id === activeDragId);
+                      if (!item) return null;
+                      return (
+                        <div className="opacity-80 rotate-1 scale-[1.02] shadow-lg rounded-lg">
+                          <ItemRow
+                            item={item}
+                            listType={list.type}
+                            onCheck={() => {}}
+                          />
+                        </div>
+                      );
+                    })()}
+                  </DragOverlay>
+                </DndContext>
+                </ErrorBoundary>
               )}
             </div>
           ) : (

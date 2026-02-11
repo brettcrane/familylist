@@ -14,9 +14,10 @@ interface ItemRowProps {
   onCheck: () => void;
   onEdit?: () => void;
   onNameChange?: (newName: string) => void;
+  dragHandleSlot?: React.ReactNode;
 }
 
-export function ItemRow({ item, listType, onCheck, onEdit, onNameChange }: ItemRowProps) {
+export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHandleSlot }: ItemRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +74,7 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange }: ItemR
         'border-b border-[var(--color-text-muted)]/10'
       )}
     >
+      {dragHandleSlot}
       <Checkbox
         checked={item.is_checked}
         onCheckedChange={onCheck}

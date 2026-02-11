@@ -71,20 +71,22 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 ## Code Index
 
 ```
-|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
-|backend/app/api:{lists=CRUD+duplicate,items=create(single)+create-batch(/items/batch)+CRUD+check,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
-|backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs+Magnitude-enum,serializers=item_to_response-shared,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings}
-|frontend/src/components/items:{BottomInputBar=input-only+AI-toggle,CategoryToastStack=non-blocking-category-toasts,NLParseModal=AI-parse-review,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to}
-|frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete}
+|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD+reorder,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
+|backend/app/api:{lists=CRUD+duplicate,items=create(single)+create-batch(/items/batch)+CRUD+check+reorder,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
+|backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs+Magnitude-enum+CategoryReorder+ItemReorder,serializers=item_to_response-shared,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings,database=SQLite-connection+migrations,mcp_server=MCP-server-setup}
+|frontend/src/components/items:{BottomInputBar=input-only+AI-toggle,CategoryToastStack=non-blocking-category-toasts,NLParseModal=AI-parse-review,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to,FilterBar=search+my-items-filter,SortableItemRow=dnd-kit-item-wrapper,SortableCategorySection=dnd-kit-category-wrapper}
+|frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete,OrganizedListGrid=folder-sections+drag-drop,FolderSection=collapsible-folder+drag-drop,SortableListCard=dnd-kit-list-wrapper,InlineFolderInput=folder-name-input,OrganizeButton=organize-mode-toggle,MoveToFolderModal=move-list-to-folder}
 |frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
+|frontend/src/components/views:{ViewModeSwitcher=segmented-control-tasks,FocusView=time-bucketed-container,FocusSection=collapsible-time-bucket,PersonGroup=person-grouped-items,TrackerView=task-stats-dashboard,TrackerChart=CSS-stacked-bar-chart}
 |frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
-|frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh,Toast,ErrorState}
+|frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh,Toast,ErrorState,UpdateBanner=PWA-update-prompt}
 |frontend/src/components/done:{DoneList=checked-items-section}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates,useLists=queries,useShares=share-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe}
-|frontend/src/stores:{uiStore=Zustand+theme+collapse+modals,authStore=Zustand+cached-user+offline-persist}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets,useServiceWorkerUpdate=SW-update-detection}
+|frontend/src/stores:{uiStore=Zustand+theme+collapse+modals+taskViewMode+myItemsOnly,authStore=Zustand+cached-user+offline-persist,organizationStore=Zustand+per-user-folders+sort-order+localStorage}
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke,push=subscribe+preferences}
-|frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name}
+|frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting}
 |frontend/src/types:{api=DTOs+MAGNITUDE_CONFIG+AI_MODE_PLACEHOLDERS+AI_MODE_HINTS}
+|frontend/src/pages:{HomePage=list-grid+organization,ListPage=items+views+input,SignInPage=Clerk-auth}
 ```
 
 ## Key Flows
@@ -98,6 +100,9 @@ Real-Time-Sync: useListStream→EventSource(SSE)→event_broadcaster→publish_e
 Push-Notifications: item-change→notification_queue.queue_event()→30s-2min-batching→push_service.send_push()→pywebpush→browser-push-service→sw.ts-handler
 Offline: PersistQueryClientProvider(idb-keyval)→cached-queries+SW-NetworkFirst(/api/*GET)→SyncIndicator(offline-pill)→reconnect→invalidateQueries
 User-Sync: ClerkProvider→useAuthSetup→setTokenGetter→apiRequest(Bearer)→get_auth→get_current_user→user_service.get_or_create_user→local-DB
+Drag-Reorder: drag-end→useReorderItems/useReorderCategories→optimistic-sort-update→POST /items/reorder or /categories/reorder→broadcast-event→rollback-on-error
+List-Organization: OrganizeButton→organizeMode→drag-lists/folders→setSortOrder→localStorage-persist | MoveToFolderModal→moveListToFolder→organizationStore
+SW-Update: deploy→new-SW→skipWaiting+clientsClaim→controllerchange→useServiceWorkerUpdate→UpdateBanner→user-clicks-reload→window.location.reload()
 ```
 
 ## Item Fields: Magnitude & Assigned-To
@@ -110,10 +115,76 @@ Items support optional magnitude (effort sizing: S/M/L) and assigned-to (user as
 
 **UI:** `ItemRow` shows magnitude badge + assigned-to avatar. `EditItemModal` has dropdowns for both. Avatar colors via `getUserColor()` in `utils/colors.ts`, initials via `getInitials()` in `utils/strings.ts`.
 
+## Drag-and-Drop Reordering
+
+Items and categories support manual reordering via `@dnd-kit/core` + `@dnd-kit/sortable`.
+
+**Key files:**
+- `frontend/src/components/items/SortableItemRow.tsx` - dnd-kit wrapper for ItemRow with drag handle
+- `frontend/src/components/items/SortableCategorySection.tsx` - dnd-kit wrapper for CategorySection, nests SortableItemRow
+- `frontend/src/hooks/useItems.ts` - `useReorderItems()` and `useReorderCategories()` mutations
+- `frontend/src/api/items.ts` - `reorderItems()` client, `frontend/src/api/categories.ts` - `reorderCategories()` client
+- `backend/app/api/items.py` - `POST /lists/{id}/items/reorder`
+- `backend/app/api/categories.py` - `POST /lists/{id}/categories/reorder`
+- `backend/app/schemas.py` - `ItemReorder`, `CategoryReorder` (list of ordered IDs)
+
+**Pattern:** Drag handle is a `Bars3Icon` button passed as `dragHandleSlot` prop to the base component. `useSortable` uses activator node ref for handle-only dragging. Optimistic reorder on drag end, rollback on error.
+
+## List Organization (Folders & Sorting)
+
+Lists can be organized into folders and reordered on the home page. Per-user, persisted to localStorage.
+
+**Key files:**
+- `frontend/src/stores/organizationStore.ts` - Zustand store: `folders`, `listToFolder`, `sortOrder`, `organizeMode` (per-user keyed)
+- `frontend/src/hooks/useOrganization.ts` - Scoped hook: `organizeLists()` builds `ListSection[]`, `ensureSortOrder()` reconciles
+- `frontend/src/components/lists/OrganizedListGrid.tsx` - DnD context for lists and folders
+- `frontend/src/components/lists/FolderSection.tsx` - Collapsible folder with context menu (rename, delete)
+- `frontend/src/components/lists/SortableListCard.tsx` - dnd-kit wrapper for ListCard
+- `frontend/src/components/lists/InlineFolderInput.tsx` - Inline folder name input
+- `frontend/src/components/lists/OrganizeButton.tsx` - Toggle for organize mode
+- `frontend/src/components/lists/MoveToFolderModal.tsx` - Bottom sheet to move list into folder
+
+**Pattern:** Organization is client-side only (no backend). API-key mode uses `_default` user key. `organizeMode` is not persisted (resets on reload). Folder IDs use `folder-{timestamp}-{random}` format.
+
+## Item Search & Filtering
+
+**Key files:**
+- `frontend/src/components/items/FilterBar.tsx` - Search input + "Mine" toggle chip (shown on shared lists only)
+- `frontend/src/stores/uiStore.ts` - `myItemsOnly` (persisted), `searchQuery` is local state in ListPage
+- `frontend/src/pages/ListPage.tsx` - Client-side filtering of items by search query and assigned-to
+
+## Task View Modes (Focus & Tracker)
+
+Within the To Do tab, `type === 'tasks'` lists support three view modes. Grocery/packing lists always show categories view.
+
+**Key files:**
+- `frontend/src/stores/uiStore.ts` - `taskViewMode: 'categories' | 'focus' | 'tracker'` (persisted, global not per-list)
+- `frontend/src/components/views/ViewModeSwitcher.tsx` - Segmented control with Framer Motion animated indicator
+- `frontend/src/components/views/FocusView.tsx` - Time-bucketed sections (Today, This Week, Coming Up, Later, Blocked) with person sub-groups
+- `frontend/src/components/views/FocusSection.tsx` - Collapsible time-bucket section
+- `frontend/src/components/views/PersonGroup.tsx` - Person-grouped items within a section
+- `frontend/src/components/views/TrackerView.tsx` - Stat cards + overdue list
+- `frontend/src/components/views/TrackerChart.tsx` - CSS-only stacked bar chart (7 time buckets, per-person colored segments)
+- `frontend/src/hooks/useFocusItems.ts` - Pure computation: groups items into time buckets with person sub-groups
+- `frontend/src/hooks/useTrackerStats.ts` - Stats + timeline buckets with `computeWeekBuckets()` for perf
+- `frontend/src/utils/dates.ts` - `daysOverdue`, `getDateOffsetStr`, `isDateInRange`, `getWeekBucket`, `computeWeekBuckets`
+
+**Pattern:** Focus section IDs use `focus-` prefix (e.g., `focus-today`) stored in the same `collapsedCategories` map — no collision with UUID category IDs. `defaultCollapsed` applied via mount-only `useEffect`.
+
+## PWA Update Detection
+
+Non-intrusive banner prompting reload when a new service worker takes control after deploy.
+
+**Key files:**
+- `frontend/src/hooks/useServiceWorkerUpdate.ts` - Listens for `controllerchange` on `navigator.serviceWorker`
+- `frontend/src/components/ui/UpdateBanner.tsx` - Fixed top bar, dismissible, `bg-[var(--color-accent)]`
+
+**Pattern:** Works with `skipWaiting()` + `clientsClaim()` strategy. Records `hadControllerRef` at mount to skip first-time installs. Try-catch around SW API access for restricted contexts.
+
 ## Environment Variables
 
 Required for AI features:
-- `OPENAI_API_KEY` - For natural language parsing
+- `LLM_OPENAI_API_KEY` - For natural language parsing
 - `ENABLE_LLM_PARSING=true` - Enable NL parsing
 - `LLM_BACKEND=openai` - Use OpenAI backend (also: ollama, local)
 - `LLM_OPENAI_MODEL=gpt-5-nano` - Model to use
@@ -156,7 +227,7 @@ Frontend (optional):
 - Still old after pull? → Cloudflare CDN cached. Purge everything in Cloudflare dashboard
 
 **Portainer environment variables (runtime):**
-- `API_KEY`, `OPENAI_API_KEY` - Core config
+- `API_KEY`, `LLM_OPENAI_API_KEY` - Core config
 - `AUTH_MODE=hybrid`, `CLERK_JWT_ISSUER` - Clerk auth
 
 **GitHub secrets:**

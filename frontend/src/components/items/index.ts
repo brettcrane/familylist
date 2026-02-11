@@ -1,5 +1,7 @@
 export * from './ItemRow';
 export * from './CategorySection';
+export * from './SortableItemRow';
+export * from './SortableCategorySection';
 export * from './NLParseModal';
 export * from './BottomInputBar';
 export * from './CategoryToastStack';

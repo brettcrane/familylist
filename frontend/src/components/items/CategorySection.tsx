@@ -14,6 +14,8 @@ interface CategorySectionProps {
   onCheckItem: (itemId: string) => void;
   onEditItem?: (item: Item) => void;
   onNameChange?: (itemId: string, newName: string) => void;
+  dragHandleSlot?: React.ReactNode;
+  renderItem?: (item: Item, index: number) => React.ReactNode;
 }
 
 export function CategorySection({
@@ -24,6 +26,8 @@ export function CategorySection({
   onCheckItem,
   onEditItem,
   onNameChange,
+  dragHandleSlot,
+  renderItem,
 }: CategorySectionProps) {
   const isCollapsed = useUIStore((state) =>
     state.isCategoryCollapsed(listId, category.id)
@@ -45,6 +49,7 @@ export function CategorySection({
         )}
       >
         <div className="flex items-center gap-2">
+          {dragHandleSlot}
           <motion.svg
             className="w-4 h-4 text-[var(--color-text-muted)]"
             viewBox="0 0 24 24"
@@ -83,23 +88,25 @@ export function CategorySection({
           >
             {items
               .filter((item) => !item.is_checked)
-              .map((item, index) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                >
-                  <ItemRow
-                    item={item}
-                    listType={listType}
-                    onCheck={() => onCheckItem(item.id)}
-                    onEdit={onEditItem ? () => onEditItem(item) : undefined}
-                    onNameChange={onNameChange ? (newName) => onNameChange(item.id, newName) : undefined}
-                  />
-                </motion.div>
-              ))}
+              .map((item, index) =>
+                renderItem ? renderItem(item, index) : (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                  >
+                    <ItemRow
+                      item={item}
+                      listType={listType}
+                      onCheck={() => onCheckItem(item.id)}
+                      onEdit={onEditItem ? () => onEditItem(item) : undefined}
+                      onNameChange={onNameChange ? (newName) => onNameChange(item.id, newName) : undefined}
+                    />
+                  </motion.div>
+                )
+              )}
           </motion.div>
         )}
       </AnimatePresence>

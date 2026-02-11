@@ -24,9 +24,9 @@
 
 - [x] **Focus view + Tracker view (PR #35)** - Implemented as view modes within the To Do tab for task-type lists. Focus View groups items into time-bucketed sections (Today, This Week, Coming Up, Later, Blocked) with person sub-groups. Tracker View shows stat cards, stacked bar chart, and overdue list. View switcher with Categories/Focus/Tracker modes, persisted via Zustand.
 
-- [ ] **"My Items" filter** - Add a toggle/filter to show only items assigned to the current user. Useful across all views (Categories, Focus, Tracker) for shared task lists. Could be a filter chip next to the ViewModeSwitcher, or a person-selector dropdown. Uses `useCurrentUser()` to match `item.assigned_to`. Should degrade gracefully for API-key auth (no current user = filter unavailable).
+- [x] **"My Items" filter** - Toggle to show only items assigned to the current user across all views.
 
-- [ ] **Item search** - Add a search bar to filter items by name within a list. Could be a collapsible search input in the list header or above the view content. Frontend-only text filter on the existing items array (no backend search endpoint needed). Should work across all view modes and list types. Consider: debounced input, highlight matching text, clear button, empty state for no matches.
+- [x] **Item search** - Search bar to filter items by name within a list, works across all view modes and list types.
 
 - [x] **PWA update prompt (PR #36)** - Non-intrusive dismissible banner when a new service worker takes control. `useServiceWorkerUpdate` hook listens for `controllerchange`, `UpdateBanner` shows accent-colored top bar with Reload + dismiss. Works with existing `skipWaiting()` + `clientsClaim()` strategy. Try-catch for graceful degradation in restricted contexts.
 
@@ -40,7 +40,7 @@
 
 Research complete — see `docs/research/cowork-integration-research.md` for full details.
 
-- [ ] **Step 1: Backend schema — task management fields** - Add nullable fields to Item model for task list functionality:
+- [x] **Step 1: Backend schema — task management fields** - Add nullable fields to Item model for task list functionality:
   - `priority` (urgent/high/medium/low) — `Priority(str, Enum)` + CheckConstraint, shown only for task lists
   - `due_date` (date, nullable) — deadline for task items
   - `status` (open/in_progress/done/blocked) — `ItemStatus(str, Enum)` + CheckConstraint, richer than `is_checked` for tasks
@@ -50,32 +50,26 @@ Research complete — see `docs/research/cowork-integration-research.md` for ful
   - Create "Claude" system user for created_by tracking
   - Alembic migration (all nullable columns, no data migration needed)
 
-- [ ] **Step 2: API filtering enhancements** - Extend `GET /api/lists/{list_id}/items` with query params:
+- [x] **Step 2: API filtering enhancements** - Extend `GET /api/lists/{list_id}/items` with query params:
   - `?status=open,in_progress` `?priority=urgent,high` `?due_before=2026-03-01` `?created_by=claude-system`
   - Add `GET /api/users/lookup?name=Brett` for identity resolution
 
-- [ ] **Step 3: MCP server endpoint** - Expose FamilyList API as MCP tools for Claude Cowork:
+- [x] **Step 3: MCP server endpoint** - Expose FamilyList API as MCP tools for Claude Cowork:
   - Add `fastapi-mcp` dependency, mount `/mcp` endpoint on existing FastAPI app
   - Verify API key auth works with MCP `authorization_token` (Bearer token flow)
   - Test with MCP Inspector
   - Optionally add custom high-level tools (create_task_list_with_items, get_weekly_summary, bulk_update_items)
 
-- [ ] **Step 4: Frontend — task fields UI** - Conditional rendering for task-type lists:
+- [x] **Step 4: Frontend — task fields UI** - Conditional rendering for task-type lists:
   - Priority dropdown + color-coded badge in ItemRow (red/orange/yellow/green)
   - Due date picker + overdue indicator
   - Status dropdown (open/in_progress/done/blocked)
   - "Created by Claude" badge on AI-created items
   - `PRIORITY_CONFIG` and `STATUS_CONFIG` in types/api.ts (same pattern as MAGNITUDE_CONFIG)
 
-- [ ] **Step 5: Cowork plugin** - Build a FamilyList plugin for Claude Cowork:
-  - `.claude-plugin/plugin.json` manifest
-  - `.mcp.json` connecting to FamilyList MCP endpoint with API key
-  - `skills/familylist-schema.md` — list types, item fields, categories, magnitude, priority
-  - `skills/family-context.md` — Brett/Aly user IDs, assignment guidelines
-  - `commands/add-tasks.md` — /add-tasks slash command
-  - `commands/weekly-digest.md` — /weekly-digest slash command
+- [x] ~~**Step 5: Cowork plugin**~~ - Skipped — MCP connector configured directly in Cowork is sufficient. Plugin would only add skill files (schema/family context) and slash commands, but Claude infers schema from MCP tool descriptions fine.
 
-- [ ] **Step 6: End-to-end testing** - Verify full Cowork → FamilyList flow:
+- [x] **Step 6: End-to-end testing** - Verify full Cowork → FamilyList flow:
   - Claude creates items via MCP → items appear in app
   - Push notifications fire for Claude-created items
   - SSE real-time updates show Claude activity to other connected clients
@@ -91,9 +85,4 @@ Research complete — see `docs/research/cowork-integration-research.md` for ful
 
 ## Bugs to Investigate
 
-- [ ] **AI mode parsing inconsistency** - Sometimes when AI mode (sparkles toggle) is enabled, items are added directly to the list instead of being deconstructed by the LLM.
-  - Check if `aiMode` state is correctly passed through to the `parseNaturalLanguage()` API call
-  - Add backend logging to see what OpenAI returns
-  - Check if JSON parsing of LLM response fails silently (improved: catch blocks now log errors, `_extract_json` logs on failure)
-  - Reproduce: "stuff for chili" works sometimes but not always
-  - Likely mitigated by GPT-5 Nano structured JSON output (less JSON parse failures)
+- [x] **AI mode parsing inconsistency** - Resolved. Was a UX issue — AI mode wasn't being invoked consistently. Fixed by explicit AI mode toggle button in `BottomInputBar`.
