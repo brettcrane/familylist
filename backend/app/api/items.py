@@ -14,6 +14,7 @@ from app.schemas import (
     ItemBatchCreate,
     ItemCheckRequest,
     ItemCreate,
+    ItemReorder,
     ItemResponse,
     ItemStatus,
     ItemUpdate,
@@ -270,6 +271,24 @@ def create_items(
             recipient_ids,
         )
 
+    return [item_to_response(item) for item in items]
+
+
+@router.post("/lists/{list_id}/items/reorder", response_model=list[ItemResponse], operation_id="reorder_items")
+def reorder_items(
+    list_id: str,
+    data: ItemReorder,
+    current_user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reorder items within a list."""
+    list_obj = list_service.get_list_by_id(db, list_id)
+    if not list_obj:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    check_list_access(db, list_id, current_user, require_edit=True)
+
+    items = item_service.reorder_items(db, list_id, data.item_ids)
     return [item_to_response(item) for item in items]
 
 

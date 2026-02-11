@@ -211,6 +211,24 @@ def clear_checked_items(db: Session, list_id: str) -> int:
     return count
 
 
+def reorder_items(db: Session, list_id: str, item_ids: list[str]) -> list[Item]:
+    """Reorder items by updating their sort_order."""
+    items = []
+    for idx, item_id in enumerate(item_ids):
+        item = db.query(Item).filter(
+            Item.id == item_id, Item.list_id == list_id
+        ).first()
+        if item:
+            item.sort_order = idx
+            items.append(item)
+
+    db.commit()
+    for item in items:
+        db.refresh(item)
+
+    return sorted(items, key=lambda i: i.sort_order)
+
+
 def restore_checked_items(db: Session, list_id: str) -> int:
     """Restore (uncheck) all checked items in a list. Returns count of restored items."""
     items = (

@@ -183,6 +183,12 @@ class CategoryReorder(BaseModel):
 # ============================================================================
 
 
+class ItemReorder(BaseModel):
+    """Schema for reordering items within a list."""
+
+    item_ids: list[str] = Field(..., description="Ordered list of item IDs")
+
+
 class ItemBase(BaseModel):
     """Base item schema."""
 

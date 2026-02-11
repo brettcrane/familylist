@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api';
-import type { Item, ItemCreate, ItemUpdate, ItemCheckRequest, ListWithItems, List } from '../types/api';
+import type { Item, ItemCreate, ItemUpdate, ItemCheckRequest, ListWithItems, List, Category } from '../types/api';
 import { listKeys } from './useLists';
 
 /**
@@ -407,6 +407,100 @@ export function useRestoreCompleted(listId: string) {
     onError: () => {
       queryClient.invalidateQueries({ queryKey: listKeys.detail(listId) });
       queryClient.invalidateQueries({ queryKey: listKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Hook to reorder items within a list
+ */
+export function useReorderItems(listId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (itemIds: string[]) => api.reorderItems(listId, itemIds),
+    onMutate: async (itemIds) => {
+      await queryClient.cancelQueries({ queryKey: listKeys.detail(listId) });
+
+      const previousData = queryClient.getQueryData<ListWithItems>(
+        listKeys.detail(listId)
+      );
+
+      // Optimistically update sort_order based on new order
+      queryClient.setQueryData<ListWithItems>(
+        listKeys.detail(listId),
+        (old) => {
+          if (!old) return old;
+          const orderMap = new Map(itemIds.map((id, idx) => [id, idx]));
+          return {
+            ...old,
+            items: old.items.map((item) => {
+              const newOrder = orderMap.get(item.id);
+              return newOrder !== undefined ? { ...item, sort_order: newOrder } : item;
+            }),
+          };
+        }
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          listKeys.detail(listId),
+          context.previousData
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: listKeys.detail(listId) });
+    },
+  });
+}
+
+/**
+ * Hook to reorder categories within a list
+ */
+export function useReorderCategories(listId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (categoryIds: string[]) => api.reorderCategories(listId, categoryIds),
+    onMutate: async (categoryIds) => {
+      await queryClient.cancelQueries({ queryKey: listKeys.detail(listId) });
+
+      const previousData = queryClient.getQueryData<ListWithItems>(
+        listKeys.detail(listId)
+      );
+
+      // Optimistically update sort_order on categories
+      queryClient.setQueryData<ListWithItems>(
+        listKeys.detail(listId),
+        (old) => {
+          if (!old) return old;
+          const orderMap = new Map(categoryIds.map((id, idx) => [id, idx]));
+          return {
+            ...old,
+            categories: old.categories.map((cat: Category) => {
+              const newOrder = orderMap.get(cat.id);
+              return newOrder !== undefined ? { ...cat, sort_order: newOrder } : cat;
+            }),
+          };
+        }
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(
+          listKeys.detail(listId),
+          context.previousData
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: listKeys.detail(listId) });
     },
   });
 }
