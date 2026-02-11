@@ -1,9 +1,7 @@
-import clsx from 'clsx';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { ItemRow } from '../items/ItemRow';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
-import { daysOverdue } from '../../utils/dates';
 import type { PersonGroup as PersonGroupType } from '../../hooks/useFocusItems';
 import type { Item, ListType } from '../../types/api';
 
@@ -11,7 +9,6 @@ interface PersonGroupProps {
   group: PersonGroupType;
   isShared: boolean;
   listType: ListType;
-  sectionId: string;
   onCheckItem: (itemId: string) => void;
   onEditItem: (item: Item) => void;
   onNameChange: (itemId: string, newName: string) => void;
@@ -21,13 +18,11 @@ export function PersonGroup({
   group,
   isShared,
   listType,
-  sectionId,
   onCheckItem,
   onEditItem,
   onNameChange,
 }: PersonGroupProps) {
   const showHeader = isShared;
-  const isOverdueSection = sectionId === 'focus-today';
 
   return (
     <div>
@@ -56,32 +51,16 @@ export function PersonGroup({
         </div>
       )}
 
-      {group.items.map((item) => {
-        const overdueDays = isOverdueSection && item.due_date ? daysOverdue(item.due_date) : 0;
-
-        return (
-          <div key={item.id} className="relative">
-            <ItemRow
-              item={item}
-              listType={listType}
-              onCheck={() => onCheckItem(item.id)}
-              onEdit={() => onEditItem(item)}
-              onNameChange={(newName) => onNameChange(item.id, newName)}
-            />
-            {overdueDays > 0 && (
-              <span
-                className={clsx(
-                  'absolute right-12 top-1/2 -translate-y-1/2',
-                  'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
-                  'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30'
-                )}
-              >
-                {overdueDays}d overdue
-              </span>
-            )}
-          </div>
-        );
-      })}
+      {group.items.map((item) => (
+        <ItemRow
+          key={item.id}
+          item={item}
+          listType={listType}
+          onCheck={() => onCheckItem(item.id)}
+          onEdit={() => onEditItem(item)}
+          onNameChange={(newName) => onNameChange(item.id, newName)}
+        />
+      ))}
     </div>
   );
 }

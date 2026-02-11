@@ -204,7 +204,7 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
           </div>
 
           {/* Due date — last column before ellipsis */}
-          <div className="w-14 flex items-center justify-end">
+          <div className="w-16 flex items-center justify-end">
             {item.due_date && (
               <span
                 className={clsx(
