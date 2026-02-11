@@ -175,7 +175,14 @@ class CategoryResponse(CategoryBase):
 class CategoryReorder(BaseModel):
     """Schema for reordering categories."""
 
-    category_ids: list[str] = Field(..., description="Ordered list of category IDs")
+    category_ids: list[str] = Field(..., min_length=1, description="Ordered list of category IDs")
+
+    @field_validator("category_ids")
+    @classmethod
+    def no_duplicate_categories(cls, v: list[str]) -> list[str]:
+        if len(v) != len(set(v)):
+            raise ValueError("category_ids must not contain duplicates")
+        return v
 
 
 # ============================================================================
@@ -186,7 +193,14 @@ class CategoryReorder(BaseModel):
 class ItemReorder(BaseModel):
     """Schema for reordering items within a list."""
 
-    item_ids: list[str] = Field(..., description="Ordered list of item IDs")
+    item_ids: list[str] = Field(..., min_length=1, description="Ordered list of item IDs")
+
+    @field_validator("item_ids")
+    @classmethod
+    def no_duplicate_items(cls, v: list[str]) -> list[str]:
+        if len(v) != len(set(v)):
+            raise ValueError("item_ids must not contain duplicates")
+        return v
 
 
 class ItemBase(BaseModel):

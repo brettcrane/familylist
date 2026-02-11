@@ -278,6 +278,7 @@ def create_items(
 def reorder_items(
     list_id: str,
     data: ItemReorder,
+    background_tasks: BackgroundTasks,
     current_user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -289,6 +290,20 @@ def reorder_items(
     check_list_access(db, list_id, current_user, require_edit=True)
 
     items = item_service.reorder_items(db, list_id, data.item_ids)
+
+    recipient_ids = get_notification_recipients(db, list_id)
+    background_tasks.add_task(
+        publish_event_async,
+        ListEvent(
+            event_type="items_reordered",
+            list_id=list_id,
+            user_id=current_user.id if current_user else None,
+            user_name=current_user.display_name if current_user else None,
+        ),
+        list_obj.name,
+        recipient_ids,
+    )
+
     return [item_to_response(item) for item in items]
 
 

@@ -6,6 +6,8 @@ import { CategorySection } from './CategorySection';
 import { SortableItemRow } from './SortableItemRow';
 import type { Item, Category, ListType } from '../../types/api';
 
+export const CATEGORY_DND_PREFIX = 'category-';
+
 interface SortableCategorySectionProps {
   listId: string;
   listType?: ListType;
@@ -25,7 +27,7 @@ export function SortableCategorySection({
   onEditItem,
   onNameChange,
 }: SortableCategorySectionProps) {
-  const sortableId = `category-${category.id}`;
+  const sortableId = `${CATEGORY_DND_PREFIX}${category.id}`;
   const {
     attributes,
     listeners,

@@ -444,7 +444,8 @@ export function useReorderItems(listId: string) {
 
       return { previousData };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
+      console.error('Failed to reorder items:', err);
       if (context?.previousData) {
         queryClient.setQueryData(
           listKeys.detail(listId),
@@ -491,7 +492,8 @@ export function useReorderCategories(listId: string) {
 
       return { previousData };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
+      console.error('Failed to reorder categories:', err);
       if (context?.previousData) {
         queryClient.setQueryData(
           listKeys.detail(listId),

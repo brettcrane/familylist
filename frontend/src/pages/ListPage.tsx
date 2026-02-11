@@ -20,7 +20,7 @@ import {
 import { Layout, Main } from '../components/layout';
 import { ListHeader } from '../components/layout/ListHeader';
 import { CategorySection, ItemRow, EditItemModal, FilterBar } from '../components/items';
-import { SortableCategorySection } from '../components/items/SortableCategorySection';
+import { SortableCategorySection, CATEGORY_DND_PREFIX } from '../components/items/SortableCategorySection';
 import { SortableItemRow } from '../components/items/SortableItemRow';
 import { ViewModeSwitcher, FocusView, TrackerView } from '../components/views';
 import { BottomInputBar } from '../components/items/BottomInputBar';
@@ -49,7 +49,7 @@ import {
 import { useUIStore } from '../stores/uiStore';
 import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
 import { getErrorMessage } from '../api/client';
-import { ErrorState } from '../components/ui';
+import { ErrorState, ErrorBoundary } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const MAX_RECENT_ENTRIES = 5;
@@ -259,11 +259,16 @@ export function ListPage() {
 
     const activeIdStr = String(active.id);
     const overIdStr = String(over.id);
+    const activeIsCategory = activeIdStr.startsWith(CATEGORY_DND_PREFIX);
+    const overIsCategory = overIdStr.startsWith(CATEGORY_DND_PREFIX);
+
+    // Mixed drag (item onto category or vice versa) — not supported
+    if (activeIsCategory !== overIsCategory) return;
 
     // Category reorder
-    if (activeIdStr.startsWith('category-') && overIdStr.startsWith('category-')) {
-      const activeCatId = activeIdStr.replace('category-', '');
-      const overCatId = overIdStr.replace('category-', '');
+    if (activeIsCategory && overIsCategory) {
+      const activeCatId = activeIdStr.slice(CATEGORY_DND_PREFIX.length);
+      const overCatId = overIdStr.slice(CATEGORY_DND_PREFIX.length);
       const catIds = [...list.categories]
         .sort((a, b) => a.sort_order - b.sort_order)
         .map((c) => c.id);
@@ -271,28 +276,33 @@ export function ListPage() {
       const newIndex = catIds.indexOf(overCatId);
       if (oldIndex === -1 || newIndex === -1) return;
       const newOrder = arrayMove(catIds, oldIndex, newIndex);
-      reorderCategories.mutate(newOrder);
+      reorderCategories.mutate(newOrder, {
+        onError: (error) => {
+          showToast(getErrorMessage(error, 'Failed to reorder categories.'), 'error');
+        },
+      });
       return;
     }
 
-    // Item reorder within category
-    if (!activeIdStr.startsWith('category-') && !overIdStr.startsWith('category-')) {
-      // Find which category the active item belongs to
-      const activeItem = list.items.find((i) => i.id === activeIdStr);
-      if (!activeItem) return;
-      const categoryId = activeItem.category_id;
-      // Get all unchecked items in this category, sorted
-      const categoryItems = list.items
-        .filter((i) => !i.is_checked && i.category_id === categoryId)
-        .sort((a, b) => a.sort_order - b.sort_order);
-      const itemIds = categoryItems.map((i) => i.id);
-      const oldIndex = itemIds.indexOf(activeIdStr);
-      const newIndex = itemIds.indexOf(overIdStr);
-      if (oldIndex === -1 || newIndex === -1) return;
-      const newOrder = arrayMove(itemIds, oldIndex, newIndex);
-      reorderItems.mutate(newOrder);
-    }
-  }, [list, reorderItems, reorderCategories]);
+    // Item reorder within same category
+    const activeItem = list.items.find((i) => i.id === activeIdStr);
+    if (!activeItem) return;
+    const categoryId = activeItem.category_id;
+    const categoryItems = list.items
+      .filter((i) => !i.is_checked && i.category_id === categoryId)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const itemIds = categoryItems.map((i) => i.id);
+    const oldIndex = itemIds.indexOf(activeIdStr);
+    const newIndex = itemIds.indexOf(overIdStr);
+    // newIndex === -1 means the over item is in a different category — drop is ignored
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(itemIds, oldIndex, newIndex);
+    reorderItems.mutate(newOrder, {
+      onError: (error) => {
+        showToast(getErrorMessage(error, 'Failed to reorder items.'), 'error');
+      },
+    });
+  }, [list, reorderItems, reorderCategories, showToast]);
 
   const handleDragCancel = useCallback(() => {
     setActiveDragId(null);
@@ -614,6 +624,7 @@ export function ListPage() {
                   onNameChange={handleNameChange}
                 />
               ) : (
+                <ErrorBoundary>
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -622,7 +633,7 @@ export function ListPage() {
                   onDragCancel={handleDragCancel}
                 >
                   <SortableContext
-                    items={sortedCategories.map((c) => `category-${c.id}`)}
+                    items={sortedCategories.map((c) => `${CATEGORY_DND_PREFIX}${c.id}`)}
                     strategy={verticalListSortingStrategy}
                   >
                     {filteredUncategorized.length > 0 && (
@@ -672,8 +683,8 @@ export function ListPage() {
 
                   <DragOverlay>
                     {activeDragId && (() => {
-                      if (activeDragId.startsWith('category-')) {
-                        const catId = activeDragId.replace('category-', '');
+                      if (activeDragId.startsWith(CATEGORY_DND_PREFIX)) {
+                        const catId = activeDragId.slice(CATEGORY_DND_PREFIX.length);
                         const cat = list.categories.find((c) => c.id === catId);
                         if (!cat) return null;
                         return (
@@ -696,6 +707,7 @@ export function ListPage() {
                     })()}
                   </DragOverlay>
                 </DndContext>
+                </ErrorBoundary>
               )}
             </div>
           ) : (

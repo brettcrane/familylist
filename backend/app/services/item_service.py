@@ -1,9 +1,13 @@
 """Item service - business logic for item operations."""
 
+import logging
+
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Item, utc_now
 from app.schemas import ItemCreate, ItemStatus, ItemUpdate
+
+logger = logging.getLogger(__name__)
 
 
 def get_items_by_list(
@@ -214,6 +218,7 @@ def clear_checked_items(db: Session, list_id: str) -> int:
 def reorder_items(db: Session, list_id: str, item_ids: list[str]) -> list[Item]:
     """Reorder items by updating their sort_order."""
     items = []
+    missing_ids = []
     for idx, item_id in enumerate(item_ids):
         item = db.query(Item).filter(
             Item.id == item_id, Item.list_id == list_id
@@ -221,6 +226,14 @@ def reorder_items(db: Session, list_id: str, item_ids: list[str]) -> list[Item]:
         if item:
             item.sort_order = idx
             items.append(item)
+        else:
+            missing_ids.append(item_id)
+
+    if missing_ids:
+        logger.warning(
+            "reorder_items: %d of %d item IDs not found in list %s: %s",
+            len(missing_ids), len(item_ids), list_id, missing_ids,
+        )
 
     db.commit()
     for item in items:
