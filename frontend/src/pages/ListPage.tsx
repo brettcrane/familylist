@@ -3,14 +3,16 @@ import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
   DndContext,
-  closestCenter,
+  pointerWithin,
   MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type DropAnimation,
   DragOverlay,
+  defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -53,6 +55,12 @@ import { ErrorState, ErrorBoundary } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const MAX_RECENT_ENTRIES = 5;
+
+const dropAnimation: DropAnimation = {
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: { active: { opacity: '0' } },
+  }),
+};
 
 let entryIdCounter = 0;
 
@@ -627,7 +635,7 @@ export function ListPage() {
                 <ErrorBoundary>
                 <DndContext
                   sensors={sensors}
-                  collisionDetection={closestCenter}
+                  collisionDetection={pointerWithin}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   onDragCancel={handleDragCancel}
@@ -681,14 +689,14 @@ export function ListPage() {
                     })}
                   </SortableContext>
 
-                  <DragOverlay>
+                  <DragOverlay dropAnimation={dropAnimation}>
                     {activeDragId && (() => {
                       if (activeDragId.startsWith(CATEGORY_DND_PREFIX)) {
                         const catId = activeDragId.slice(CATEGORY_DND_PREFIX.length);
                         const cat = list.categories.find((c) => c.id === catId);
                         if (!cat) return null;
                         return (
-                          <div className="opacity-80 rotate-1 scale-[1.02] shadow-lg rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2.5 flex items-center gap-2">
+                          <div className="rotate-1 scale-[1.02] shadow-lg rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2.5 flex items-center gap-2">
                             <span className="font-medium text-[var(--color-text-primary)]">{cat.name}</span>
                           </div>
                         );
@@ -696,7 +704,7 @@ export function ListPage() {
                       const item = list.items.find((i) => i.id === activeDragId);
                       if (!item) return null;
                       return (
-                        <div className="opacity-80 rotate-1 scale-[1.02] shadow-lg rounded-lg">
+                        <div className="rotate-1 scale-[1.02] shadow-lg rounded-lg">
                           <ItemRow
                             item={item}
                             listType={list.type}

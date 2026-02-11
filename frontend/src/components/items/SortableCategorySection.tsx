@@ -41,7 +41,7 @@ export function SortableCategorySection({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
     zIndex: isDragging ? 10 : undefined,
   };
 
