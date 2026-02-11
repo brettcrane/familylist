@@ -34,7 +34,6 @@ export function SortableItemRow({
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
-    touchAction: 'none',
   };
 
   const dragHandle = (

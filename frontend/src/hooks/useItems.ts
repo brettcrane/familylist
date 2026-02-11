@@ -426,19 +426,19 @@ export function useReorderItems(listId: string) {
         listKeys.detail(listId)
       );
 
-      // Optimistically update sort_order based on new order
+      // Optimistically update sort_order and reorder the items array
       queryClient.setQueryData<ListWithItems>(
         listKeys.detail(listId),
         (old) => {
           if (!old) return old;
           const orderMap = new Map(itemIds.map((id, idx) => [id, idx]));
-          return {
-            ...old,
-            items: old.items.map((item) => {
-              const newOrder = orderMap.get(item.id);
-              return newOrder !== undefined ? { ...item, sort_order: newOrder } : item;
-            }),
-          };
+          const updatedItems = old.items.map((item) => {
+            const newOrder = orderMap.get(item.id);
+            return newOrder !== undefined ? { ...item, sort_order: newOrder } : item;
+          });
+          // Sort by sort_order to match server response order
+          updatedItems.sort((a, b) => a.sort_order - b.sort_order);
+          return { ...old, items: updatedItems };
         }
       );
 
@@ -474,19 +474,19 @@ export function useReorderCategories(listId: string) {
         listKeys.detail(listId)
       );
 
-      // Optimistically update sort_order on categories
+      // Optimistically update sort_order and reorder the categories array
       queryClient.setQueryData<ListWithItems>(
         listKeys.detail(listId),
         (old) => {
           if (!old) return old;
           const orderMap = new Map(categoryIds.map((id, idx) => [id, idx]));
-          return {
-            ...old,
-            categories: old.categories.map((cat: Category) => {
-              const newOrder = orderMap.get(cat.id);
-              return newOrder !== undefined ? { ...cat, sort_order: newOrder } : cat;
-            }),
-          };
+          const updatedCategories = old.categories.map((cat: Category) => {
+            const newOrder = orderMap.get(cat.id);
+            return newOrder !== undefined ? { ...cat, sort_order: newOrder } : cat;
+          });
+          // Sort by sort_order to match server response order
+          updatedCategories.sort((a, b) => a.sort_order - b.sort_order);
+          return { ...old, categories: updatedCategories };
         }
       );
 

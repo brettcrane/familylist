@@ -43,7 +43,6 @@ export function SortableCategorySection({
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
-    touchAction: 'none',
   };
 
   const uncheckedItems = items.filter((item) => !item.is_checked);
