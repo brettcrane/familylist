@@ -70,7 +70,7 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-4 py-1.5 bg-[var(--color-bg-card)]',
+        'flex items-center gap-2 px-4 py-1.5 bg-[var(--color-bg-card)]',
         'border-b border-[var(--color-text-muted)]/10'
       )}
     >
@@ -102,7 +102,7 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
           />
         ) : (
           /* Display mode */
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {onNameChange && !item.is_checked ? (
               <button
                 type="button"
@@ -136,6 +136,14 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
                 ×{item.quantity}
               </span>
             )}
+            {item.created_by === CLAUDE_SYSTEM_USER_ID && (
+              <span
+                className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0"
+                title="Created by Claude"
+              >
+                <span className="text-purple-600 dark:text-purple-400 font-bold" style={{ fontSize: '7px' }}>AI</span>
+              </span>
+            )}
           </div>
         )}
         {item.notes && !isEditing && (
@@ -145,63 +153,74 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
         )}
       </div>
 
-      {/* Badges - between content and ellipsis */}
-      {!isEditing && listType === 'tasks' && item.priority && item.priority in PRIORITY_CONFIG && (
-        <span
-          className={clsx(
-            'px-1.5 py-0.5 rounded-full font-bold flex-shrink-0',
-            PRIORITY_CONFIG[item.priority as Priority].textClass,
-            PRIORITY_CONFIG[item.priority as Priority].bgClass,
-          )}
-          style={{ fontSize: '10px' }}
-        >
-          {PRIORITY_CONFIG[item.priority as Priority].label.charAt(0)}
-        </span>
-      )}
-      {!isEditing && listType === 'tasks' && item.due_date && (
-        <span
-          className={clsx(
-            'font-medium flex-shrink-0 px-1.5 py-0.5 rounded-full',
-            isOverdue(item.due_date)
-              ? 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30'
-              : 'text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)]'
-          )}
-          style={{ fontSize: '10px' }}
-          title={`Due ${item.due_date}`}
-        >
-          {formatDueDate(item.due_date)}
-        </span>
-      )}
-      {!isEditing && item.created_by === CLAUDE_SYSTEM_USER_ID && (
-        <span
-          className="w-[18px] h-[18px] rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0"
-          title="Created by Claude"
-        >
-          <span className="text-purple-600 dark:text-purple-400 font-bold" style={{ fontSize: '9px' }}>AI</span>
-        </span>
-      )}
-      {!isEditing && item.assigned_to && item.assigned_to_name && (
-        <span
-          className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: getUserColor(item.assigned_to) }}
-          title={`Assigned to ${item.assigned_to_name}`}
-        >
-          <span className="text-white font-bold" style={{ fontSize: '9px' }}>
-            {getInitials(item.assigned_to_name)}
-          </span>
-        </span>
-      )}
-      {!isEditing && item.magnitude && item.magnitude in MAGNITUDE_CONFIG && (
-        <span
-          className={clsx(
-            'px-1.5 py-0.5 rounded-full font-bold flex-shrink-0',
-            MAGNITUDE_CONFIG[item.magnitude as Magnitude].textClass,
-            MAGNITUDE_CONFIG[item.magnitude as Magnitude].bgClass,
-          )}
-          style={{ fontSize: '10px' }}
-        >
-          {item.magnitude}
-        </span>
+      {/* Task metadata — fixed-width column slots for vertical alignment */}
+      {!isEditing && listType === 'tasks' && (
+        <div className="flex items-center flex-shrink-0">
+          {/* Priority */}
+          <div className="w-[22px] flex items-center justify-center">
+            {item.priority && item.priority in PRIORITY_CONFIG && (
+              <span
+                className={clsx(
+                  'w-[18px] h-[18px] rounded-full font-bold flex items-center justify-center',
+                  PRIORITY_CONFIG[item.priority as Priority].textClass,
+                  PRIORITY_CONFIG[item.priority as Priority].bgClass,
+                )}
+                style={{ fontSize: '9px' }}
+              >
+                {PRIORITY_CONFIG[item.priority as Priority].label.charAt(0)}
+              </span>
+            )}
+          </div>
+
+          {/* Magnitude */}
+          <div className="w-[22px] flex items-center justify-center">
+            {item.magnitude && item.magnitude in MAGNITUDE_CONFIG && (
+              <span
+                className={clsx(
+                  'w-[18px] h-[18px] rounded-full font-bold flex items-center justify-center',
+                  MAGNITUDE_CONFIG[item.magnitude as Magnitude].textClass,
+                  MAGNITUDE_CONFIG[item.magnitude as Magnitude].bgClass,
+                )}
+                style={{ fontSize: '9px' }}
+              >
+                {item.magnitude}
+              </span>
+            )}
+          </div>
+
+          {/* Assigned-to avatar — next to due date */}
+          <div className="w-[26px] flex items-center justify-center">
+            {item.assigned_to && item.assigned_to_name && (
+              <span
+                className="w-[22px] h-[22px] rounded-full flex items-center justify-center"
+                style={{ backgroundColor: getUserColor(item.assigned_to) }}
+                title={`Assigned to ${item.assigned_to_name}`}
+              >
+                <span className="text-white font-bold" style={{ fontSize: '9px' }}>
+                  {getInitials(item.assigned_to_name)}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Due date — last column before ellipsis */}
+          <div className="w-14 flex items-center justify-end">
+            {item.due_date && (
+              <span
+                className={clsx(
+                  'font-medium whitespace-nowrap',
+                  isOverdue(item.due_date)
+                    ? 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full'
+                    : 'text-[var(--color-text-muted)]'
+                )}
+                style={{ fontSize: '10px' }}
+                title={`Due ${item.due_date}`}
+              >
+                {formatDueDate(item.due_date)}
+              </span>
+            )}
+          </div>
+        </div>
       )}
 
       {/* More options button - 44px tap target with negative margin to not inflate row height */}
