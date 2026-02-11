@@ -2,6 +2,8 @@
 
 ## Future Enhancements
 
+- [x] **Drag-and-drop reordering (PR #38)** - Items and categories can be manually reordered via `@dnd-kit`. Drag handles on items and category headers. Optimistic reorder with rollback on error. Backend `POST /lists/{id}/items/reorder` and `/categories/reorder` with schema validation (min_length=1, no duplicates). SSE events broadcast reorder changes. ErrorBoundary wraps DndContext.
+
 - [ ] **Undo toast for item deletion** - Show temporary toast with "Undo" button after deleting an item, allowing quick restore. Requires storing deleted item data and re-creating via POST (no undelete endpoint).
 
 - [ ] **Trash / soft delete system** - Instead of permanently deleting items, move them to a "trash" state. Could include:
