@@ -85,6 +85,13 @@ Research complete — see `docs/research/cowork-integration-research.md` for ful
   - Simplified `SyncIndicator` to offline-only pill (no more "Syncing N..." for dead queue)
   - Intentionally skipped: mutation queue/CRDTs, Background Sync API — read-only is sufficient for our use case
 
+## Cleanup
+
+- [ ] **Delete stale unmerged branches** - Three local branches with unmerged work to review and clean up:
+  - `claude/research-home-assistant-t4hkx`
+  - `feat/non-blocking-item-entry`
+  - `feature/drag-and-drop-reordering`
+
 ## Bugs to Investigate
 
 - [x] **AI mode parsing inconsistency** - Resolved. Was a UX issue — AI mode wasn't being invoked consistently. Fixed by explicit AI mode toggle button in `BottomInputBar`.
