@@ -188,7 +188,7 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
             )}
           </div>
 
-          {/* Assigned-to avatar — next to due date */}
+          {/* Assigned-to avatar */}
           <div className="w-[26px] flex items-center justify-center">
             {item.assigned_to && item.assigned_to_name && (
               <span
@@ -221,6 +221,19 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
             )}
           </div>
         </div>
+      )}
+
+      {/* Assigned-to avatar — non-task lists only (task lists render it inside the fixed-width container above) */}
+      {!isEditing && listType !== 'tasks' && item.assigned_to && item.assigned_to_name && (
+        <span
+          className="w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: getUserColor(item.assigned_to) }}
+          title={`Assigned to ${item.assigned_to_name}`}
+        >
+          <span className="text-white font-bold" style={{ fontSize: '9px' }}>
+            {getInitials(item.assigned_to_name)}
+          </span>
+        </span>
       )}
 
       {/* More options button - 44px tap target with negative margin to not inflate row height */}
