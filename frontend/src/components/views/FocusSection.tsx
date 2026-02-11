@@ -128,7 +128,6 @@ export function FocusSection({
                   group={group}
                   isShared={isShared}
                   listType={listType}
-                  sectionId={sectionId}
                   onCheckItem={onCheckItem}
                   onEditItem={onEditItem}
                   onNameChange={onNameChange}

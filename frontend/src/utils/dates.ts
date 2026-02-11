@@ -20,7 +20,10 @@ export function formatDueDate(dateStr: string): string {
   tomorrow.setDate(tomorrow.getDate() + 1);
   if (dateStr === getLocalDateStr(tomorrow)) return 'Tomorrow';
 
-  if (dateStr < today) return 'Overdue';
+  if (dateStr < today) {
+    const days = daysOverdue(dateStr);
+    return `${days}d`;
+  }
 
   const [, month, day] = dateStr.split('-');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
