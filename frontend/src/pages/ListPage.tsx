@@ -3,16 +3,14 @@ import { useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import {
   DndContext,
-  pointerWithin,
-  MouseSensor,
-  TouchSensor,
+  closestCenter,
+  PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
-  type DropAnimation,
+  type Modifier,
   DragOverlay,
-  defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -56,11 +54,10 @@ import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 
 const MAX_RECENT_ENTRIES = 5;
 
-const dropAnimation: DropAnimation = {
-  sideEffects: defaultDropAnimationSideEffects({
-    styles: { active: { opacity: '0' } },
-  }),
-};
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({
+  ...transform,
+  x: 0,
+});
 
 let entryIdCounter = 0;
 
@@ -97,8 +94,7 @@ export function ListPage() {
   // DnD state
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   // Input state
@@ -635,7 +631,8 @@ export function ListPage() {
                 <ErrorBoundary>
                 <DndContext
                   sensors={sensors}
-                  collisionDetection={pointerWithin}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToVerticalAxis]}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   onDragCancel={handleDragCancel}
@@ -689,14 +686,14 @@ export function ListPage() {
                     })}
                   </SortableContext>
 
-                  <DragOverlay dropAnimation={dropAnimation}>
+                  <DragOverlay dropAnimation={null}>
                     {activeDragId && (() => {
                       if (activeDragId.startsWith(CATEGORY_DND_PREFIX)) {
                         const catId = activeDragId.slice(CATEGORY_DND_PREFIX.length);
                         const cat = list.categories.find((c) => c.id === catId);
                         if (!cat) return null;
                         return (
-                          <div className="rotate-1 scale-[1.02] shadow-lg rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2.5 flex items-center gap-2">
+                          <div className="shadow-lg rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2.5 flex items-center gap-2 ring-2 ring-[var(--color-accent)]/30">
                             <span className="font-medium text-[var(--color-text-primary)]">{cat.name}</span>
                           </div>
                         );
@@ -704,7 +701,7 @@ export function ListPage() {
                       const item = list.items.find((i) => i.id === activeDragId);
                       if (!item) return null;
                       return (
-                        <div className="rotate-1 scale-[1.02] shadow-lg rounded-lg">
+                        <div className="shadow-lg rounded-lg ring-2 ring-[var(--color-accent)]/30">
                           <ItemRow
                             item={item}
                             listType={list.type}

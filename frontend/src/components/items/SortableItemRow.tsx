@@ -27,13 +27,15 @@ export function SortableItemRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({
+    id: item.id,
+    transition: { duration: 200, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+  });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0 : 1,
-    zIndex: isDragging ? 10 : undefined,
   };
 
   const dragHandle = (
@@ -41,7 +43,8 @@ export function SortableItemRow({
       ref={setActivatorNodeRef}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded touch-manipulation"
+      className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded"
+      style={{ touchAction: 'none' }}
       aria-label={`Reorder ${item.name}`}
     >
       <Bars3Icon className="w-4 h-4 text-[var(--color-text-muted)]" />
