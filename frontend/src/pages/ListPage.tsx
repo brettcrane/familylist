@@ -239,6 +239,7 @@ export function ListPage() {
         }).catch((err) => {
           console.warn('Category feedback submission failed:', {
             itemName: editingItem.name,
+            listType: list.type,
             category: newCategoryName,
             error: err,
           });
@@ -468,6 +469,7 @@ export function ListPage() {
       }).catch((err) => {
         console.warn('Category feedback submission failed:', {
           itemName: entry.itemName,
+          listType: list.type,
           category: selectedCategoryName,
           error: err,
         });
