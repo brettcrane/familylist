@@ -225,6 +225,28 @@ export function ListPage() {
   };
 
   const handleSaveItem = (itemId: string, data: ItemUpdate) => {
+    // Submit category feedback for AI learning when category changes
+    if (data.category_id !== undefined && editingItem && list) {
+      const newCategory = list.categories.find((c) => c.id === data.category_id);
+      const newCategoryName = newCategory?.name || 'Uncategorized';
+      const oldCategory = list.categories.find((c) => c.id === editingItem.category_id);
+      const oldCategoryName = oldCategory?.name || 'Uncategorized';
+      if (newCategoryName !== oldCategoryName) {
+        submitFeedback({
+          item_name: editingItem.name,
+          list_type: list.type,
+          correct_category: newCategoryName,
+        }).catch((err) => {
+          console.warn('Category feedback submission failed:', {
+            itemName: editingItem.name,
+            listType: list.type,
+            category: newCategoryName,
+            error: err,
+          });
+        });
+      }
+    }
+
     updateItem.mutate(
       { id: itemId, data },
       {
@@ -447,6 +469,7 @@ export function ListPage() {
       }).catch((err) => {
         console.warn('Category feedback submission failed:', {
           itemName: entry.itemName,
+          listType: list.type,
           category: selectedCategoryName,
           error: err,
         });
