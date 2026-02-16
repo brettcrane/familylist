@@ -1,5 +1,4 @@
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon, ExclamationCircleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useUIStore, type Toast as ToastType } from '../../stores/uiStore';
 import clsx from 'clsx';
@@ -35,7 +34,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)]"
+      className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)] animate-slide-up"
       style={{
         border: '1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)',
         borderLeft: `3px solid ${colorClasses.color}`,
@@ -64,20 +63,11 @@ export function ToastContainer() {
       className="fixed bottom-20 inset-x-0 flex flex-col items-center gap-2 px-4 pointer-events-none"
       style={{ zIndex: 150 }}
     >
-      <AnimatePresence>
-        {toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="pointer-events-auto w-full max-w-sm"
-          >
-            <ToastItem toast={toast} />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+      {toasts.map((toast) => (
+        <div key={toast.id} className="pointer-events-auto w-full max-w-sm">
+          <ToastItem toast={toast} />
+        </div>
+      ))}
     </div>,
     document.body
   );
