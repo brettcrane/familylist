@@ -34,7 +34,7 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 
 See `ShareListModal.tsx` and `DeleteListDialog.tsx` for correct patterns.
 
-**Toasts:** All toasts use the pattern from `Toast.tsx`: `bg-[var(--color-bg-card)]`, `shadow-lg`, `rounded-xl`, colored `border`, spring animation `{ type: 'spring', damping: 25, stiffness: 350 }`. Category toasts (`CategoryToastStack.tsx`) add a left border accent in the category color. Never use transparent/opacity backgrounds for toasts — they become unreadable over scrolling content.
+**Toasts:** All toasts use the pattern from `Toast.tsx`: `bg-[var(--color-bg-card)]`, `shadow-lg`, `rounded-xl`, colored left border via inline `style={{ borderLeftColor, borderLeftWidth: 3 }}`, spring animation `{ type: 'spring', damping: 25, stiffness: 350 }`. Category toasts (`CategoryToastStack.tsx`) follow the same pattern. Never use Tailwind opacity modifiers on CSS variables for borders (e.g., `border-[var(--color-checked)]/20`) — unreliable in Tailwind v4; use inline styles instead. Never use transparent/opacity backgrounds for toasts — they become unreadable over scrolling content.
 
 **Icons:** Dual-library approach — Heroicons for UI actions, Tabler Icons for domain-specific icons.
 - UI buttons/actions: Import from `@heroicons/react/24/outline`
@@ -94,7 +94,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 
 ```
 Item-Entry(single): enter→input-clears-instantly→duplicate-check→(done-match?→uncheckItem+toast+return)→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s)→user-taps-Change?→updateItem+submitFeedback
-Item-Duplicate(active): duplicate-found→create-item-normally→status='duplicate'→toast-with-Undo/+1Qty(5s)→Undo?→deleteItem | +1Qty?→deleteItem→updateItem(fresh-qty) | auto-dismiss→duplicate-stays
+Item-Duplicate(active): duplicate-found→create-item-normally→status='duplicate'→toast-with-DontAdd/Add+1(5s)→DontAdd?→deleteItem | Add+1?→deleteItem→updateItem(fresh-qty) | auto-dismiss→duplicate-stays
 Item-Entry(AI-mode): AiMode+input→setIsInputLoading→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→createItem.mutate(each)+onError
 Item-Create: useCreateItem→api/items.createItem()→POST /items(single)→item_service.create_item | useCreateItems→api/items.createItems()→POST /items/batch→item_service.create_items_batch
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
@@ -158,11 +158,11 @@ Lists can be organized into folders and reordered on the home page. Per-user, pe
 
 ## Duplicate Item Detection
 
-"Create first, correct after" — items are always created immediately. If a duplicate is detected, the user gets a non-blocking toast to undo or merge quantity. Ignoring the toast keeps the duplicate (safe default, no silent data loss).
+"Create first, correct after" — items are always created immediately. If a duplicate is detected, the user gets a non-blocking toast to remove or merge quantity. Ignoring the toast (or tapping X) keeps the duplicate (safe default, no silent data loss).
 
 **Scenarios:**
 - **Done-item duplicate:** Auto-restores (unchecks) the existing item, shows success toast, skips creation
-- **Active-item duplicate:** Creates item normally, shows duplicate toast with `[Undo]` and `[+1 Qty Instead]` buttons (5s auto-dismiss)
+- **Active-item duplicate:** Creates item normally, shows duplicate toast with `[Don't Add]` (red/destructive) and `[Add +1]` (accent) buttons (5s auto-dismiss)
 - **AI/NL parse mode:** Shows warning indicators next to duplicate items in `NLParseModal` review screen
 
 **Matching:** Case-insensitive exact name match via `findDuplicateItem()` in `ListPage.tsx`. Frontend-only using cached `list.items`. Prefers unchecked matches. Searches all items regardless of active filters. No fuzzy matching.
