@@ -2,7 +2,7 @@
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
 import { registerRoute } from 'workbox-routing';
-import { NetworkFirst } from 'workbox-strategies';
+import { NetworkFirst, NetworkOnly } from 'workbox-strategies';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { ExpirationPlugin } from 'workbox-expiration';
 
@@ -15,6 +15,15 @@ clientsClaim();
 // Precache and route assets
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
+
+// ============================================================================
+// version.json — always bypass cache (used for update detection)
+// ============================================================================
+
+registerRoute(
+  ({ url }) => url.pathname === '/version.json',
+  new NetworkOnly()
+);
 
 // ============================================================================
 // API Caching — Network-First for offline reads (3s network timeout before cache fallback)

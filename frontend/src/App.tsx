@@ -20,6 +20,7 @@ import {
   FallbackAuthProvider,
 } from './contexts/AuthContext';
 import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate';
+import { useVersionCheck } from './hooks/useVersionCheck';
 import { UpdateBanner } from './components/ui/UpdateBanner';
 
 // Check if Clerk is configured
@@ -100,7 +101,9 @@ function LoadingScreen() {
 function ClerkAppContent() {
   // Set up auth token injection for API requests
   const { isAuthReady } = useAuthSetup();
-  const { updateAvailable, applyUpdate } = useServiceWorkerUpdate();
+  const { updateAvailable: swUpdate, applyUpdate } = useServiceWorkerUpdate();
+  const { updateAvailable: versionUpdate } = useVersionCheck();
+  const updateAvailable = swUpdate || versionUpdate;
 
   useReconnectRefresh();
 
@@ -154,7 +157,9 @@ function ClerkAppContent() {
  * App content without Clerk (API key mode).
  */
 function FallbackAppContent() {
-  const { updateAvailable, applyUpdate } = useServiceWorkerUpdate();
+  const { updateAvailable: swUpdate, applyUpdate } = useServiceWorkerUpdate();
+  const { updateAvailable: versionUpdate } = useVersionCheck();
+  const updateAvailable = swUpdate || versionUpdate;
 
   useReconnectRefresh();
 

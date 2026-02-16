@@ -5,6 +5,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * clientsClaim), meaning updated assets are cached but the running page
  * still references stale JS/CSS bundles. Shows a reload prompt so the
  * user can load the new assets at a convenient time.
+ *
+ * Also nudges the browser to check for SW updates when the app is
+ * foregrounded (mobile browsers are unreliable about automatic checks).
  */
 export function useServiceWorkerUpdate() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -32,9 +35,25 @@ export function useServiceWorkerUpdate() {
         }
       };
 
+      // Nudge browser to check for SW updates when the app is foregrounded
+      const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          navigator.serviceWorker.getRegistration().then((reg) => {
+            reg?.update().catch(() => {
+              // Network error or no SW registered — ignore
+            });
+          }).catch(() => {
+            // getRegistration failed — ignore
+          });
+        }
+      };
+
       navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+
       return () => {
         navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
       };
     } catch (err) {
       console.warn('[useServiceWorkerUpdate] Failed to set up SW update listener:', err);
