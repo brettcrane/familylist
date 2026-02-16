@@ -91,6 +91,6 @@ Research complete — see `docs/research/cowork-integration-research.md` for ful
 
 ## Bugs to Investigate
 
-- [ ] **Global toast (Toast.tsx) background collapse** - The success/error/info toasts rendered by `ToastContainer` display as a narrow pill with text floating outside the background. Multiple fix attempts failed (PRs #47, #49, #51): inline border styles, removing Framer Motion `layout` prop, removing `popLayout` mode. Root cause still unknown. The `CategoryToastStack` toasts work fine with nearly identical markup. Needs deeper investigation — possibly replace the global toast with a completely different approach or debug in browser DevTools to find the actual CSS/layout issue.
+- [x] **Global toast (Toast.tsx) background collapse (PR #55)** - Fixed by rendering `ToastContainer` via `createPortal` into `document.body` (escapes ancestor transform interference) and removing `scale` from Framer Motion animation (prevents layout measurement issues).
 
 - [x] **AI mode parsing inconsistency** - Resolved. Was a UX issue — AI mode wasn't being invoked consistently. Fixed by explicit AI mode toggle button in `BottomInputBar`.
