@@ -98,7 +98,7 @@ export function CategoryToastStack({
 
   return (
     <div className="px-4 pt-2 pb-1 flex flex-col gap-2">
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence>
         {visibleEntries.map((entry) => {
           const isDuplicate = entry.status === 'duplicate';
           const categoryColor = entry.suggestedCategoryName
@@ -111,7 +111,6 @@ export function CategoryToastStack({
           return (
             <motion.div
               key={entry.id}
-              layout
               initial={{ opacity: 0, y: 50, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
