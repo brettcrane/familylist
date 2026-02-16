@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon, ExclamationCircleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useUIStore, type Toast as ToastType } from '../../stores/uiStore';
@@ -33,11 +34,7 @@ function ToastItem({ toast }: { toast: ToastType }) {
   const colorClasses = colors[toast.type];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 50, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 20, scale: 0.9 }}
-      transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+    <div
       className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)]"
       style={{
         border: '1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)',
@@ -55,22 +52,33 @@ function ToastItem({ toast }: { toast: ToastType }) {
       >
         <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
       </button>
-    </motion.div>
+    </div>
   );
 }
 
 export function ToastContainer() {
   const toasts = useUIStore((state) => state.toasts);
 
-  return (
-    <div className="fixed bottom-20 inset-x-0 z-[var(--z-toast)] flex flex-col items-center gap-2 px-4 pointer-events-none">
+  return createPortal(
+    <div
+      className="fixed bottom-20 inset-x-0 flex flex-col items-center gap-2 px-4 pointer-events-none"
+      style={{ zIndex: 150 }}
+    >
       <AnimatePresence>
         {toasts.map((toast) => (
-          <div key={toast.id} className="pointer-events-auto w-full max-w-sm">
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="pointer-events-auto w-full max-w-sm"
+          >
             <ToastItem toast={toast} />
-          </div>
+          </motion.div>
         ))}
       </AnimatePresence>
-    </div>
+    </div>,
+    document.body
   );
 }
