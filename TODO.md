@@ -30,7 +30,7 @@
 
 - [x] **Item search** - Search bar to filter items by name within a list, works across all view modes and list types.
 
-- [x] **PWA update prompt (PR #36)** - Non-intrusive dismissible banner when a new service worker takes control. `useServiceWorkerUpdate` hook listens for `controllerchange`, `UpdateBanner` shows accent-colored top bar with Reload + dismiss. Works with existing `skipWaiting()` + `clientsClaim()` strategy. Try-catch for graceful degradation in restricted contexts.
+- [x] **PWA update prompt (PR #36, #44)** - Non-intrusive dismissible banner when a new build is deployed. Two independent detection mechanisms: (1) `useServiceWorkerUpdate` listens for `controllerchange` + nudges `reg.update()` on visibility change; (2) `useVersionCheck` polls build-time `version.json` (mount, visibility change, 10min interval). Banner shows if either triggers. Version polling added in PR #44 to fix unreliable SW update detection on mobile (iOS Safari, installed PWAs).
 
 - [ ] **LLM parsing test coverage** - `LLMParsingService` has zero unit tests. Priority:
   1. Unit tests for `_extract_json()` — structured output `{"items": [...]}`, bare arrays, markdown code blocks, empty/invalid inputs
@@ -87,10 +87,7 @@ Research complete — see `docs/research/cowork-integration-research.md` for ful
 
 ## Cleanup
 
-- [ ] **Delete stale unmerged branches** - Three local branches with unmerged work to review and clean up:
-  - `claude/research-home-assistant-t4hkx`
-  - `feat/non-blocking-item-entry`
-  - `feature/drag-and-drop-reordering`
+- [x] **Delete stale unmerged branches** - All stale local branches deleted, remote tracking refs pruned.
 
 ## Bugs to Investigate
 
