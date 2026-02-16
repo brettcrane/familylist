@@ -120,8 +120,11 @@ export function CategoryToastStack({
               {/* Duplicate toast */}
               {isDuplicate ? (
                 <div
-                  className="flex flex-col gap-2 px-4 py-3 rounded-xl border shadow-lg bg-[var(--color-bg-card)] border-[var(--color-text-muted)]/20 overflow-hidden"
-                  style={{ borderLeftColor: 'var(--color-warning, #f59e0b)', borderLeftWidth: 3 }}
+                  className="flex flex-col gap-2 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)]"
+                  style={{
+                    border: '1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)',
+                    borderLeft: '3px solid var(--color-warning, #f59e0b)',
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500" />
@@ -161,8 +164,11 @@ export function CategoryToastStack({
               ) : (
               /* Category toast card */
               <div
-                className="flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg bg-[var(--color-bg-card)] border-[var(--color-text-muted)]/20 overflow-hidden"
-                style={{ borderLeftColor: categoryColor, borderLeftWidth: 3 }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)]"
+                style={{
+                  border: '1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)',
+                  borderLeft: `3px solid ${categoryColor}`,
+                }}
               >
                 {/* Icon */}
                 {entry.status === 'categorizing' ? (

@@ -39,8 +39,11 @@ function ToastItem({ toast }: { toast: ToastType }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 20, scale: 0.9 }}
       transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-      className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)] border border-[var(--color-text-muted)]/20 overflow-hidden"
-      style={{ borderLeftColor: colorClasses.color, borderLeftWidth: 3 }}
+      className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg bg-[var(--color-bg-card)]"
+      style={{
+        border: '1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)',
+        borderLeft: `3px solid ${colorClasses.color}`,
+      }}
     >
       <Icon className={clsx('w-5 h-5 flex-shrink-0', colorClasses.icon)} />
       <p className={clsx('text-sm font-medium flex-1', colorClasses.text)}>
