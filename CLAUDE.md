@@ -6,6 +6,7 @@
 - Don't assume standard React/FastAPI conventions - check actual implementations first.
 - Always read ai_service.py and llm_service.py before modifying AI features.
 - Check useItems.ts for mutation patterns before adding new item operations.
+- **Always use feature branches and PRs** — never commit directly to master. Create a branch, commit, push, and open a PR via `gh pr create`.
 
 ## Project Overview
 
@@ -74,7 +75,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD+reorder,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
 |backend/app/api:{lists=CRUD+duplicate,items=create(single)+create-batch(/items/batch)+CRUD+check+reorder,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
 |backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs+Magnitude-enum+CategoryReorder+ItemReorder,serializers=item_to_response-shared,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings,database=SQLite-connection+migrations,mcp_server=MCP-server-setup}
-|frontend/src/components/items:{BottomInputBar=input-only+AI-toggle,CategoryToastStack=non-blocking-category-toasts,NLParseModal=AI-parse-review,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to,FilterBar=search+my-items-filter,SortableItemRow=dnd-kit-item-wrapper,SortableCategorySection=dnd-kit-category-wrapper}
+|frontend/src/components/items:{BottomInputBar=input-only+AI-toggle,CategoryToastStack=non-blocking-category+duplicate-toasts,NLParseModal=AI-parse-review+duplicate-indicators,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to,FilterBar=search+my-items-filter,SortableItemRow=dnd-kit-item-wrapper,SortableCategorySection=dnd-kit-category-wrapper}
 |frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete,OrganizedListGrid=folder-sections+drag-drop,FolderSection=collapsible-folder+drag-drop,SortableListCard=dnd-kit-list-wrapper,InlineFolderInput=folder-name-input,OrganizeButton=organize-mode-toggle,MoveToFolderModal=move-list-to-folder}
 |frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
 |frontend/src/components/views:{ViewModeSwitcher=segmented-control-tasks,FocusView=time-bucketed-container,FocusSection=collapsible-time-bucket,PersonGroup=person-grouped-items,TrackerView=task-stats-dashboard,TrackerChart=CSS-stacked-bar-chart}
@@ -86,13 +87,14 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke,push=subscribe+preferences}
 |frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting}
 |frontend/src/types:{api=DTOs+MAGNITUDE_CONFIG+AI_MODE_PLACEHOLDERS+AI_MODE_HINTS}
-|frontend/src/pages:{HomePage=list-grid+organization,ListPage=items+views+input,SignInPage=Clerk-auth}
+|frontend/src/pages:{HomePage=list-grid+organization,ListPage=items+views+input+duplicate-detection,SignInPage=Clerk-auth}
 ```
 
 ## Key Flows
 
 ```
-Item-Entry(single): enter→input-clears-instantly→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s-auto-dismiss)→user-taps-Change?→updateItem+submitFeedback
+Item-Entry(single): enter→input-clears-instantly→duplicate-check→(done-match?→uncheckItem+toast+return)→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s)→user-taps-Change?→updateItem+submitFeedback
+Item-Duplicate(active): duplicate-found→create-item-normally→status='duplicate'→toast-with-Undo/+1Qty(5s)→Undo?→deleteItem | +1Qty?→deleteItem→updateItem(fresh-qty) | auto-dismiss→duplicate-stays
 Item-Entry(AI-mode): AiMode+input→setIsInputLoading→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→createItem.mutate(each)+onError
 Item-Create: useCreateItem→api/items.createItem()→POST /items(single)→item_service.create_item | useCreateItems→api/items.createItems()→POST /items/batch→item_service.create_items_batch
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
@@ -152,6 +154,24 @@ Lists can be organized into folders and reordered on the home page. Per-user, pe
 - `frontend/src/components/items/FilterBar.tsx` - Search input + "Mine" toggle chip (shown on shared lists only)
 - `frontend/src/stores/uiStore.ts` - `myItemsOnly` (persisted), `searchQuery` is local state in ListPage
 - `frontend/src/pages/ListPage.tsx` - Client-side filtering of items by search query and assigned-to
+
+## Duplicate Item Detection
+
+"Create first, correct after" — items are always created immediately. If a duplicate is detected, the user gets a non-blocking toast to undo or merge quantity. Ignoring the toast keeps the duplicate (safe default, no silent data loss).
+
+**Scenarios:**
+- **Done-item duplicate:** Auto-restores (unchecks) the existing item, shows success toast, skips creation
+- **Active-item duplicate:** Creates item normally, shows duplicate toast with `[Undo]` and `[+1 Qty Instead]` buttons (5s auto-dismiss)
+- **AI/NL parse mode:** Shows warning indicators next to duplicate items in `NLParseModal` review screen
+
+**Matching:** Case-insensitive exact name match via `findDuplicateItem()` in `ListPage.tsx`. Frontend-only using cached `list.items`. Prefers unchecked matches. Searches all items regardless of active filters. No fuzzy matching.
+
+**Key files:**
+- `frontend/src/pages/ListPage.tsx` - `findDuplicateItem()`, duplicate handling in `handleSingleItem()`, `handleUndoDuplicate()`, `handleMergeQuantity()`
+- `frontend/src/components/items/CategoryToastStack.tsx` - `RecentItemEntry.status: 'duplicate'`, `duplicateOfItem` field, duplicate toast variant with undo/merge buttons
+- `frontend/src/components/items/NLParseModal.tsx` - `existingItems` prop, `existingItemMap` for O(1) lookup, warning indicators
+
+**Pattern:** `handleMergeQuantity` reads fresh quantity from `list.items` (not the stale snapshot in `duplicateOfItem`) and chains mutations sequentially: delete duplicate → on success → update quantity → on success → dismiss toast. Toast is only removed on mutation success, not immediately.
 
 ## Task View Modes (Focus & Tracker)
 
