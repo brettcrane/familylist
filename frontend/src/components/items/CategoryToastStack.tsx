@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { XMarkIcon, PencilSquareIcon, ExclamationTriangleIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PencilSquareIcon, ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
 import type { Category, Item } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
@@ -145,16 +145,16 @@ export function CategoryToastStack({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onUndoDuplicate(entry.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]/80 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
                     >
-                      <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
-                      Undo
+                      <TrashIcon className="w-3.5 h-3.5" />
+                      Don&apos;t Add
                     </button>
                     <button
                       onClick={() => onMergeQuantity(entry.id)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 transition-colors"
                     >
-                      +1 Qty Instead
+                      Add +1
                     </button>
                   </div>
                 </div>
