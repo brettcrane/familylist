@@ -82,7 +82,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
 |frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh,Toast,ErrorState,UpdateBanner=PWA-update-prompt}
 |frontend/src/components/done:{DoneList=checked-items-section}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets,useServiceWorkerUpdate=SW-update-detection}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets,useServiceWorkerUpdate=SW-update-detection+visibility-nudge,useVersionCheck=build-ID-polling-update-detection}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals+taskViewMode+myItemsOnly,authStore=Zustand+cached-user+offline-persist,organizationStore=Zustand+per-user-folders+sort-order+localStorage}
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke,push=subscribe+preferences}
 |frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting}
@@ -105,6 +105,7 @@ User-Sync: ClerkProvider→useAuthSetup→setTokenGetter→apiRequest(Bearer)→
 Drag-Reorder: drag-end→useReorderItems/useReorderCategories→optimistic-sort-update→POST /items/reorder or /categories/reorder→broadcast-event→rollback-on-error
 List-Organization: OrganizeButton→organizeMode→drag-lists/folders→setSortOrder→localStorage-persist | MoveToFolderModal→moveListToFolder→organizationStore
 SW-Update: deploy→new-SW→skipWaiting+clientsClaim→controllerchange→useServiceWorkerUpdate→UpdateBanner→user-clicks-reload→window.location.reload()
+Version-Polling: vite-build→BUILD_ID-in-bundle+dist/version.json→useVersionCheck→fetch(/version.json?_t=,cache:no-store)→compare-vs-__BUILD_ID__→updateAvailable→UpdateBanner | triggers:mount(1s-delay)+visibilitychange+10min-interval | throttle:60s-min
 ```
 
 ## Item Fields: Magnitude & Assigned-To
@@ -193,13 +194,24 @@ Within the To Do tab, `type === 'tasks'` lists support three view modes. Grocery
 
 ## PWA Update Detection
 
-Non-intrusive banner prompting reload when a new service worker takes control after deploy.
+Two independent mechanisms detect new deployments — banner shows if either triggers.
 
-**Key files:**
+**1. SW controllerchange** (desktop-reliable, mobile-unreliable):
 - `frontend/src/hooks/useServiceWorkerUpdate.ts` - Listens for `controllerchange` on `navigator.serviceWorker`
-- `frontend/src/components/ui/UpdateBanner.tsx` - Fixed top bar, dismissible, `bg-[var(--color-accent)]`
+- Also nudges `reg.update()` on `visibilitychange` to prompt mobile browsers to check for SW updates
+- Records `hadControllerRef` at mount to skip first-time installs. Try-catch around SW API access for restricted contexts.
 
-**Pattern:** Works with `skipWaiting()` + `clientsClaim()` strategy. Records `hadControllerRef` at mount to skip first-time installs. Try-catch around SW API access for restricted contexts.
+**2. Version polling** (works everywhere, including iOS Safari PWAs):
+- `frontend/vite.config.ts` - Generates `BUILD_ID` at build time, injects via `define` + writes `dist/version.json` via `closeBundle` plugin
+- `frontend/src/globals.d.ts` - Type declaration for `__BUILD_ID__` global
+- `frontend/src/hooks/useVersionCheck.ts` - Fetches `/version.json?_t={timestamp}` with `cache: 'no-store'`, compares against `__BUILD_ID__`
+- `frontend/src/sw.ts` - `NetworkOnly` route for `/version.json` (defense-in-depth, prevents SW caching)
+- `backend/app/main.py` - Explicit `/version.json` route with `Cache-Control: no-store` headers (prevents Cloudflare/browser HTTP caching)
+- Triggers: mount (1s delay), `visibilitychange`, every 10 minutes. Throttled to max once per 60s. Skipped in dev mode (`import.meta.env.DEV`). Stops polling once update detected.
+
+**Shared UI:**
+- `frontend/src/components/ui/UpdateBanner.tsx` - Fixed top bar, dismissible, `bg-[var(--color-accent)]`
+- `frontend/src/App.tsx` - `updateAvailable = swUpdate || versionUpdate`, wired in both `ClerkAppContent` and `FallbackAppContent`
 
 ## Environment Variables
 
