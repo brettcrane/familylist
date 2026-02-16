@@ -34,7 +34,6 @@ function ToastItem({ toast }: { toast: ToastType }) {
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 50, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -65,7 +64,7 @@ export function ToastContainer() {
 
   return (
     <div className="fixed bottom-20 inset-x-0 z-[var(--z-toast)] flex flex-col items-center gap-2 px-4 pointer-events-none">
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence>
         {toasts.map((toast) => (
           <div key={toast.id} className="pointer-events-auto w-full max-w-sm">
             <ToastItem toast={toast} />
