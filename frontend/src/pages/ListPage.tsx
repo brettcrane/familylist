@@ -521,12 +521,14 @@ export function ListPage() {
       return;
     }
     deleteItem.mutate(entry.createdItemId, {
+      onSuccess: () => {
+        setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+      },
       onError: (err) => {
         console.error('Failed to undo duplicate:', err);
         showToast(getErrorMessage(err, 'Failed to undo duplicate.'), 'error');
       },
     });
-    setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
   }, [deleteItem, showToast]);
 
   const handleMergeQuantity = useCallback((entryId: string) => {
@@ -535,30 +537,38 @@ export function ListPage() {
       console.warn('Merge quantity ignored: entry not ready', { entryId });
       return;
     }
-    const existing = entry.duplicateOfItem;
-    // Delete the duplicate
+    const existingId = entry.duplicateOfItem.id;
+    // Get fresh quantity from current list data to avoid stale snapshot
+    const freshItem = list?.items.find((i) => i.id === existingId);
+    if (!freshItem) {
+      console.warn('Merge quantity ignored: existing item not found in list', { existingId });
+      return;
+    }
+    // Delete the duplicate first, then increment existing item's quantity
     deleteItem.mutate(entry.createdItemId, {
+      onSuccess: () => {
+        const newQty = freshItem.quantity + 1;
+        updateItem.mutate(
+          { id: freshItem.id, data: { quantity: newQty } },
+          {
+            onSuccess: () => {
+              showToast(`"${freshItem.name}" updated to \u00d7${newQty}`, 'success');
+              setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+            },
+            onError: (err) => {
+              console.error('Failed to update quantity:', err);
+              showToast(getErrorMessage(err, 'Failed to update quantity.'), 'error');
+              setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+            },
+          }
+        );
+      },
       onError: (err) => {
         console.error('Failed to delete duplicate for merge:', err);
         showToast(getErrorMessage(err, 'Failed to merge quantity.'), 'error');
       },
     });
-    // Increment existing item's quantity
-    const newQty = existing.quantity + 1;
-    updateItem.mutate(
-      { id: existing.id, data: { quantity: newQty } },
-      {
-        onSuccess: () => {
-          showToast(`"${existing.name}" updated to \u00d7${newQty}`, 'success');
-        },
-        onError: (err) => {
-          console.error('Failed to update quantity:', err);
-          showToast(getErrorMessage(err, 'Failed to update quantity.'), 'error');
-        },
-      }
-    );
-    setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
-  }, [deleteItem, updateItem, showToast]);
+  }, [deleteItem, updateItem, showToast, list]);
 
   const handleNlConfirm = (items: ParsedItem[]) => {
     if (!list) return;
