@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import clsx from 'clsx';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
 import { submitFeedback } from '../../api/ai';
-import type { ParsedItem, Category, ListType } from '../../types/api';
+import type { ParsedItem, Category, ListType, Item } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
@@ -13,6 +13,7 @@ interface NLParseModalProps {
   originalInput: string;
   items: ParsedItem[];
   categories: Category[];
+  existingItems: Item[];
   listType: ListType;
   onConfirm: (items: ParsedItem[]) => void;
   onCancel: () => void;
@@ -27,6 +28,7 @@ export function NLParseModal({
   originalInput,
   items,
   categories,
+  existingItems,
   listType,
   onConfirm,
   onCancel,
@@ -47,6 +49,19 @@ export function NLParseModal({
     setEditingCategory(null);
     originalCategories.current = new Map(items.map((item) => [item.name, item.category]));
   }, [items]);
+
+  // Build a map of existing item names for duplicate detection
+  const existingItemMap = useMemo(() => {
+    const map = new Map<string, Item>();
+    for (const item of existingItems) {
+      const key = item.name.toLowerCase().trim();
+      // Prefer unchecked matches (active duplicates are more relevant)
+      if (!map.has(key) || !item.is_checked) {
+        map.set(key, item);
+      }
+    }
+    return map;
+  }, [existingItems]);
 
   const selectedCount = editableItems.filter((item) => item.selected).length;
 
@@ -143,6 +158,10 @@ export function NLParseModal({
               {editableItems.map((item, index) => {
                 const categoryColor =
                   CATEGORY_COLORS[item.category] || 'var(--color-text-muted)';
+                const existingMatch = existingItemMap.get(item.name.toLowerCase().trim());
+                const existingCategory = existingMatch?.category_id
+                  ? categories.find((c) => c.id === existingMatch.category_id)?.name
+                  : null;
 
                 return (
                   <motion.div
@@ -165,10 +184,20 @@ export function NLParseModal({
                         {item.name}
                         {item.quantity > 1 && (
                           <span className="ml-2 font-mono text-xs text-[var(--color-text-muted)]">
-                            ×{item.quantity}
+                            {'\u00d7'}{item.quantity}
                           </span>
                         )}
                       </span>
+                      {existingMatch && (
+                        <span className="flex items-center gap-1 mt-0.5">
+                          <ExclamationTriangleIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                          <span className="text-xs text-amber-600 dark:text-amber-400">
+                            {existingMatch.is_checked
+                              ? 'In done list — will restore'
+                              : `Already on list${existingMatch.quantity > 1 ? ` (\u00d7${existingMatch.quantity})` : ''}${existingCategory ? ` in ${existingCategory}` : ''}`}
+                          </span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Category chip */}
