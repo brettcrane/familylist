@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { XMarkIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
-import type { Category } from '../../types/api';
+import { XMarkIcon, PencilSquareIcon, ExclamationTriangleIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import type { Category, Item } from '../../types/api';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
@@ -12,7 +12,8 @@ export interface RecentItemEntry {
   createdItemId: string | null;
   suggestedCategoryName: string | null;
   suggestedCategoryId: string | null;
-  status: 'categorizing' | 'created';
+  status: 'categorizing' | 'created' | 'duplicate';
+  duplicateOfItem: Item | null;
 }
 
 interface CategoryToastStackProps {
@@ -23,9 +24,12 @@ interface CategoryToastStackProps {
   onChangeCategory: (entryId: string) => void;
   onSelectCategory: (entryId: string, categoryId: string | null) => void;
   onClosePicker: () => void;
+  onUndoDuplicate: (entryId: string) => void;
+  onMergeQuantity: (entryId: string) => void;
 }
 
 const AUTO_DISMISS_DELAY = 4000;
+const DUPLICATE_DISMISS_DELAY = 5000;
 const MAX_VISIBLE = 3;
 
 export function CategoryToastStack({
@@ -36,6 +40,8 @@ export function CategoryToastStack({
   onChangeCategory,
   onSelectCategory,
   onClosePicker,
+  onUndoDuplicate,
+  onMergeQuantity,
 }: CategoryToastStackProps) {
   const timersRef = useRef<Map<string, number>>(new Map());
 
@@ -44,8 +50,8 @@ export function CategoryToastStack({
     const timers = timersRef.current;
 
     entries.forEach((entry) => {
-      // Only auto-dismiss 'created' entries that don't have picker open
-      if (entry.status !== 'created') return;
+      // Only auto-dismiss 'created' and 'duplicate' entries
+      if (entry.status !== 'created' && entry.status !== 'duplicate') return;
       if (entry.id === pickerForEntryId) {
         // Pause timer if picker is open
         const existing = timers.get(entry.id);
@@ -58,10 +64,11 @@ export function CategoryToastStack({
       // Already has a timer
       if (timers.has(entry.id)) return;
 
+      const delay = entry.status === 'duplicate' ? DUPLICATE_DISMISS_DELAY : AUTO_DISMISS_DELAY;
       const timer = window.setTimeout(() => {
         timers.delete(entry.id);
         onDismiss(entry.id);
-      }, AUTO_DISMISS_DELAY);
+      }, delay);
       timers.set(entry.id, timer);
     });
 
@@ -93,10 +100,13 @@ export function CategoryToastStack({
     <div className="px-4 pt-2 pb-1 flex flex-col gap-2">
       <AnimatePresence mode="popLayout">
         {visibleEntries.map((entry) => {
+          const isDuplicate = entry.status === 'duplicate';
           const categoryColor = entry.suggestedCategoryName
             ? CATEGORY_COLORS[entry.suggestedCategoryName] || 'var(--color-accent)'
             : 'var(--color-text-muted)';
           const showPicker = entry.id === pickerForEntryId;
+
+          const dupItem = entry.duplicateOfItem;
 
           return (
             <motion.div
@@ -107,7 +117,49 @@ export function CategoryToastStack({
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             >
-              {/* Toast card */}
+              {/* Duplicate toast */}
+              {isDuplicate ? (
+                <div
+                  className="flex flex-col gap-2 px-4 py-3 rounded-xl border shadow-lg bg-[var(--color-bg-card)] border-[var(--color-text-muted)]/20 overflow-hidden"
+                  style={{ borderLeftColor: 'var(--color-warning, #f59e0b)', borderLeftWidth: 3 }}
+                >
+                  <div className="flex items-center gap-2">
+                    <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500" />
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] flex-1 min-w-0 truncate">
+                      &ldquo;{entry.itemName}&rdquo; is already on your list
+                      {dupItem && dupItem.quantity > 1 && (
+                        <span className="text-[var(--color-text-muted)]"> ({'\u00d7'}{dupItem.quantity})</span>
+                      )}
+                      {dupItem?.assigned_to_name && (
+                        <span className="text-[var(--color-text-muted)]"> — {dupItem.assigned_to_name}</span>
+                      )}
+                    </p>
+                    <button
+                      onClick={() => onDismiss(entry.id)}
+                      className="p-1 -mr-1 rounded-lg hover:bg-[var(--color-bg-secondary)] transition-colors flex-shrink-0"
+                      aria-label="Dismiss"
+                    >
+                      <XMarkIcon className="w-4 h-4 text-[var(--color-text-muted)]" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onUndoDuplicate(entry.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]/80 transition-colors"
+                    >
+                      <ArrowUturnLeftIcon className="w-3.5 h-3.5" />
+                      Undo
+                    </button>
+                    <button
+                      onClick={() => onMergeQuantity(entry.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 transition-colors"
+                    >
+                      +1 Qty Instead
+                    </button>
+                  </div>
+                </div>
+              ) : (
+              /* Category toast card */
               <div
                 className="flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg bg-[var(--color-bg-card)] border-[var(--color-text-muted)]/20 overflow-hidden"
                 style={{ borderLeftColor: categoryColor, borderLeftWidth: 3 }}
@@ -171,6 +223,7 @@ export function CategoryToastStack({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Inline category picker */}
               <AnimatePresence>

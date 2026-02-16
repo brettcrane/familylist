@@ -61,6 +61,18 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({
 
 let entryIdCounter = 0;
 
+/** Find an existing item with the same name (case-insensitive). Prefers unchecked matches. */
+function findDuplicateItem(items: Item[], name: string): { match: Item; isDone: boolean } | null {
+  const normalized = name.toLowerCase().trim();
+  let checkedMatch: Item | null = null;
+  for (const item of items) {
+    if (item.name.toLowerCase().trim() !== normalized) continue;
+    if (!item.is_checked) return { match: item, isDone: false };
+    if (!checkedMatch) checkedMatch = item;
+  }
+  return checkedMatch ? { match: checkedMatch, isDone: true } : null;
+}
+
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthReady } = useAuth();
@@ -338,11 +350,27 @@ export function ListPage() {
   const handleSingleItem = (itemName: string) => {
     if (!list) return;
 
+    // Check for duplicate items
+    const duplicate = findDuplicateItem(list.items, itemName);
+
+    // Scenario 1: duplicate exists in done list — auto-restore
+    if (duplicate?.isDone) {
+      uncheckItem.mutate(duplicate.match.id, {
+        onError: (err) => {
+          console.error('Failed to restore done item:', err);
+          showToast(getErrorMessage(err, 'Failed to restore item.'), 'error');
+        },
+      });
+      showToast(`"${duplicate.match.name}" moved back to your list`, 'success');
+      return;
+    }
+
     const entryId = `entry-${++entryIdCounter}`;
+    const duplicateOfItem = duplicate?.match ?? null;
 
     // Add entry immediately
     setRecentItems((prev) => [
-      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const },
+      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const, duplicateOfItem: duplicateOfItem },
       ...prev,
     ].slice(0, MAX_RECENT_ENTRIES));
 
@@ -379,10 +407,11 @@ export function ListPage() {
 
         if (!mountedRef.current) return;
 
+        const newStatus = duplicateOfItem ? 'duplicate' as const : 'created' as const;
         setRecentItems((prev) =>
           prev.map((e) =>
             e.id === entryId
-              ? { ...e, status: 'created' as const, createdItemId: newItem.id, suggestedCategoryName: categoryName, suggestedCategoryId: categoryId }
+              ? { ...e, status: newStatus, createdItemId: newItem.id, suggestedCategoryName: categoryName, suggestedCategoryId: categoryId }
               : e
           )
         );
@@ -484,6 +513,52 @@ export function ListPage() {
   const handleToastClosePicker = useCallback(() => {
     setPickerForEntryId(null);
   }, []);
+
+  const handleUndoDuplicate = useCallback((entryId: string) => {
+    const entry = recentItemsRef.current.find((e) => e.id === entryId);
+    if (!entry?.createdItemId) {
+      console.warn('Undo duplicate ignored: item not yet created', { entryId });
+      return;
+    }
+    deleteItem.mutate(entry.createdItemId, {
+      onError: (err) => {
+        console.error('Failed to undo duplicate:', err);
+        showToast(getErrorMessage(err, 'Failed to undo duplicate.'), 'error');
+      },
+    });
+    setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+  }, [deleteItem, showToast]);
+
+  const handleMergeQuantity = useCallback((entryId: string) => {
+    const entry = recentItemsRef.current.find((e) => e.id === entryId);
+    if (!entry?.createdItemId || !entry.duplicateOfItem) {
+      console.warn('Merge quantity ignored: entry not ready', { entryId });
+      return;
+    }
+    const existing = entry.duplicateOfItem;
+    // Delete the duplicate
+    deleteItem.mutate(entry.createdItemId, {
+      onError: (err) => {
+        console.error('Failed to delete duplicate for merge:', err);
+        showToast(getErrorMessage(err, 'Failed to merge quantity.'), 'error');
+      },
+    });
+    // Increment existing item's quantity
+    const newQty = existing.quantity + 1;
+    updateItem.mutate(
+      { id: existing.id, data: { quantity: newQty } },
+      {
+        onSuccess: () => {
+          showToast(`"${existing.name}" updated to \u00d7${newQty}`, 'success');
+        },
+        onError: (err) => {
+          console.error('Failed to update quantity:', err);
+          showToast(getErrorMessage(err, 'Failed to update quantity.'), 'error');
+        },
+      }
+    );
+    setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
+  }, [deleteItem, updateItem, showToast]);
 
   const handleNlConfirm = (items: ParsedItem[]) => {
     if (!list) return;
@@ -764,6 +839,8 @@ export function ListPage() {
           onChangeCategory={handleToastChangeCategory}
           onSelectCategory={handleToastSelectCategory}
           onClosePicker={handleToastClosePicker}
+          onUndoDuplicate={handleUndoDuplicate}
+          onMergeQuantity={handleMergeQuantity}
         />
         <BottomInputBar
           ref={inputRef}
@@ -784,6 +861,7 @@ export function ListPage() {
         originalInput={originalInput}
         items={parsedItems}
         categories={list.categories}
+        existingItems={list.items}
         listType={list.type}
         onConfirm={handleNlConfirm}
         onCancel={handleNlCancel}
