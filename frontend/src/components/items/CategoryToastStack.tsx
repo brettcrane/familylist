@@ -154,7 +154,11 @@ export function CategoryToastStack({
                     </button>
                     <button
                       onClick={() => onMergeQuantity(entry.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: 'color-mix(in srgb, var(--color-accent) 10%, transparent)',
+                        color: 'var(--color-accent)',
+                      }}
                     >
                       Add +1
                     </button>
@@ -239,8 +243,14 @@ export function CategoryToastStack({
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="mt-1.5 bg-[var(--color-bg-card)] rounded-xl border border-[var(--color-text-muted)]/20 shadow-lg overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-text-muted)]/10">
+                    <div
+                      className="mt-1.5 bg-[var(--color-bg-card)] rounded-xl shadow-lg overflow-hidden"
+                      style={{ border: '1px solid color-mix(in srgb, var(--color-text-muted) 20%, transparent)' }}
+                    >
+                      <div
+                        className="flex items-center justify-between px-3 py-2"
+                        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-text-muted) 10%, transparent)' }}
+                      >
                         <span className="text-sm font-medium text-[var(--color-text-secondary)]">
                           Category for &ldquo;{entry.itemName}&rdquo;
                         </span>
@@ -261,10 +271,9 @@ export function CategoryToastStack({
                               onClick={() => onSelectCategory(entry.id, category.id)}
                               className={clsx(
                                 'flex items-center gap-2 px-3 py-2.5 rounded-lg text-left transition-colors',
-                                isSelected
-                                  ? 'bg-[var(--color-accent)]/10'
-                                  : 'hover:bg-[var(--color-bg-secondary)]'
+                                !isSelected && 'hover:bg-[var(--color-bg-secondary)]'
                               )}
+                              style={isSelected ? { backgroundColor: 'color-mix(in srgb, var(--color-accent) 10%, transparent)' } : undefined}
                             >
                               <CategoryIcon category={category.name} className="w-4 h-4" style={{ color }} />
                               <span
