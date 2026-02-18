@@ -85,8 +85,14 @@ function useAutoReloadOnUpdate(updateAvailable: boolean) {
     if (!updateAvailable) return;
 
     // Loop protection: don't reload more than once per 60s
-    const lastReload = sessionStorage.getItem('fl-auto-reload');
-    if (lastReload && Date.now() - parseInt(lastReload) < 60_000) return;
+    try {
+      const lastReload = sessionStorage.getItem('fl-auto-reload');
+      const lastReloadTime = lastReload ? Number(lastReload) : 0;
+      if (!isNaN(lastReloadTime) && lastReloadTime > 0 && Date.now() - lastReloadTime < 60_000) return;
+    } catch {
+      // sessionStorage unavailable (Safari private browsing, iframe, etc.)
+      // Skip loop protection — a single reload is still safe
+    }
 
     // Reload on next hidden→visible transition
     let wasHidden = document.visibilityState === 'hidden';
@@ -94,7 +100,11 @@ function useAutoReloadOnUpdate(updateAvailable: boolean) {
       if (document.visibilityState === 'hidden') {
         wasHidden = true;
       } else if (wasHidden) {
-        sessionStorage.setItem('fl-auto-reload', Date.now().toString());
+        try {
+          sessionStorage.setItem('fl-auto-reload', Date.now().toString());
+        } catch {
+          // sessionStorage unavailable — proceed without loop protection
+        }
         window.location.reload();
       }
     };

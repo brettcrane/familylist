@@ -11,10 +11,14 @@ const POLL_INTERVAL_MS = 2 * 60_000; // poll every 2 min
 export function useVersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const lastCheckRef = useRef(0);
+  const updateDetectedRef = useRef(false);
+  const loggedRef = useRef(false);
 
   const checkVersion = useCallback(async () => {
     // version.json only exists in production builds
     if (import.meta.env.DEV) return;
+    // Already detected — no need to keep polling
+    if (updateDetectedRef.current) return;
     // Throttle: skip if we checked recently
     const now = Date.now();
     if (now - lastCheckRef.current < THROTTLE_MS) return;
@@ -23,17 +27,25 @@ export function useVersionCheck() {
     try {
       const res = await fetch(`/version.json?_t=${now}`, { cache: 'no-store' });
       if (!res.ok) return;
-      const data = await res.json() as { buildId?: string };
+      let data: { buildId?: string };
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.warn('[VersionCheck] Failed to parse version.json response:', parseErr);
+        return;
+      }
       if (data.buildId && data.buildId !== __BUILD_ID__) {
-        if (!updateAvailable) {
+        updateDetectedRef.current = true;
+        if (!loggedRef.current) {
           console.info('[VersionCheck] New build detected:', data.buildId, '(current:', __BUILD_ID__ + ')');
+          loggedRef.current = true;
         }
         setUpdateAvailable(true);
       }
     } catch {
-      // Offline, 404, network error — silently ignore
+      // Network error or offline — expected, silently ignore
     }
-  }, [updateAvailable]);
+  }, []);
 
   useEffect(() => {
     // Check when app is foregrounded
