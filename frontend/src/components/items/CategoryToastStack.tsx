@@ -159,6 +159,8 @@ export function CategoryToastStack({
                         backgroundColor: 'color-mix(in srgb, var(--color-accent) 10%, transparent)',
                         color: 'var(--color-accent)',
                       }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-accent) 20%, transparent)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-accent) 10%, transparent)'; }}
                     >
                       Add +1
                     </button>
