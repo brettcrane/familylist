@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const THROTTLE_MS = 60_000; // min 60s between checks
-const POLL_INTERVAL_MS = 10 * 60_000; // poll every 10 min
+const THROTTLE_MS = 15_000; // min 15s between checks
+const POLL_INTERVAL_MS = 2 * 60_000; // poll every 2 min
 
 /**
  * Polls /version.json to detect when a new build has been deployed.
@@ -12,6 +12,7 @@ export function useVersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const lastCheckRef = useRef(0);
   const updateDetectedRef = useRef(false);
+  const loggedRef = useRef(false);
 
   const checkVersion = useCallback(async () => {
     // version.json only exists in production builds
@@ -26,13 +27,23 @@ export function useVersionCheck() {
     try {
       const res = await fetch(`/version.json?_t=${now}`, { cache: 'no-store' });
       if (!res.ok) return;
-      const data = await res.json() as { buildId?: string };
+      let data: { buildId?: string };
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.warn('[VersionCheck] Failed to parse version.json response:', parseErr);
+        return;
+      }
       if (data.buildId && data.buildId !== __BUILD_ID__) {
         updateDetectedRef.current = true;
+        if (!loggedRef.current) {
+          console.info('[VersionCheck] New build detected:', data.buildId, '(current:', __BUILD_ID__ + ')');
+          loggedRef.current = true;
+        }
         setUpdateAvailable(true);
       }
     } catch {
-      // Offline, 404, network error — silently ignore
+      // Network error or offline — expected, silently ignore
     }
   }, []);
 
