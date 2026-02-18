@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const THROTTLE_MS = 60_000; // min 60s between checks
-const POLL_INTERVAL_MS = 10 * 60_000; // poll every 10 min
+const THROTTLE_MS = 15_000; // min 15s between checks
+const POLL_INTERVAL_MS = 2 * 60_000; // poll every 2 min
 
 /**
  * Polls /version.json to detect when a new build has been deployed.
@@ -11,13 +11,10 @@ const POLL_INTERVAL_MS = 10 * 60_000; // poll every 10 min
 export function useVersionCheck() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const lastCheckRef = useRef(0);
-  const updateDetectedRef = useRef(false);
 
   const checkVersion = useCallback(async () => {
     // version.json only exists in production builds
     if (import.meta.env.DEV) return;
-    // Already detected — no need to keep polling
-    if (updateDetectedRef.current) return;
     // Throttle: skip if we checked recently
     const now = Date.now();
     if (now - lastCheckRef.current < THROTTLE_MS) return;
@@ -28,13 +25,15 @@ export function useVersionCheck() {
       if (!res.ok) return;
       const data = await res.json() as { buildId?: string };
       if (data.buildId && data.buildId !== __BUILD_ID__) {
-        updateDetectedRef.current = true;
+        if (!updateAvailable) {
+          console.info('[VersionCheck] New build detected:', data.buildId, '(current:', __BUILD_ID__ + ')');
+        }
         setUpdateAvailable(true);
       }
     } catch {
       // Offline, 404, network error — silently ignore
     }
-  }, []);
+  }, [updateAvailable]);
 
   useEffect(() => {
     // Check when app is foregrounded

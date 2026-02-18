@@ -72,6 +72,38 @@ const persistOptions = {
   },
 };
 
+/**
+ * Auto-reload the page when the user backgrounds and foregrounds the app
+ * after a new version has been detected. This ensures users always run
+ * the latest code without needing to manually click "Reload".
+ *
+ * Loop protection via sessionStorage prevents infinite reloads if
+ * version.json is somehow stale after reload.
+ */
+function useAutoReloadOnUpdate(updateAvailable: boolean) {
+  useEffect(() => {
+    if (!updateAvailable) return;
+
+    // Loop protection: don't reload more than once per 60s
+    const lastReload = sessionStorage.getItem('fl-auto-reload');
+    if (lastReload && Date.now() - parseInt(lastReload) < 60_000) return;
+
+    // Reload on next hidden→visible transition
+    let wasHidden = document.visibilityState === 'hidden';
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+      } else if (wasHidden) {
+        sessionStorage.setItem('fl-auto-reload', Date.now().toString());
+        window.location.reload();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [updateAvailable]);
+}
+
 /** Invalidate all queries when the browser reconnects to the network. */
 function useReconnectRefresh(): void {
   const client = useQueryClient();
@@ -105,6 +137,7 @@ function ClerkAppContent() {
   const { updateAvailable: versionUpdate } = useVersionCheck();
   const updateAvailable = swUpdate || versionUpdate;
 
+  useAutoReloadOnUpdate(updateAvailable);
   useReconnectRefresh();
 
   // Initialize theme on mount
@@ -161,6 +194,7 @@ function FallbackAppContent() {
   const { updateAvailable: versionUpdate } = useVersionCheck();
   const updateAvailable = swUpdate || versionUpdate;
 
+  useAutoReloadOnUpdate(updateAvailable);
   useReconnectRefresh();
 
   // Initialize theme on mount
