@@ -7,6 +7,8 @@ import { submitFeedback } from '../../api/ai';
 import type { ParsedItem, Category, ListType, Item } from '../../types/api';
 import { CATEGORY_COLORS, formatQuantityUnit } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
+import { findFuzzyMatch } from '../../utils/fuzzyMatch';
+import type { DuplicateMatchType } from '../../utils/fuzzyMatch';
 
 interface NLParseModalProps {
   isOpen: boolean;
@@ -50,17 +52,10 @@ export function NLParseModal({
     originalCategories.current = new Map(items.map((item) => [item.name, item.category]));
   }, [items]);
 
-  // Build a map of existing item names for duplicate detection
-  const existingItemMap = useMemo(() => {
-    const map = new Map<string, Item>();
-    for (const item of existingItems) {
-      const key = item.name.toLowerCase().trim();
-      // Prefer unchecked matches (active duplicates are more relevant)
-      if (!map.has(key) || !item.is_checked) {
-        map.set(key, item);
-      }
-    }
-    return map;
+  // Build a lookup function for fuzzy duplicate detection
+  const findExistingMatch = useMemo(() => {
+    return (name: string): { match: Item; matchType: DuplicateMatchType } | null =>
+      findFuzzyMatch(existingItems, name);
   }, [existingItems]);
 
   const selectedCount = editableItems.filter((item) => item.selected).length;
@@ -158,7 +153,9 @@ export function NLParseModal({
               {editableItems.map((item, index) => {
                 const categoryColor =
                   CATEGORY_COLORS[item.category] || 'var(--color-text-muted)';
-                const existingMatch = existingItemMap.get(item.name.toLowerCase().trim());
+                const existingResult = findExistingMatch(item.name);
+                const existingMatch = existingResult?.match ?? null;
+                const existingMatchType = existingResult?.matchType ?? null;
                 const existingCategory = existingMatch?.category_id
                   ? categories.find((c) => c.id === existingMatch.category_id)?.name
                   : null;
@@ -196,8 +193,12 @@ export function NLParseModal({
                           <ExclamationTriangleIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                           <span className="text-xs text-amber-600 dark:text-amber-400">
                             {existingMatch.is_checked
-                              ? 'In done list — will restore'
-                              : `Already on list${existingMatch.quantity > 1 ? ` (\u00d7${existingMatch.quantity})` : ''}${existingCategory ? ` in ${existingCategory}` : ''}`}
+                              ? existingMatchType === 'fuzzy'
+                                ? `Similar to "${existingMatch.name}" in done list`
+                                : 'In done list — will restore'
+                              : existingMatchType === 'fuzzy'
+                                ? `Similar to "${existingMatch.name}"${existingMatch.quantity > 1 ? ` (\u00d7${existingMatch.quantity})` : ''}${existingCategory ? ` in ${existingCategory}` : ''}`
+                                : `Already on list${existingMatch.quantity > 1 ? ` (\u00d7${existingMatch.quantity})` : ''}${existingCategory ? ` in ${existingCategory}` : ''}`}
                           </span>
                         </span>
                       )}
