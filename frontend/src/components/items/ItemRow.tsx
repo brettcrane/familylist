@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Checkbox } from '../ui/Checkbox';
-import { MAGNITUDE_CONFIG, PRIORITY_CONFIG, CLAUDE_SYSTEM_USER_ID } from '../../types/api';
+import { MAGNITUDE_CONFIG, PRIORITY_CONFIG, CLAUDE_SYSTEM_USER_ID, formatQuantityUnit } from '../../types/api';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
 import { isOverdue, formatDueDate } from '../../utils/dates';
@@ -131,11 +131,14 @@ export function ItemRow({ item, listType, onCheck, onEdit, onNameChange, dragHan
                 {item.name}
               </span>
             )}
-            {item.quantity > 1 && (
-              <span className="font-mono text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded flex-shrink-0">
-                ×{item.quantity}
-              </span>
-            )}
+            {(() => {
+              const qtyDisplay = formatQuantityUnit(item.quantity, item.unit);
+              return qtyDisplay ? (
+                <span className="font-mono text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded flex-shrink-0">
+                  {qtyDisplay}
+                </span>
+              ) : null;
+            })()}
             {item.created_by === CLAUDE_SYSTEM_USER_ID && (
               <span
                 className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0"

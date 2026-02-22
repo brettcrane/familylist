@@ -5,7 +5,7 @@ import { ChevronDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/ou
 import { Checkbox } from '../ui/Checkbox';
 import { submitFeedback } from '../../api/ai';
 import type { ParsedItem, Category, ListType, Item } from '../../types/api';
-import { CATEGORY_COLORS } from '../../types/api';
+import { CATEGORY_COLORS, formatQuantityUnit } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
 interface NLParseModalProps {
@@ -182,11 +182,14 @@ export function NLParseModal({
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-[var(--color-text-primary)]">
                         {item.name}
-                        {item.quantity > 1 && (
-                          <span className="ml-2 font-mono text-xs text-[var(--color-text-muted)]">
-                            {'\u00d7'}{item.quantity}
-                          </span>
-                        )}
+                        {(() => {
+                          const qtyDisplay = formatQuantityUnit(item.quantity, item.unit);
+                          return qtyDisplay ? (
+                            <span className="ml-2 font-mono text-xs text-[var(--color-text-muted)]">
+                              {qtyDisplay}
+                            </span>
+                          ) : null;
+                        })()}
                       </span>
                       {existingMatch && (
                         <span className="flex items-center gap-1 mt-0.5">

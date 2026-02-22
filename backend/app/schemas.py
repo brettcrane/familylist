@@ -41,6 +41,42 @@ class ItemStatus(str, Enum):
     BLOCKED = "blocked"
 
 
+class Unit(str, Enum):
+    """Units of measure for item quantities."""
+
+    # Count (default)
+    EACH = "each"
+    DOZEN = "dozen"
+    # Volume - small
+    TSP = "tsp"
+    TBSP = "tbsp"
+    FL_OZ = "fl oz"
+    CUP = "cup"
+    # Volume - large
+    PINT = "pint"
+    QUART = "quart"
+    GALLON = "gallon"
+    ML = "ml"
+    L = "L"
+    # Weight - imperial
+    OZ = "oz"
+    LB = "lb"
+    # Weight - metric
+    G = "g"
+    KG = "kg"
+    # Containers
+    CAN = "can"
+    BOTTLE = "bottle"
+    JAR = "jar"
+    BAG = "bag"
+    BOX = "box"
+    PKG = "pkg"
+    # Natural
+    BUNCH = "bunch"
+    CLOVE = "clove"
+    PINCH = "pinch"
+
+
 # ============================================================================
 # User Schemas
 # ============================================================================
@@ -207,7 +243,8 @@ class ItemBase(BaseModel):
     """Base item schema."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    quantity: int = Field(default=1, ge=1)
+    quantity: float = Field(default=1, gt=0)
+    unit: Unit | None = None
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
@@ -247,7 +284,8 @@ class ItemUpdate(BaseModel, _DueDateMixin):
     """Schema for updating an item."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
-    quantity: int | None = Field(None, ge=1)
+    quantity: float | None = Field(None, gt=0)
+    unit: Unit | None = None
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
@@ -386,7 +424,8 @@ class ParsedItemResponse(BaseModel):
 
     name: str
     category: str
-    quantity: int = 1
+    quantity: float = 1
+    unit: str = "each"
 
 
 class ParseRequest(BaseModel):

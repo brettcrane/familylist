@@ -601,10 +601,13 @@ export function ListPage() {
       const matchedCategory = list.categories.find(
         (cat) => cat.name.toLowerCase() === item.category.toLowerCase()
       );
+      const unitValue = item.unit && item.unit !== 'each' ? item.unit : undefined;
       createItem.mutate(
         {
           name: item.name,
           category_id: matchedCategory?.id || null,
+          quantity: item.quantity,
+          ...(unitValue && { unit: unitValue as import('../types/api').Unit }),
         },
         {
           onError: (error) => {

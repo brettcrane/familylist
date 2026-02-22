@@ -19,15 +19,19 @@ RECIPE_NORMALIZE_PROMPT = """Convert these recipe ingredients into grocery list 
 Ingredients:
 {ingredients}
 
-Return a JSON array of items to buy. Each item has "name" (grocery item, lowercase) and "quantity" (default 1).
-Strip measurements and preparation notes. Keep just the ingredient name.
+Return a JSON array of items to buy. Each item has:
+- "name": grocery item name, lowercase
+- "quantity": numeric amount (e.g., 2, 0.5, 1)
+- "unit": unit of measure. Must be one of: each, tsp, tbsp, cup, fl oz, pint, quart, gallon, ml, L, oz, lb, g, kg, can, bottle, jar, bag, box, pkg, bunch, dozen, clove, pinch
 
 Examples:
-- "1 cup all-purpose flour" → {{"name": "all-purpose flour", "quantity": 1}}
-- "2 large eggs" → {{"name": "eggs", "quantity": 1}}
-- "3 cloves garlic, minced" → {{"name": "garlic", "quantity": 1}}
-- "2 (14 oz) cans diced tomatoes" → {{"name": "canned diced tomatoes", "quantity": 2}}
-- "salt and pepper to taste" → {{"name": "salt", "quantity": 1}}, {{"name": "pepper", "quantity": 1}}
+- "1 cup all-purpose flour" → {{"name": "all-purpose flour", "quantity": 1, "unit": "cup"}}
+- "2 large eggs" → {{"name": "eggs", "quantity": 2, "unit": "each"}}
+- "3 cloves garlic, minced" → {{"name": "garlic", "quantity": 3, "unit": "clove"}}
+- "2 (14 oz) cans diced tomatoes" → {{"name": "diced tomatoes", "quantity": 2, "unit": "can"}}
+- "salt and pepper to taste" → {{"name": "salt", "quantity": 1, "unit": "pinch"}}, {{"name": "pepper", "quantity": 1, "unit": "pinch"}}
+- "1 lb ground beef" → {{"name": "ground beef", "quantity": 1, "unit": "lb"}}
+- "1/2 cup sugar" → {{"name": "sugar", "quantity": 0.5, "unit": "cup"}}
 
 JSON array:"""
 
@@ -37,9 +41,12 @@ RECIPE_EXTRACT_PROMPT = """Extract the recipe ingredients from this webpage text
 Text:
 {text}
 
-Return a JSON array of grocery items to buy. Each item has "name" (grocery item, lowercase) and "quantity" (default 1).
+Return a JSON array of grocery items to buy. Each item has:
+- "name": grocery item name, lowercase
+- "quantity": numeric amount (e.g., 2, 0.5, 1)
+- "unit": unit of measure. Must be one of: each, tsp, tbsp, cup, fl oz, pint, quart, gallon, ml, L, oz, lb, g, kg, can, bottle, jar, bag, box, pkg, bunch, dozen, clove, pinch
+
 Only include food ingredients, not equipment or serving suggestions.
-Strip measurements and preparation notes.
 
 JSON array:"""
 
@@ -99,16 +106,18 @@ JSON array:""",
 class ParsedItem:
     """Parsed item from LLM."""
 
-    def __init__(self, name: str, quantity: int = 1, category: str = ""):
+    def __init__(self, name: str, quantity: int = 1, category: str = "", notes: str = ""):
         self.name = name
         self.quantity = quantity
         self.category = category
+        self.notes = notes
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "quantity": self.quantity,
             "category": self.category,
+            "notes": self.notes,
         }
 
 
@@ -261,9 +270,10 @@ class LLMParsingService:
                                         "type": "object",
                                         "properties": {
                                             "name": {"type": "string"},
-                                            "quantity": {"type": "integer"},
+                                            "quantity": {"type": "number"},
+                                            "unit": {"type": "string"},
                                         },
-                                        "required": ["name", "quantity"],
+                                        "required": ["name", "quantity", "unit"],
                                         "additionalProperties": False,
                                     },
                                 }
@@ -499,8 +509,13 @@ class LLMParsingService:
                 if isinstance(item, dict) and "name" in item:
                     name = str(item["name"]).strip()
                     if name:
-                        quantity = int(item.get("quantity", 1))
-                        items.append(ParsedItem(name=name, quantity=max(1, quantity)))
+                        quantity = float(item.get("quantity", 1))
+                        unit = str(item.get("unit", "each")).strip()
+                        items.append(ParsedItem(
+                            name=name,
+                            quantity=max(0.01, quantity),
+                            unit=unit,
+                        ))
 
             logger.info(f"Extracted {len(items)} items from URL: {url}")
             return items, display_title
@@ -553,8 +568,13 @@ class LLMParsingService:
                 if isinstance(item, dict) and "name" in item:
                     name = str(item["name"]).strip()
                     if name:
-                        quantity = int(item.get("quantity", 1))
-                        items.append(ParsedItem(name=name, quantity=max(1, quantity)))
+                        quantity = float(item.get("quantity", 1))
+                        unit = str(item.get("unit", "each")).strip()
+                        items.append(ParsedItem(
+                            name=name,
+                            quantity=max(0.01, quantity),
+                            unit=unit,
+                        ))
 
             logger.info(f"Parsed {len(items)} items from: {input_text}")
             return items

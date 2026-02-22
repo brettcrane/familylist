@@ -100,6 +100,7 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
                 name=item.name,
                 category=category,
                 quantity=item.quantity,
+                unit=item.unit or "each",
             )
         )
         total_confidence += confidence
@@ -161,6 +162,7 @@ def extract_recipe_from_url(data: ExtractUrlRequest, db: Session = Depends(get_d
                 name=item.name,
                 category=category,
                 quantity=item.quantity,
+                unit=item.unit or "each",
             )
         )
         total_confidence += confidence
