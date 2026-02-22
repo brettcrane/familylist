@@ -187,6 +187,10 @@ class Item(Base):
             "status IS NULL OR status IN ('open', 'in_progress', 'done', 'blocked')",
             name="ck_item_status",
         ),
+        CheckConstraint(
+            "unit IS NULL OR unit IN ('each', 'dozen', 'tsp', 'tbsp', 'fl oz', 'cup', 'pint', 'quart', 'gallon', 'ml', 'L', 'oz', 'lb', 'g', 'kg', 'can', 'bottle', 'jar', 'bag', 'box', 'pkg', 'bunch', 'clove', 'pinch')",
+            name="ck_item_unit",
+        ),
     )
 
 

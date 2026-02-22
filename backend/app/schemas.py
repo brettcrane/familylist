@@ -243,7 +243,7 @@ class ItemBase(BaseModel):
     """Base item schema."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    quantity: float = Field(default=1, gt=0)
+    quantity: float = Field(default=1, ge=0.25)
     unit: Unit | None = None
     notes: str | None = None
     category_id: str | None = None
@@ -284,7 +284,7 @@ class ItemUpdate(BaseModel, _DueDateMixin):
     """Schema for updating an item."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
-    quantity: float | None = Field(None, gt=0)
+    quantity: float | None = Field(None, ge=0.25)
     unit: Unit | None = None
     notes: str | None = None
     category_id: str | None = None
@@ -425,7 +425,7 @@ class ParsedItemResponse(BaseModel):
     name: str
     category: str
     quantity: float = 1
-    unit: str = "each"
+    unit: Unit = Unit.EACH
 
 
 class ParseRequest(BaseModel):

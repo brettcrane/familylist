@@ -1,9 +1,12 @@
 """LLM service for natural language parsing."""
 
+import ipaddress
 import json
 import logging
 import re
+import socket
 from typing import ClassVar
+from urllib.parse import urlparse
 
 import requests
 from openai import OpenAI
@@ -32,21 +35,6 @@ Examples:
 - "salt and pepper to taste" → {{"name": "salt", "quantity": 1, "unit": "pinch"}}, {{"name": "pepper", "quantity": 1, "unit": "pinch"}}
 - "1 lb ground beef" → {{"name": "ground beef", "quantity": 1, "unit": "lb"}}
 - "1/2 cup sugar" → {{"name": "sugar", "quantity": 0.5, "unit": "cup"}}
-
-JSON array:"""
-
-# Prompt for extracting ingredients from raw page text (fallback when no JSON-LD).
-RECIPE_EXTRACT_PROMPT = """Extract the recipe ingredients from this webpage text.
-
-Text:
-{text}
-
-Return a JSON array of grocery items to buy. Each item has:
-- "name": grocery item name, lowercase
-- "quantity": numeric amount (e.g., 2, 0.5, 1)
-- "unit": unit of measure. Must be one of: each, tsp, tbsp, cup, fl oz, pint, quart, gallon, ml, L, oz, lb, g, kg, can, bottle, jar, bag, box, pkg, bunch, dozen, clove, pinch
-
-Only include food ingredients, not equipment or serving suggestions.
 
 JSON array:"""
 
@@ -106,18 +94,18 @@ JSON array:""",
 class ParsedItem:
     """Parsed item from LLM."""
 
-    def __init__(self, name: str, quantity: int = 1, category: str = "", notes: str = ""):
+    def __init__(self, name: str, quantity: float = 1, category: str = "", unit: str = "each"):
         self.name = name
         self.quantity = quantity
         self.category = category
-        self.notes = notes
+        self.unit = unit
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "quantity": self.quantity,
             "category": self.category,
-            "notes": self.notes,
+            "unit": self.unit,
         }
 
 
@@ -397,17 +385,58 @@ class LLMParsingService:
         else:
             return self._call_ollama(prompt)
 
+    def _validate_url_target(self, url: str) -> None:
+        """Reject URLs targeting private/internal networks (SSRF protection)."""
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("Invalid URL: no hostname")
+        try:
+            addrs = socket.getaddrinfo(hostname, None)
+            for addr_info in addrs:
+                ip = ipaddress.ip_address(addr_info[4][0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise ValueError("URL must point to a public address")
+        except socket.gaierror:
+            raise ValueError("Could not resolve URL hostname")
+
     def _fetch_url(self, url: str) -> str:
-        """Fetch HTML content from a URL."""
+        """Fetch HTML content from a URL with SSRF protection and size limits."""
+        max_size = 2 * 1024 * 1024  # 2MB — plenty for recipe pages
+
+        self._validate_url_target(url)
+
         headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; FamilyList/1.0; +https://familylist.app)",
+            "User-Agent": "Mozilla/5.0 (compatible; FamilyList/1.0)",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
-        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        response = requests.get(url, headers=headers, timeout=10, allow_redirects=True, stream=True)
         response.raise_for_status()
-        if len(response.content) > 5 * 1024 * 1024:
+
+        # Reject non-HTML responses early
+        content_type = response.headers.get("Content-Type", "")
+        if not any(ct in content_type for ct in ["text/html", "application/xhtml+xml"]):
+            response.close()
+            raise ValueError("URL does not appear to be a web page")
+
+        # Check Content-Length header before downloading
+        content_length = response.headers.get("Content-Length")
+        if content_length and int(content_length) > max_size:
+            response.close()
             raise ValueError("Page too large to process")
-        return response.text
+
+        # Stream download with running size limit
+        chunks = []
+        total = 0
+        for chunk in response.iter_content(chunk_size=8192):
+            total += len(chunk)
+            if total > max_size:
+                response.close()
+                raise ValueError("Page too large to process")
+            chunks.append(chunk)
+
+        content = b"".join(chunks)
+        return content.decode(response.encoding or "utf-8", errors="replace")
 
     def _find_recipe_in_jsonld(self, data: dict | list) -> dict | None:
         """Recursively find a Recipe object in JSON-LD data."""
@@ -442,24 +471,10 @@ class LLMParsingService:
                     title = recipe.get("name")
                     if ingredients and isinstance(ingredients, list):
                         return [str(i) for i in ingredients], title
-            except (json.JSONDecodeError, KeyError):
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                logger.debug(f"Skipping malformed JSON-LD block: {type(e).__name__}: {e}")
                 continue
         return [], None
-
-    def _extract_page_text(self, html: str) -> str:
-        """Extract readable text from HTML, stripping tags and scripts."""
-        text = re.sub(
-            r"<(script|style|noscript)[^>]*>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE
-        )
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = (
-            text.replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&nbsp;", " ")
-        )
-        text = re.sub(r"\s+", " ", text).strip()
-        return text[:4000]
 
     def _extract_page_title(self, html: str) -> str | None:
         """Extract page title from HTML."""
@@ -472,7 +487,11 @@ class LLMParsingService:
         return None
 
     def extract_from_url(self, url: str, list_type: ListType) -> tuple[list[ParsedItem], str]:
-        """Fetch a URL and extract items (e.g., recipe ingredients).
+        """Fetch a URL and extract recipe ingredients via JSON-LD structured data.
+
+        Only works for recipe pages with schema.org Recipe JSON-LD. If no
+        structured recipe data is found, returns empty — no LLM fallback
+        to avoid wasting tokens on non-recipe pages.
 
         Returns (items, display_title) where display_title is the recipe name or URL.
         """
@@ -481,27 +500,24 @@ class LLMParsingService:
 
         html = self._fetch_url(url)
 
-        # Try JSON-LD structured data first (most recipe sites)
+        # Try JSON-LD structured data (most recipe sites use schema.org Recipe)
         ingredients, jsonld_title = self._extract_jsonld_recipe(html)
-
-        if ingredients:
-            logger.info(f"Found {len(ingredients)} ingredients via JSON-LD from {url}")
-            prompt = RECIPE_NORMALIZE_PROMPT.format(
-                ingredients="\n".join(f"- {i}" for i in ingredients)
-            )
-        else:
-            logger.info(f"No JSON-LD recipe found, falling back to text extraction for {url}")
-            text = self._extract_page_text(html)
-            if len(text) < 50:
-                logger.warning(f"Page text too short to extract from: {url}")
-                return [], jsonld_title or url
-            prompt = RECIPE_EXTRACT_PROMPT.format(text=text)
-
         display_title = jsonld_title or self._extract_page_title(html) or url
+
+        if not ingredients:
+            logger.info(f"No JSON-LD recipe found on {url} — skipping LLM to avoid cost")
+            return [], display_title
+
+        logger.info(f"Found {len(ingredients)} ingredients via JSON-LD from {url}")
+        prompt = RECIPE_NORMALIZE_PROMPT.format(
+            ingredients="\n".join(f"- {i}" for i in ingredients)
+        )
 
         try:
             response = self._call_backend(prompt)
-            logger.info(f"LLM URL extraction response: {response[:200]}")
+            if not response:
+                logger.warning(f"LLM returned empty response for URL: {url}")
+                return [], display_title
 
             items_data = self._extract_json(response)
             items = []
@@ -509,11 +525,14 @@ class LLMParsingService:
                 if isinstance(item, dict) and "name" in item:
                     name = str(item["name"]).strip()
                     if name:
-                        quantity = float(item.get("quantity", 1))
+                        try:
+                            quantity = float(item.get("quantity", 1))
+                        except (ValueError, TypeError):
+                            quantity = 1.0
                         unit = str(item.get("unit", "each")).strip()
                         items.append(ParsedItem(
                             name=name,
-                            quantity=max(0.01, quantity),
+                            quantity=max(0.25, quantity),
                             unit=unit,
                         ))
 
@@ -522,7 +541,7 @@ class LLMParsingService:
 
         except ValueError:
             raise
-        except Exception as e:
+        except (requests.RequestException, Exception) as e:
             logger.error(f"LLM URL extraction failed for '{url}': {type(e).__name__}: {e}")
             return [], display_title
 
@@ -568,11 +587,14 @@ class LLMParsingService:
                 if isinstance(item, dict) and "name" in item:
                     name = str(item["name"]).strip()
                     if name:
-                        quantity = float(item.get("quantity", 1))
+                        try:
+                            quantity = float(item.get("quantity", 1))
+                        except (ValueError, TypeError):
+                            quantity = 1.0
                         unit = str(item.get("unit", "each")).strip()
                         items.append(ParsedItem(
                             name=name,
-                            quantity=max(0.01, quantity),
+                            quantity=max(0.25, quantity),
                             unit=unit,
                         ))
 

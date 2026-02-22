@@ -30,7 +30,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
     },
     ref
   ) {
-    const isUrlInput = /^https?:\/\//i.test(inputValue.trim());
+    const isUrlInput = listType === 'grocery' && /^https?:\/\//i.test(inputValue.trim());
     const placeholder = aiMode ? AI_MODE_PLACEHOLDERS[listType] : 'Add item...';
     const hintText = AI_MODE_HINTS[listType];
 

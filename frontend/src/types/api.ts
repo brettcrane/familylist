@@ -213,7 +213,7 @@ export interface ParsedItem {
   name: string;
   category: string;
   quantity: number;
-  unit: string;
+  unit: Unit;
 }
 
 /** AI parse request for natural language */

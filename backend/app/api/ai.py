@@ -90,11 +90,16 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
     total_confidence = 0.0
 
     for item in parsed_items:
-        category, confidence = ai_service.categorize(
-            item_name=item.name,
-            list_type=data.list_type,
-            db=db,
-        )
+        try:
+            category, confidence = ai_service.categorize(
+                item_name=item.name,
+                list_type=data.list_type,
+                db=db,
+            )
+        except Exception as e:
+            logger.warning(f"Categorization failed for '{item.name}': {e}")
+            category = "Uncategorized"
+            confidence = 0.0
         categorized_items.append(
             ParsedItemResponse(
                 name=item.name,
@@ -116,13 +121,20 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
 
 @router.post("/extract-url", response_model=ParseResponse, operation_id="extract_recipe_from_url")
 def extract_recipe_from_url(data: ExtractUrlRequest, db: Session = Depends(get_db)):
-    """Extract items from a URL (e.g., recipe ingredients from a recipe page).
+    """Extract recipe ingredients from a URL via JSON-LD structured data.
 
-    Fetches the URL, looks for structured recipe data (JSON-LD), and falls
-    back to LLM-based text extraction. Returns items with AI-suggested categories.
+    Only supported for grocery lists. Fetches the URL, looks for schema.org
+    Recipe JSON-LD data, and normalizes ingredients via LLM. No LLM fallback
+    for pages without structured recipe data (avoids wasting tokens).
 
     Returns 503 if LLM service is not available.
     """
+    if data.list_type != "grocery":
+        raise HTTPException(
+            status_code=422,
+            detail="URL recipe extraction is only supported for grocery lists.",
+        )
+
     if not llm_service.is_available():
         raise HTTPException(
             status_code=503,
@@ -147,16 +159,21 @@ def extract_recipe_from_url(data: ExtractUrlRequest, db: Session = Depends(get_d
             confidence=0.0,
         )
 
-    # Categorize each extracted item
+    # Categorize each extracted item, with per-item fallback
     categorized_items = []
     total_confidence = 0.0
 
     for item in parsed_items:
-        category, confidence = ai_service.categorize(
-            item_name=item.name,
-            list_type=data.list_type,
-            db=db,
-        )
+        try:
+            category, confidence = ai_service.categorize(
+                item_name=item.name,
+                list_type=data.list_type,
+                db=db,
+            )
+        except Exception as e:
+            logger.warning(f"Categorization failed for '{item.name}': {e}")
+            category = "Uncategorized"
+            confidence = 0.0
         categorized_items.append(
             ParsedItemResponse(
                 name=item.name,

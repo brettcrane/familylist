@@ -430,8 +430,8 @@ export function ListPage() {
     const trimmedValue = inputValue.trim();
     if (!trimmedValue || !list) return;
 
-    // URL detection — auto-extract recipe ingredients regardless of AI mode
-    if (/^https?:\/\//i.test(trimmedValue)) {
+    // URL detection — auto-extract recipe ingredients (grocery lists only)
+    if (list.type === 'grocery' && /^https?:\/\//i.test(trimmedValue)) {
       setInputValue('');
       setIsInputLoading(true);
       try {
@@ -444,11 +444,11 @@ export function ListPage() {
           setOriginalInput(result.original_input);
           setNlModalOpen(true);
         } else {
-          showToast('No ingredients found on this page.', 'error');
+          showToast('No recipe found on this page. Try a recipe site like AllRecipes or Food Network.', 'error');
         }
       } catch (err) {
         console.error('URL extraction failed:', err);
-        showToast('Could not extract ingredients from this URL.', 'error');
+        showToast(getErrorMessage(err, 'Could not extract ingredients from this URL.'), 'error');
       }
       setIsInputLoading(false);
       return;
@@ -607,7 +607,7 @@ export function ListPage() {
           name: item.name,
           category_id: matchedCategory?.id || null,
           quantity: item.quantity,
-          ...(unitValue && { unit: unitValue as import('../types/api').Unit }),
+          ...(unitValue !== undefined && { unit: unitValue }),
         },
         {
           onError: (error) => {
