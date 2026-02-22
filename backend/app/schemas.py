@@ -41,40 +41,12 @@ class ItemStatus(str, Enum):
     BLOCKED = "blocked"
 
 
-class Unit(str, Enum):
-    """Units of measure for item quantities."""
+"""Unit is a freeform string (not an enum).
 
-    # Count (default)
-    EACH = "each"
-    DOZEN = "dozen"
-    # Volume - small
-    TSP = "tsp"
-    TBSP = "tbsp"
-    FL_OZ = "fl oz"
-    CUP = "cup"
-    # Volume - large
-    PINT = "pint"
-    QUART = "quart"
-    GALLON = "gallon"
-    ML = "ml"
-    L = "L"
-    # Weight - imperial
-    OZ = "oz"
-    LB = "lb"
-    # Weight - metric
-    G = "g"
-    KG = "kg"
-    # Containers
-    CAN = "can"
-    BOTTLE = "bottle"
-    JAR = "jar"
-    BAG = "bag"
-    BOX = "box"
-    PKG = "pkg"
-    # Natural
-    BUNCH = "bunch"
-    CLOVE = "clove"
-    PINCH = "pinch"
+Recipe sites use many different unit names and the LLM may return variations
+like "cups", "tablespoons", etc. The frontend provides a datalist for common
+suggestions but accepts any text. Max length enforced at Field level.
+"""
 
 
 # ============================================================================
@@ -244,7 +216,7 @@ class ItemBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     quantity: float = Field(default=1, ge=0.25)
-    unit: Unit | None = None
+    unit: str | None = Field(None, max_length=20)
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
@@ -285,7 +257,7 @@ class ItemUpdate(BaseModel, _DueDateMixin):
 
     name: str | None = Field(None, min_length=1, max_length=255)
     quantity: float | None = Field(None, ge=0.25)
-    unit: Unit | None = None
+    unit: str | None = Field(None, max_length=20)
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
@@ -425,7 +397,7 @@ class ParsedItemResponse(BaseModel):
     name: str
     category: str
     quantity: float = 1
-    unit: Unit = Unit.EACH
+    unit: str = "each"
 
 
 class ParseRequest(BaseModel):

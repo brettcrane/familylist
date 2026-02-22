@@ -151,7 +151,7 @@ class Item(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     quantity: Mapped[float] = mapped_column(Float, default=1)
-    unit: Mapped[str | None] = mapped_column(String(10))
+    unit: Mapped[str | None] = mapped_column(String(20))
     notes: Mapped[str | None] = mapped_column(Text)
     is_checked: Mapped[bool] = mapped_column(Boolean, default=False)
     checked_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
@@ -188,8 +188,8 @@ class Item(Base):
             name="ck_item_status",
         ),
         CheckConstraint(
-            "unit IS NULL OR unit IN ('each', 'dozen', 'tsp', 'tbsp', 'fl oz', 'cup', 'pint', 'quart', 'gallon', 'ml', 'L', 'oz', 'lb', 'g', 'kg', 'can', 'bottle', 'jar', 'bag', 'box', 'pkg', 'bunch', 'clove', 'pinch')",
-            name="ck_item_unit",
+            "unit IS NULL OR length(unit) <= 20",
+            name="ck_item_unit_length",
         ),
     )
 

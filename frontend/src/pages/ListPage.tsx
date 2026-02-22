@@ -439,6 +439,7 @@ export function ListPage() {
           url: trimmedValue,
           list_type: list.type,
         });
+        if (!mountedRef.current) return;
         if (result.items.length > 0) {
           setParsedItems(result.items);
           setOriginalInput(result.original_input);
@@ -447,10 +448,11 @@ export function ListPage() {
           showToast('No recipe found on this page. Try a recipe site like AllRecipes or Food Network.', 'error');
         }
       } catch (err) {
+        if (!mountedRef.current) return;
         console.error('URL extraction failed:', err);
         showToast(getErrorMessage(err, 'Could not extract ingredients from this URL.'), 'error');
       }
-      setIsInputLoading(false);
+      if (mountedRef.current) setIsInputLoading(false);
       return;
     }
 

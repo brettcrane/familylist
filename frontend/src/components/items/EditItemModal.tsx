@@ -9,7 +9,6 @@ import { useListShares, useCurrentUser } from '../../hooks/useShares';
 import { useUIStore } from '../../stores/uiStore';
 import { getErrorMessage } from '../../api/client';
 import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS, PRIORITY_CONFIG, PRIORITY_OPTIONS, STATUS_CONFIG, STATUS_OPTIONS, UNIT_OPTIONS } from '../../types/api';
-import type { Unit } from '../../types/api';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
 import type { Item, Category, ItemUpdate, ListType, Magnitude, Priority, ItemStatus } from '../../types/api';
@@ -43,7 +42,7 @@ export function EditItemModal({
 }: EditItemModalProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [unit, setUnit] = useState<Unit | null>(null);
+  const [unit, setUnit] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [magnitude, setMagnitude] = useState<Magnitude | null>(null);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
@@ -394,20 +393,27 @@ export function EditItemModal({
                       <PlusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </button>
                   </div>
-                  {/* Unit selector */}
-                  <select
-                    value={unit || 'each'}
-                    onChange={(e) => setUnit(e.target.value === 'each' ? null : e.target.value as Unit)}
+                  {/* Unit input with datalist suggestions */}
+                  <input
+                    list="unit-options"
+                    value={unit || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      setUnit(val && val !== 'each' ? val : null);
+                    }}
+                    placeholder="ea"
                     className={clsx(
-                      'h-9 px-2 rounded-xl text-sm appearance-none cursor-pointer',
+                      'h-9 w-16 px-2 rounded-xl text-sm text-center',
                       'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]',
                       'border-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30',
+                      'placeholder:text-[var(--color-text-muted)]',
                     )}
-                  >
-                    {UNIT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.value === 'each' ? 'ea' : opt.value}</option>
+                  />
+                  <datalist id="unit-options">
+                    {UNIT_OPTIONS.filter(opt => opt.value !== 'each').map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
             </div>

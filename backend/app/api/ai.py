@@ -96,7 +96,7 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
                 list_type=data.list_type,
                 db=db,
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Categorization failed for '{item.name}': {e}")
             category = "Uncategorized"
             confidence = 0.0
@@ -170,7 +170,7 @@ def extract_recipe_from_url(data: ExtractUrlRequest, db: Session = Depends(get_d
                 list_type=data.list_type,
                 db=db,
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Categorization failed for '{item.name}': {e}")
             category = "Uncategorized"
             confidence = 0.0

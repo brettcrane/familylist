@@ -382,8 +382,10 @@ class LLMParsingService:
             return self._call_openai(prompt)
         elif self._backend == "local":
             return self._call_local(prompt)
-        else:
+        elif self._backend == "ollama":
             return self._call_ollama(prompt)
+        else:
+            raise RuntimeError(f"No LLM backend configured (backend={self._backend})")
 
     def _validate_url_target(self, url: str) -> None:
         """Reject URLs targeting private/internal networks (SSRF protection)."""
@@ -399,10 +401,16 @@ class LLMParsingService:
                     raise ValueError("URL must point to a public address")
         except socket.gaierror:
             raise ValueError("Could not resolve URL hostname")
+        except ValueError:
+            raise  # Re-raise our own ValueErrors and ip_address parsing failures
+        except Exception as e:
+            logger.warning(f"SSRF validation failed for {hostname}: {type(e).__name__}: {e}")
+            raise ValueError(f"Could not validate URL target: {hostname}")
 
     def _fetch_url(self, url: str) -> str:
         """Fetch HTML content from a URL with SSRF protection and size limits."""
         max_size = 2 * 1024 * 1024  # 2MB — plenty for recipe pages
+        max_redirects = 5
 
         self._validate_url_target(url)
 
@@ -410,8 +418,34 @@ class LLMParsingService:
             "User-Agent": "Mozilla/5.0 (compatible; FamilyList/1.0)",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
-        response = requests.get(url, headers=headers, timeout=10, allow_redirects=True, stream=True)
-        response.raise_for_status()
+
+        # Follow redirects manually to validate each hop against SSRF
+        current_url = url
+        try:
+            response = requests.get(current_url, headers=headers, timeout=10, allow_redirects=False, stream=True)
+            redirect_count = 0
+            while response.is_redirect and redirect_count < max_redirects:
+                redirect_url = response.headers.get("Location")
+                if not redirect_url:
+                    break
+                # Resolve relative redirects
+                if redirect_url.startswith("/"):
+                    parsed = urlparse(current_url)
+                    redirect_url = f"{parsed.scheme}://{parsed.netloc}{redirect_url}"
+                response.close()
+                self._validate_url_target(redirect_url)
+                current_url = redirect_url
+                response = requests.get(current_url, headers=headers, timeout=10, allow_redirects=False, stream=True)
+                redirect_count += 1
+            response.raise_for_status()
+        except requests.Timeout:
+            raise ValueError("The page took too long to load. Please try again.")
+        except requests.ConnectionError:
+            raise ValueError("Could not connect to this URL. Please check the link.")
+        except requests.HTTPError as e:
+            raise ValueError(f"Page returned an error (HTTP {e.response.status_code})")
+        except ValueError:
+            raise  # Re-raise our SSRF and other ValueErrors
 
         # Reject non-HTML responses early
         content_type = response.headers.get("Content-Type", "")
@@ -421,9 +455,14 @@ class LLMParsingService:
 
         # Check Content-Length header before downloading
         content_length = response.headers.get("Content-Length")
-        if content_length and int(content_length) > max_size:
-            response.close()
-            raise ValueError("Page too large to process")
+        if content_length:
+            try:
+                cl = int(content_length)
+            except (ValueError, TypeError):
+                cl = 0  # Ignore unparseable Content-Length, rely on streaming check
+            if cl > max_size:
+                response.close()
+                raise ValueError("Page too large to process")
 
         # Stream download with running size limit
         chunks = []
@@ -471,7 +510,7 @@ class LLMParsingService:
                     title = recipe.get("name")
                     if ingredients and isinstance(ingredients, list):
                         return [str(i) for i in ingredients], title
-            except (json.JSONDecodeError, KeyError, TypeError) as e:
+            except (json.JSONDecodeError, KeyError, TypeError, RecursionError) as e:
                 logger.debug(f"Skipping malformed JSON-LD block: {type(e).__name__}: {e}")
                 continue
         return [], None
@@ -541,9 +580,9 @@ class LLMParsingService:
 
         except ValueError:
             raise
-        except (requests.RequestException, Exception) as e:
+        except Exception as e:
             logger.error(f"LLM URL extraction failed for '{url}': {type(e).__name__}: {e}")
-            return [], display_title
+            raise
 
     def parse(self, input_text: str, list_type: ListType) -> list[ParsedItem]:
         """Parse natural language input into a list of items.
@@ -568,14 +607,7 @@ class LLMParsingService:
         prompt = prompt_template.format(input=input_text)
 
         try:
-            # Call appropriate backend
-            if self._backend == "openai":
-                response = self._call_openai(prompt)
-            elif self._backend == "local":
-                response = self._call_local(prompt)
-            else:
-                response = self._call_ollama(prompt)
-
+            response = self._call_backend(prompt)
             logger.info(f"LLM response: {response}")
 
             # Parse JSON from response

@@ -7,13 +7,10 @@ export type Magnitude = 'S' | 'M' | 'L';
 /** Priority levels for task items */
 export type Priority = 'urgent' | 'high' | 'medium' | 'low';
 
-/** Units of measure for item quantities */
-export type Unit =
-  | 'each' | 'dozen'
-  | 'tsp' | 'tbsp' | 'fl oz' | 'cup' | 'pint' | 'quart' | 'gallon' | 'ml' | 'L'
-  | 'oz' | 'lb' | 'g' | 'kg'
-  | 'can' | 'bottle' | 'jar' | 'bag' | 'box' | 'pkg'
-  | 'bunch' | 'clove' | 'pinch';
+/**
+ * Unit is a freeform string — recipe sites use many different names and users
+ * can type their own. The dropdown provides common suggestions via datalist.
+ */
 
 /** Status values for task items */
 export type ItemStatus = 'open' | 'in_progress' | 'done' | 'blocked';
@@ -56,7 +53,7 @@ export interface Item {
   category_id: string | null;
   name: string;
   quantity: number;
-  unit: Unit | null;
+  unit: string | null;
   notes: string | null;
   magnitude: Magnitude | null;
   is_checked: boolean;
@@ -79,7 +76,7 @@ export interface Item {
 export interface ItemCreate {
   name: string;
   quantity?: number;
-  unit?: Unit | null;
+  unit?: string | null;
   notes?: string | null;
   category_id?: string | null;
   magnitude?: Magnitude | null;
@@ -98,7 +95,7 @@ export interface ItemBatchCreate {
 export interface ItemUpdate {
   name?: string;
   quantity?: number;
-  unit?: Unit | null;
+  unit?: string | null;
   notes?: string | null;
   category_id?: string | null;
   magnitude?: Magnitude | null;
@@ -213,7 +210,7 @@ export interface ParsedItem {
   name: string;
   category: string;
   quantity: number;
-  unit: Unit;
+  unit: string;
 }
 
 /** AI parse request for natural language */
@@ -286,36 +283,8 @@ export const AI_MODE_HINTS: Record<ListType, string> = {
   tasks: 'AI will break this into tasks',
 };
 
-/** Unit display labels */
-export const UNIT_LABELS: Record<Unit, string> = {
-  each: 'Each',
-  dozen: 'Dozen',
-  tsp: 'Teaspoon',
-  tbsp: 'Tablespoon',
-  'fl oz': 'Fluid Ounce',
-  cup: 'Cup',
-  pint: 'Pint',
-  quart: 'Quart',
-  gallon: 'Gallon',
-  ml: 'Milliliter',
-  L: 'Liter',
-  oz: 'Ounce',
-  lb: 'Pound',
-  g: 'Gram',
-  kg: 'Kilogram',
-  can: 'Can',
-  bottle: 'Bottle',
-  jar: 'Jar',
-  bag: 'Bag',
-  box: 'Box',
-  pkg: 'Package',
-  bunch: 'Bunch',
-  clove: 'Clove',
-  pinch: 'Pinch',
-};
-
-/** Unit dropdown options */
-export const UNIT_OPTIONS: { value: Unit; label: string; group: string }[] = [
+/** Common unit suggestions for the datalist dropdown */
+export const UNIT_OPTIONS: { value: string; label: string; group: string }[] = [
   { value: 'each', label: 'Each', group: 'Count' },
   { value: 'dozen', label: 'Dozen', group: 'Count' },
   { value: 'tsp', label: 'Teaspoon', group: 'Volume' },
@@ -343,7 +312,7 @@ export const UNIT_OPTIONS: { value: Unit; label: string; group: string }[] = [
 ];
 
 /** Format quantity + unit for display */
-export function formatQuantityUnit(quantity: number, unit?: Unit | string | null): string {
+export function formatQuantityUnit(quantity: number, unit?: string | null): string {
   if (!unit || unit === 'each') {
     return quantity !== 1 ? `×${Number.isInteger(quantity) ? quantity : quantity.toFixed(1)}` : '';
   }
