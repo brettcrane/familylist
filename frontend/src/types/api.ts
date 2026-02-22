@@ -210,6 +210,12 @@ export interface ParseRequest {
   list_type: ListType;
 }
 
+/** AI extract-url request for recipe ingredient extraction */
+export interface ExtractUrlRequest {
+  url: string;
+  list_type: ListType;
+}
+
 /** AI parse response with multiple items */
 export interface ParseResponse {
   original_input: string;

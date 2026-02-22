@@ -47,7 +47,7 @@ import {
   useReorderCategories,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
-import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
+import { categorizeItem, parseNaturalLanguage, extractRecipeFromUrl, submitFeedback } from '../api/ai';
 import { getErrorMessage } from '../api/client';
 import { ErrorState, ErrorBoundary } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
@@ -429,6 +429,30 @@ export function ListPage() {
     e.preventDefault();
     const trimmedValue = inputValue.trim();
     if (!trimmedValue || !list) return;
+
+    // URL detection — auto-extract recipe ingredients regardless of AI mode
+    if (/^https?:\/\//i.test(trimmedValue)) {
+      setInputValue('');
+      setIsInputLoading(true);
+      try {
+        const result = await extractRecipeFromUrl({
+          url: trimmedValue,
+          list_type: list.type,
+        });
+        if (result.items.length > 0) {
+          setParsedItems(result.items);
+          setOriginalInput(result.original_input);
+          setNlModalOpen(true);
+        } else {
+          showToast('No ingredients found on this page.', 'error');
+        }
+      } catch (err) {
+        console.error('URL extraction failed:', err);
+        showToast('Could not extract ingredients from this URL.', 'error');
+      }
+      setIsInputLoading(false);
+      return;
+    }
 
     // If AI mode is active, parse with LLM
     if (aiMode) {

@@ -404,6 +404,20 @@ class ParseResponse(BaseModel):
     confidence: float = Field(..., ge=0, le=1)
 
 
+class ExtractUrlRequest(BaseModel):
+    """Schema for extracting items from a URL (e.g., recipe ingredients)."""
+
+    url: str = Field(..., min_length=10, max_length=2048)
+    list_type: ListType
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
+
 # ============================================================================
 # Health Check
 # ============================================================================

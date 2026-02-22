@@ -13,6 +13,36 @@ from app.schemas import ListType
 
 logger = logging.getLogger(__name__)
 
+# Prompt for normalizing raw recipe ingredient strings into grocery items.
+RECIPE_NORMALIZE_PROMPT = """Convert these recipe ingredients into grocery list items.
+
+Ingredients:
+{ingredients}
+
+Return a JSON array of items to buy. Each item has "name" (grocery item, lowercase) and "quantity" (default 1).
+Strip measurements and preparation notes. Keep just the ingredient name.
+
+Examples:
+- "1 cup all-purpose flour" → {{"name": "all-purpose flour", "quantity": 1}}
+- "2 large eggs" → {{"name": "eggs", "quantity": 1}}
+- "3 cloves garlic, minced" → {{"name": "garlic", "quantity": 1}}
+- "2 (14 oz) cans diced tomatoes" → {{"name": "canned diced tomatoes", "quantity": 2}}
+- "salt and pepper to taste" → {{"name": "salt", "quantity": 1}}, {{"name": "pepper", "quantity": 1}}
+
+JSON array:"""
+
+# Prompt for extracting ingredients from raw page text (fallback when no JSON-LD).
+RECIPE_EXTRACT_PROMPT = """Extract the recipe ingredients from this webpage text.
+
+Text:
+{text}
+
+Return a JSON array of grocery items to buy. Each item has "name" (grocery item, lowercase) and "quantity" (default 1).
+Only include food ingredients, not equipment or serving suggestions.
+Strip measurements and preparation notes.
+
+JSON array:"""
+
 # Prompt templates for parsing natural language into items, keyed by list type.
 # Note: For GPT-5 models, the response_format schema constrains output to
 # {"items": [...]}, superseding the prompt's "JSON array" instruction.
@@ -347,6 +377,139 @@ class LLMParsingService:
             logger.warning(f"Failed to parse JSON: {json_str}")
 
         return []
+
+    def _call_backend(self, prompt: str) -> str:
+        """Call the active LLM backend with a prompt and return raw text."""
+        if self._backend == "openai":
+            return self._call_openai(prompt)
+        elif self._backend == "local":
+            return self._call_local(prompt)
+        else:
+            return self._call_ollama(prompt)
+
+    def _fetch_url(self, url: str) -> str:
+        """Fetch HTML content from a URL."""
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; FamilyList/1.0; +https://familylist.app)",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        response.raise_for_status()
+        if len(response.content) > 5 * 1024 * 1024:
+            raise ValueError("Page too large to process")
+        return response.text
+
+    def _find_recipe_in_jsonld(self, data: dict | list) -> dict | None:
+        """Recursively find a Recipe object in JSON-LD data."""
+        if isinstance(data, dict):
+            type_val = data.get("@type", "")
+            if type_val == "Recipe" or (isinstance(type_val, list) and "Recipe" in type_val):
+                return data
+            if "@graph" in data:
+                return self._find_recipe_in_jsonld(data["@graph"])
+        elif isinstance(data, list):
+            for item in data:
+                result = self._find_recipe_in_jsonld(item)
+                if result:
+                    return result
+        return None
+
+    def _extract_jsonld_recipe(self, html: str) -> tuple[list[str], str | None]:
+        """Try to extract recipe ingredients from JSON-LD structured data.
+
+        Returns (ingredient_strings, recipe_title) or ([], None).
+        """
+        pattern = re.compile(
+            r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+            re.DOTALL | re.IGNORECASE,
+        )
+        for match in pattern.finditer(html):
+            try:
+                data = json.loads(match.group(1))
+                recipe = self._find_recipe_in_jsonld(data)
+                if recipe:
+                    ingredients = recipe.get("recipeIngredient", [])
+                    title = recipe.get("name")
+                    if ingredients and isinstance(ingredients, list):
+                        return [str(i) for i in ingredients], title
+            except (json.JSONDecodeError, KeyError):
+                continue
+        return [], None
+
+    def _extract_page_text(self, html: str) -> str:
+        """Extract readable text from HTML, stripping tags and scripts."""
+        text = re.sub(
+            r"<(script|style|noscript)[^>]*>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE
+        )
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = (
+            text.replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&nbsp;", " ")
+        )
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:4000]
+
+    def _extract_page_title(self, html: str) -> str | None:
+        """Extract page title from HTML."""
+        match = re.search(r"<title[^>]*>(.*?)</title>", html, re.DOTALL | re.IGNORECASE)
+        if match:
+            title = match.group(1).strip()
+            # Clean up common suffixes like " | AllRecipes" or " - Food Network"
+            title = re.split(r"\s*[|\-–—]\s*(?=[A-Z])", title)[0].strip()
+            return title if title else None
+        return None
+
+    def extract_from_url(self, url: str, list_type: ListType) -> tuple[list[ParsedItem], str]:
+        """Fetch a URL and extract items (e.g., recipe ingredients).
+
+        Returns (items, display_title) where display_title is the recipe name or URL.
+        """
+        if not self.load():
+            raise ValueError("LLM service not available")
+
+        html = self._fetch_url(url)
+
+        # Try JSON-LD structured data first (most recipe sites)
+        ingredients, jsonld_title = self._extract_jsonld_recipe(html)
+
+        if ingredients:
+            logger.info(f"Found {len(ingredients)} ingredients via JSON-LD from {url}")
+            prompt = RECIPE_NORMALIZE_PROMPT.format(
+                ingredients="\n".join(f"- {i}" for i in ingredients)
+            )
+        else:
+            logger.info(f"No JSON-LD recipe found, falling back to text extraction for {url}")
+            text = self._extract_page_text(html)
+            if len(text) < 50:
+                logger.warning(f"Page text too short to extract from: {url}")
+                return [], jsonld_title or url
+            prompt = RECIPE_EXTRACT_PROMPT.format(text=text)
+
+        display_title = jsonld_title or self._extract_page_title(html) or url
+
+        try:
+            response = self._call_backend(prompt)
+            logger.info(f"LLM URL extraction response: {response[:200]}")
+
+            items_data = self._extract_json(response)
+            items = []
+            for item in items_data:
+                if isinstance(item, dict) and "name" in item:
+                    name = str(item["name"]).strip()
+                    if name:
+                        quantity = int(item.get("quantity", 1))
+                        items.append(ParsedItem(name=name, quantity=max(1, quantity)))
+
+            logger.info(f"Extracted {len(items)} items from URL: {url}")
+            return items, display_title
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"LLM URL extraction failed for '{url}': {type(e).__name__}: {e}")
+            return [], display_title
 
     def parse(self, input_text: str, list_type: ListType) -> list[ParsedItem]:
         """Parse natural language input into a list of items.

@@ -2,6 +2,7 @@ import { post } from './client';
 import type {
   CategorizeRequest,
   CategorizeResponse,
+  ExtractUrlRequest,
   FeedbackRequest,
   FeedbackResponse,
   ParseRequest,
@@ -30,4 +31,12 @@ export function submitFeedback(data: FeedbackRequest): Promise<FeedbackResponse>
  */
 export function parseNaturalLanguage(data: ParseRequest): Promise<ParseResponse> {
   return post<ParseResponse>('/ai/parse', data);
+}
+
+/**
+ * Extract items from a URL (e.g., recipe ingredients from a recipe page)
+ * Returns 503 if LLM service is not available
+ */
+export function extractRecipeFromUrl(data: ExtractUrlRequest): Promise<ParseResponse> {
+  return post<ParseResponse>('/ai/extract-url', data);
 }
