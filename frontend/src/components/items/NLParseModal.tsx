@@ -52,11 +52,15 @@ export function NLParseModal({
     originalCategories.current = new Map(items.map((item) => [item.name, item.category]));
   }, [items]);
 
-  // Build a lookup function for fuzzy duplicate detection
-  const findExistingMatch = useMemo(() => {
-    return (name: string): { match: Item; matchType: DuplicateMatchType } | null =>
-      findFuzzyMatch(existingItems, name);
-  }, [existingItems]);
+  // Pre-compute fuzzy matches for all parsed items (avoids O(n*m) on every render)
+  const existingMatches = useMemo(() => {
+    const map = new Map<string, { match: Item; matchType: DuplicateMatchType }>();
+    for (const item of editableItems) {
+      const result = findFuzzyMatch(existingItems, item.name);
+      if (result) map.set(item.name, result);
+    }
+    return map;
+  }, [existingItems, editableItems]);
 
   const selectedCount = editableItems.filter((item) => item.selected).length;
 
@@ -153,7 +157,7 @@ export function NLParseModal({
               {editableItems.map((item, index) => {
                 const categoryColor =
                   CATEGORY_COLORS[item.category] || 'var(--color-text-muted)';
-                const existingResult = findExistingMatch(item.name);
+                const existingResult = existingMatches.get(item.name) ?? null;
                 const existingMatch = existingResult?.match ?? null;
                 const existingMatchType = existingResult?.matchType ?? null;
                 const existingCategory = existingMatch?.category_id

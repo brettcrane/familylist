@@ -343,8 +343,9 @@ export function ListPage() {
     // Check for duplicate items (exact + fuzzy matching)
     const duplicate = findDuplicateItem(list.items, itemName);
 
-    // Scenario 1: exact duplicate exists in done list — auto-restore
-    if (duplicate?.isDone && duplicate.matchType === 'exact') {
+    // Scenario 1: duplicate exists in done list — auto-restore
+    // (findDuplicateItem only returns isDone for exact matches, fuzzy skips checked items)
+    if (duplicate?.isDone) {
       uncheckItem.mutate(duplicate.match.id, {
         onError: (err) => {
           console.error('Failed to restore done item:', err);

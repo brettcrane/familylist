@@ -12,9 +12,16 @@ function stemWord(word: string): string {
     return word.slice(0, -3) + 'y';
   }
 
-  // ves → f (loaves → loaf, halves → half)
+  // ves → f only for known f→ves patterns (loaves → loaf, halves → half)
+  // Most -ves words are just regular plurals (olives, chives, cloves)
   if (word.endsWith('ves') && word.length > 4) {
-    return word.slice(0, -3) + 'f';
+    const base = word.slice(0, -3);
+    // Known stems: loaf, half, knife, leaf, shelf, calf, wolf, scarf
+    const knownFStems = ['loa', 'hal', 'kni', 'lea', 'shel', 'cal', 'wol', 'scar'];
+    if (knownFStems.includes(base)) {
+      return base + 'f';
+    }
+    // Otherwise fall through to general 's' removal (olives → olive)
   }
 
   // ses, xes, zes, ches, shes → remove 'es'
