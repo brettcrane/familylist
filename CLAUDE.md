@@ -14,6 +14,7 @@ FamilyList is a family-friendly list management PWA with AI-powered features:
 - Multiple list types (grocery, packing, tasks)
 - AI categorization using sentence-transformers embeddings
 - Natural language parsing via OpenAI for all list types (e.g., "stuff for tacos" → ingredients, "beach trip" → packing items, "hang a picture" → tasks)
+- URL recipe extraction: paste a recipe URL → extract ingredients with quantities and units
 - Learning system that remembers user corrections
 
 ## Architecture
@@ -72,8 +73,8 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 ## Code Index
 
 ```
-|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local),list_service=CRUD+shares,item_service=CRUD+reorder,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
-|backend/app/api:{lists=CRUD+duplicate,items=create(single)+create-batch(/items/batch)+CRUD+check+reorder,categories=CRUD+reorder,ai=categorize+feedback+parse,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
+|backend/app/services:{ai_service=embeddings+learning,llm_service=NL-parsing(openai|ollama|local)+URL-recipe-extraction,list_service=CRUD+shares,item_service=CRUD+reorder,category_service=CRUD+reorder,user_service=Clerk-sync+get_or_create,push_service=web-push+subscriptions,notification_queue=batched-push-delivery,event_broadcaster=SSE-pub/sub}
+|backend/app/api:{lists=CRUD+duplicate,items=create(single)+create-batch(/items/batch)+CRUD+check+reorder,categories=CRUD+reorder,ai=categorize+feedback+parse+extract-url,users=me+lookup,shares=invite+permissions,push=subscribe+preferences,stream=SSE-endpoint}
 |backend/app:{models=User+List+Category+Item+ListShare,schemas=all-DTOs+Magnitude-enum+CategoryReorder+ItemReorder,serializers=item_to_response-shared,auth=hybrid-auth,clerk_auth=JWT-JWKS,dependencies=user-context+list-access,config=env-settings,database=SQLite-connection+migrations,mcp_server=MCP-server-setup}
 |frontend/src/components/items:{BottomInputBar=input-only+AI-toggle,CategoryToastStack=non-blocking-category+duplicate-toasts,NLParseModal=AI-parse-review+duplicate-indicators,ItemRow=display+checkbox+magnitude-badge+assigned-avatar,CategorySection=collapsible-group,EditItemModal=bottom-sheet-edit+magnitude+assigned-to,FilterBar=search+my-items-filter,SortableItemRow=dnd-kit-item-wrapper,SortableCategorySection=dnd-kit-category-wrapper}
 |frontend/src/components/lists:{ListGrid,ListCard,ListCardMenu=long-press-context,CreateListModal=type-selection,EditListModal=rename+icon,ShareListModal=invite-users,DeleteListDialog=confirm-delete,OrganizedListGrid=folder-sections+drag-drop,FolderSection=collapsible-folder+drag-drop,SortableListCard=dnd-kit-list-wrapper,InlineFolderInput=folder-name-input,OrganizeButton=organize-mode-toggle,MoveToFolderModal=move-list-to-folder}
@@ -84,9 +85,9 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/components/done:{DoneList=checked-items-section}
 |frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets,useServiceWorkerUpdate=SW-update-detection+visibility-nudge,useVersionCheck=build-ID-polling-update-detection}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals+taskViewMode+myItemsOnly,authStore=Zustand+cached-user+offline-persist,organizationStore=Zustand+per-user-folders+sort-order+localStorage}
-|frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse,shares=invite+update+revoke,push=subscribe+preferences}
+|frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse+extractUrl,shares=invite+update+revoke,push=subscribe+preferences}
 |frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting}
-|frontend/src/types:{api=DTOs+MAGNITUDE_CONFIG+AI_MODE_PLACEHOLDERS+AI_MODE_HINTS}
+|frontend/src/types:{api=DTOs+MAGNITUDE_CONFIG+AI_MODE_PLACEHOLDERS+AI_MODE_HINTS+UNIT_OPTIONS+formatQuantityUnit}
 |frontend/src/pages:{HomePage=list-grid+organization,ListPage=items+views+input+duplicate-detection,SignInPage=Clerk-auth}
 ```
 
@@ -96,6 +97,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 Item-Entry(single): enter→input-clears-instantly→duplicate-check→(done-match?→uncheckItem+toast+return)→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s)→user-taps-Change?→updateItem+submitFeedback
 Item-Duplicate(active): duplicate-found→create-item-normally→status='duplicate'→toast-with-DontAdd/Add+1(5s)→DontAdd?→deleteItem | Add+1?→deleteItem→updateItem(fresh-qty) | auto-dismiss→duplicate-stays
 Item-Entry(AI-mode): AiMode+input→setIsInputLoading→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→createItem.mutate(each)+onError
+URL-Recipe-Extract: paste-URL-in-AI-mode→extractRecipeFromUrl()→POST /ai/extract-url→llm_service.extract_from_url()→_fetch_url(SSRF-validated+redirect-per-hop)→_extract_jsonld_recipe()→RECIPE_NORMALIZE_PROMPT→_call_backend()→ParsedItem[]+display_title→NLParseModal→createItem.mutate(each)
 Item-Create: useCreateItem→api/items.createItem()→POST /items(single)→item_service.create_item | useCreateItems→api/items.createItems()→POST /items/batch→item_service.create_items_batch
 Item-CRUD: useItems-hook→api/items.ts→backend/api/items.py→item_service.py→optimistic-update+rollback
 Real-Time-Sync: useListStream→EventSource(SSE)→event_broadcaster→publish_event_async→query-invalidation
@@ -117,6 +119,34 @@ Items support optional magnitude (effort sizing: S/M/L) and assigned-to (user as
 **Assigned-To:** `assigned_to` is a user ID (UUID, 36 chars). `_validate_assigned_to()` in `items.py` verifies user exists AND has list access (owner or `ListShare`). `item_to_response()` in `serializers.py` resolves `assigned_to_name` from the relationship. Duplication preserves magnitude but clears assigned_to.
 
 **UI:** `ItemRow` shows magnitude badge + assigned-to avatar. `EditItemModal` has dropdowns for both. Avatar colors via `getUserColor()` in `utils/colors.ts`, initials via `getInitials()` in `utils/strings.ts`.
+
+## Item Fields: Unit of Measure
+
+Items support optional freeform unit of measure (e.g., "cup", "tbsp", "oz"). Designed for recipe extraction where sites use diverse measurements.
+
+**Backend:** `unit` is `str | None = Field(None, max_length=20)` in `schemas.py`. DB column `String(20)` with `CheckConstraint` for length. No enum — any string up to 20 chars is valid. `formatQuantityUnit()` in `types/api.ts` handles display formatting.
+
+**Frontend:** `EditItemModal` uses `<input list="unit-options">` + `<datalist>` for combobox behavior — users can pick from `UNIT_OPTIONS` suggestions or type any value. `ItemRow` displays quantity+unit via `formatQuantityUnit()`. `quantity` is `float` (supports fractional: 0.5, 1.5, etc.) with minimum 0.25.
+
+**Pattern:** Unit comes from LLM during recipe extraction or NL parsing. Duplicate merge (`handleMergeQuantity`) adds the duplicate's actual quantity (not hardcoded +1) and uses `formatQuantityUnit` for the toast message.
+
+## URL Recipe Extraction
+
+Paste a recipe URL in AI mode (grocery lists only) to extract ingredients with quantities and units.
+
+**Key files:**
+- `backend/app/services/llm_service.py` - `extract_from_url()`, `_fetch_url()`, `_extract_jsonld_recipe()`, `_find_recipe_in_jsonld()`, `RECIPE_NORMALIZE_PROMPT`
+- `backend/app/api/ai.py` - `POST /ai/extract-url` endpoint
+- `backend/app/schemas.py` - `ExtractUrlRequest` (URL validation: https/http, min 10 chars)
+- `frontend/src/api/ai.ts` - `extractRecipeFromUrl()` client
+- `frontend/src/pages/ListPage.tsx` - URL detection in AI mode input, `handleUrlExtraction()`
+- `frontend/src/components/items/BottomInputBar.tsx` - URL detection hint in AI mode
+
+**Flow:** URL pasted → `_fetch_url` (SSRF-validated, manual redirect following with per-hop validation) → HTML parsed for JSON-LD `<script type="application/ld+json">` → `_find_recipe_in_jsonld` recursively finds Recipe schema → raw `recipeIngredient` strings sent to LLM via `RECIPE_NORMALIZE_PROMPT` → normalized `ParsedItem[]` with quantities/units → categorized via embeddings → returned as `ParseResponse`
+
+**SSRF Protection:** `_validate_url_target()` resolves hostname via DNS, checks all IPs against private ranges (127.x, 10.x, 172.16-31.x, 192.168.x, ::1, link-local, AWS metadata 169.254.169.254). `_fetch_url()` uses `allow_redirects=False` and manually follows redirects with SSRF validation at each hop. Max 5 redirects. Uses `urljoin()` for relative redirect resolution. Streaming download with 2MB size limit (checked via both Content-Length header and streaming byte count).
+
+**Cost protection:** No LLM call unless JSON-LD Recipe data is found. Pages without structured recipe data return empty results immediately (no token waste).
 
 ## Drag-and-Drop Reordering
 
@@ -172,7 +202,7 @@ Lists can be organized into folders and reordered on the home page. Per-user, pe
 - `frontend/src/components/items/CategoryToastStack.tsx` - `RecentItemEntry.status: 'duplicate'`, `duplicateOfItem` field, duplicate toast variant with undo/merge buttons
 - `frontend/src/components/items/NLParseModal.tsx` - `existingItems` prop, `existingItemMap` for O(1) lookup, warning indicators
 
-**Pattern:** `handleMergeQuantity` reads fresh quantity from `list.items` (not the stale snapshot in `duplicateOfItem`) and chains mutations sequentially: delete duplicate → on success → update quantity → on success → dismiss toast. Toast is only removed on mutation success, not immediately.
+**Pattern:** `handleMergeQuantity` reads fresh quantity from `list.items` (not the stale snapshot in `duplicateOfItem`), adds the duplicate's actual quantity (not hardcoded +1), and chains mutations sequentially: delete duplicate → on success → update quantity → on success → dismiss toast with `formatQuantityUnit` display. Toast is only removed on mutation success, not immediately.
 
 ## Task View Modes (Focus & Tracker)
 
