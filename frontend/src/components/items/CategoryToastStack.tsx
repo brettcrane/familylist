@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { XMarkIcon, PencilSquareIcon, ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
 import type { Category, Item } from '../../types/api';
+import type { DuplicateMatchType } from '../../utils/fuzzyMatch';
 import { CATEGORY_COLORS } from '../../types/api';
 import { CategoryIcon } from '../icons/CategoryIcons';
 
@@ -14,6 +15,7 @@ export interface RecentItemEntry {
   suggestedCategoryId: string | null;
   status: 'categorizing' | 'created' | 'duplicate';
   duplicateOfItem: Item | null;
+  duplicateMatchType: DuplicateMatchType | null;
 }
 
 interface CategoryToastStackProps {
@@ -128,7 +130,15 @@ export function CategoryToastStack({
                   <div className="flex items-center gap-2">
                     <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-amber-500" />
                     <p className="text-sm font-medium text-[var(--color-text-primary)] flex-1 min-w-0 truncate">
-                      &ldquo;{entry.itemName}&rdquo; is already on your list
+                      {entry.duplicateMatchType === 'fuzzy' && dupItem ? (
+                        <>
+                          &ldquo;{entry.itemName}&rdquo; looks like &ldquo;{dupItem.name}&rdquo;
+                        </>
+                      ) : (
+                        <>
+                          &ldquo;{entry.itemName}&rdquo; is already on your list
+                        </>
+                      )}
                       {dupItem && dupItem.quantity > 1 && (
                         <span className="text-[var(--color-text-muted)]"> ({'\u00d7'}{dupItem.quantity})</span>
                       )}
@@ -162,7 +172,7 @@ export function CategoryToastStack({
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-accent) 20%, transparent)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--color-accent) 10%, transparent)'; }}
                     >
-                      Add +1
+                      {entry.duplicateMatchType === 'fuzzy' ? 'Keep Both' : 'Add +1'}
                     </button>
                   </div>
                 </div>

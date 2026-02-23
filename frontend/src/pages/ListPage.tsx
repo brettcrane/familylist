@@ -52,6 +52,7 @@ import { getErrorMessage } from '../api/client';
 import { ErrorState, ErrorBoundary } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
 import { formatQuantityUnit } from '../types/api';
+import { findDuplicateItem, type DuplicateMatchType } from '../utils/fuzzyMatch';
 
 const MAX_RECENT_ENTRIES = 5;
 
@@ -61,18 +62,6 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({
 });
 
 let entryIdCounter = 0;
-
-/** Find an existing item with the same name (case-insensitive). Prefers unchecked matches. */
-function findDuplicateItem(items: Item[], name: string): { match: Item; isDone: boolean } | null {
-  const normalized = name.toLowerCase().trim();
-  let checkedMatch: Item | null = null;
-  for (const item of items) {
-    if (item.name.toLowerCase().trim() !== normalized) continue;
-    if (!item.is_checked) return { match: item, isDone: false };
-    if (!checkedMatch) checkedMatch = item;
-  }
-  return checkedMatch ? { match: checkedMatch, isDone: true } : null;
-}
 
 export function ListPage() {
   const { id } = useParams<{ id: string }>();
@@ -351,10 +340,11 @@ export function ListPage() {
   const handleSingleItem = (itemName: string) => {
     if (!list) return;
 
-    // Check for duplicate items
+    // Check for duplicate items (exact + fuzzy matching)
     const duplicate = findDuplicateItem(list.items, itemName);
 
     // Scenario 1: duplicate exists in done list — auto-restore
+    // (findDuplicateItem only returns isDone for exact matches, fuzzy skips checked items)
     if (duplicate?.isDone) {
       uncheckItem.mutate(duplicate.match.id, {
         onError: (err) => {
@@ -367,11 +357,13 @@ export function ListPage() {
     }
 
     const entryId = `entry-${++entryIdCounter}`;
+    // Only flag active-item duplicates (fuzzy done-item matches are skipped by findDuplicateItem)
     const duplicateOfItem = duplicate?.match ?? null;
+    const duplicateMatchType: DuplicateMatchType | null = duplicate?.matchType ?? null;
 
     // Add entry immediately
     setRecentItems((prev) => [
-      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const, duplicateOfItem: duplicateOfItem },
+      { id: entryId, itemName, createdItemId: null, suggestedCategoryName: null, suggestedCategoryId: null, status: 'categorizing' as const, duplicateOfItem, duplicateMatchType },
       ...prev,
     ].slice(0, MAX_RECENT_ENTRIES));
 
