@@ -2,11 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import { writeFileSync, mkdirSync } from 'fs'
-import { resolve } from 'path'
-
-// Unique build ID embedded in both the JS bundle and dist/version.json
-const BUILD_ID = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -46,25 +41,12 @@ export default defineConfig({
         ]
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+        // No precaching — Vite content-hashed filenames + fresh index.html
+        // means the browser always loads correct bundles without SW involvement.
+        injectionPoint: undefined,
       }
     }),
-    // Write version.json to dist after build completes
-    {
-      name: 'version-json',
-      closeBundle() {
-        const distDir = resolve(__dirname, 'dist')
-        mkdirSync(distDir, { recursive: true })
-        writeFileSync(
-          resolve(distDir, 'version.json'),
-          JSON.stringify({ buildId: BUILD_ID })
-        )
-      },
-    },
   ],
-  define: {
-    __BUILD_ID__: JSON.stringify(BUILD_ID),
-  },
   server: {
     proxy: {
       '/api': {
