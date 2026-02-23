@@ -41,6 +41,14 @@ class ItemStatus(str, Enum):
     BLOCKED = "blocked"
 
 
+"""Unit is a freeform string (not an enum).
+
+Recipe sites use many different unit names and the LLM may return variations
+like "cups", "tablespoons", etc. The frontend provides a datalist for common
+suggestions but accepts any text. Max length enforced at Field level.
+"""
+
+
 # ============================================================================
 # User Schemas
 # ============================================================================
@@ -207,7 +215,8 @@ class ItemBase(BaseModel):
     """Base item schema."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    quantity: int = Field(default=1, ge=1)
+    quantity: float = Field(default=1, ge=0.25)
+    unit: str | None = Field(None, max_length=20)
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
@@ -247,7 +256,8 @@ class ItemUpdate(BaseModel, _DueDateMixin):
     """Schema for updating an item."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
-    quantity: int | None = Field(None, ge=1)
+    quantity: float | None = Field(None, ge=0.25)
+    unit: str | None = Field(None, max_length=20)
     notes: str | None = None
     category_id: str | None = None
     magnitude: Magnitude | None = None
@@ -386,7 +396,8 @@ class ParsedItemResponse(BaseModel):
 
     name: str
     category: str
-    quantity: int = 1
+    quantity: float = 1
+    unit: str = "each"
 
 
 class ParseRequest(BaseModel):
@@ -402,6 +413,20 @@ class ParseResponse(BaseModel):
     original_input: str
     items: list[ParsedItemResponse]
     confidence: float = Field(..., ge=0, le=1)
+
+
+class ExtractUrlRequest(BaseModel):
+    """Schema for extracting items from a URL (e.g., recipe ingredients)."""
+
+    url: str = Field(..., min_length=10, max_length=2048)
+    list_type: ListType
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        return v
 
 
 # ============================================================================

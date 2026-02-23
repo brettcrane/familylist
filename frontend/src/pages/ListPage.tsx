@@ -47,10 +47,11 @@ import {
   useReorderCategories,
 } from '../hooks/useItems';
 import { useUIStore } from '../stores/uiStore';
-import { categorizeItem, parseNaturalLanguage, submitFeedback } from '../api/ai';
+import { categorizeItem, parseNaturalLanguage, extractRecipeFromUrl, submitFeedback } from '../api/ai';
 import { getErrorMessage } from '../api/client';
 import { ErrorState, ErrorBoundary } from '../components/ui';
 import type { Item, ParsedItem, ItemUpdate } from '../types/api';
+import { formatQuantityUnit } from '../types/api';
 
 const MAX_RECENT_ENTRIES = 5;
 
@@ -430,6 +431,32 @@ export function ListPage() {
     const trimmedValue = inputValue.trim();
     if (!trimmedValue || !list) return;
 
+    // URL detection — auto-extract recipe ingredients (grocery lists only)
+    if (list.type === 'grocery' && /^https?:\/\//i.test(trimmedValue)) {
+      setInputValue('');
+      setIsInputLoading(true);
+      try {
+        const result = await extractRecipeFromUrl({
+          url: trimmedValue,
+          list_type: list.type,
+        });
+        if (!mountedRef.current) return;
+        if (result.items.length > 0) {
+          setParsedItems(result.items);
+          setOriginalInput(result.original_input);
+          setNlModalOpen(true);
+        } else {
+          showToast('No recipe found on this page. Try a recipe site like AllRecipes or Food Network.', 'error');
+        }
+      } catch (err) {
+        if (!mountedRef.current) return;
+        console.error('URL extraction failed:', err);
+        showToast(getErrorMessage(err, 'Could not extract ingredients from this URL.'), 'error');
+      }
+      if (mountedRef.current) setIsInputLoading(false);
+      return;
+    }
+
     // If AI mode is active, parse with LLM
     if (aiMode) {
       setIsInputLoading(true);
@@ -544,15 +571,18 @@ export function ListPage() {
       console.warn('Merge quantity ignored: existing item not found in list', { existingId });
       return;
     }
-    // Delete the duplicate first, then increment existing item's quantity
+    // Delete the duplicate first, then add its quantity to existing item
+    const dupeItem = list?.items.find((i) => i.id === entry.createdItemId);
+    const addQty = dupeItem?.quantity ?? 1;
     deleteItem.mutate(entry.createdItemId, {
       onSuccess: () => {
-        const newQty = freshItem.quantity + 1;
+        const newQty = freshItem.quantity + addQty;
         updateItem.mutate(
           { id: freshItem.id, data: { quantity: newQty } },
           {
             onSuccess: () => {
-              showToast(`"${freshItem.name}" updated to \u00d7${newQty}`, 'success');
+              const display = formatQuantityUnit(newQty, freshItem.unit);
+              showToast(`"${freshItem.name}" updated to ${display || `\u00d7${newQty}`}`, 'success');
               setRecentItems((prev) => prev.filter((e) => e.id !== entryId));
             },
             onError: (err) => {
@@ -577,10 +607,13 @@ export function ListPage() {
       const matchedCategory = list.categories.find(
         (cat) => cat.name.toLowerCase() === item.category.toLowerCase()
       );
+      const unitValue = item.unit && item.unit !== 'each' ? item.unit : undefined;
       createItem.mutate(
         {
           name: item.name,
           category_id: matchedCategory?.id || null,
+          quantity: item.quantity,
+          ...(unitValue !== undefined && { unit: unitValue }),
         },
         {
           onError: (error) => {

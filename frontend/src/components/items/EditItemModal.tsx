@@ -8,7 +8,7 @@ import { useCreateCategory } from '../../hooks/useCategories';
 import { useListShares, useCurrentUser } from '../../hooks/useShares';
 import { useUIStore } from '../../stores/uiStore';
 import { getErrorMessage } from '../../api/client';
-import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS, PRIORITY_CONFIG, PRIORITY_OPTIONS, STATUS_CONFIG, STATUS_OPTIONS } from '../../types/api';
+import { MAGNITUDE_CONFIG, MAGNITUDE_OPTIONS, PRIORITY_CONFIG, PRIORITY_OPTIONS, STATUS_CONFIG, STATUS_OPTIONS, UNIT_OPTIONS } from '../../types/api';
 import { getUserColor } from '../../utils/colors';
 import { getInitials } from '../../utils/strings';
 import type { Item, Category, ItemUpdate, ListType, Magnitude, Priority, ItemStatus } from '../../types/api';
@@ -42,6 +42,7 @@ export function EditItemModal({
 }: EditItemModalProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [unit, setUnit] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [magnitude, setMagnitude] = useState<Magnitude | null>(null);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
@@ -77,6 +78,7 @@ export function EditItemModal({
     if (item) {
       setSelectedCategoryId(item.category_id);
       setQuantity(item.quantity);
+      setUnit(item.unit);
       setNotes(item.notes || '');
       setMagnitude(item.magnitude);
       setAssignedTo(item.assigned_to);
@@ -108,15 +110,16 @@ export function EditItemModal({
     if (item) {
       const categoryChanged = selectedCategoryId !== item.category_id;
       const quantityChanged = quantity !== item.quantity;
+      const unitChanged = (unit || null) !== (item.unit || null);
       const notesChanged = (notes || '') !== (item.notes || '');
       const magnitudeChanged = magnitude !== item.magnitude;
       const assignedChanged = assignedTo !== item.assigned_to;
       const priorityChanged = priority !== item.priority;
       const dueDateChanged = (dueDate || null) !== (item.due_date || null);
       const statusChanged = status !== item.status;
-      setHasChanges(categoryChanged || quantityChanged || notesChanged || magnitudeChanged || assignedChanged || priorityChanged || dueDateChanged || statusChanged);
+      setHasChanges(categoryChanged || quantityChanged || unitChanged || notesChanged || magnitudeChanged || assignedChanged || priorityChanged || dueDateChanged || statusChanged);
     }
-  }, [item, selectedCategoryId, quantity, notes, magnitude, assignedTo, priority, dueDate, status]);
+  }, [item, selectedCategoryId, quantity, unit, notes, magnitude, assignedTo, priority, dueDate, status]);
 
   // Handle Escape key - close innermost open UI element first, then modal
   useEffect(() => {
@@ -222,6 +225,9 @@ export function EditItemModal({
     if (quantity !== item.quantity) {
       updates.quantity = quantity;
     }
+    if ((unit || null) !== (item.unit || null)) {
+      updates.unit = unit;
+    }
     if ((notes || '') !== (item.notes || '')) {
       updates.notes = notes || null;
     }
@@ -245,7 +251,12 @@ export function EditItemModal({
   };
 
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) => Math.max(1, Math.min(99, prev + delta)));
+    const step = unit && unit !== 'each' ? 0.25 : 1;
+    const min = unit && unit !== 'each' ? 0.25 : 1;
+    setQuantity((prev) => {
+      const next = Math.round((prev + delta * step) * 100) / 100;
+      return Math.max(min, Math.min(99, next));
+    });
   };
 
   const handleCreateCategory = async () => {
@@ -345,41 +356,64 @@ export function EditItemModal({
               <h2 id="edit-item-title" className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
                 Edit Item
               </h2>
-              <div className="mt-0.5 flex items-center justify-between gap-3">
-                <p className="text-sm text-[var(--color-text-secondary)] font-medium truncate mr-3">
+              <div className="mt-0.5 flex items-center justify-between gap-2">
+                <p className="text-sm text-[var(--color-text-secondary)] font-medium truncate mr-1">
                   {item.name}
                 </p>
-                {/* Quantity stepper in header */}
-                <div className="flex items-center h-9 bg-[var(--color-bg-secondary)] rounded-xl flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(-1)}
-                    disabled={quantity <= 1}
-                    className={clsx(
-                      'w-8 h-full flex items-center justify-center transition-colors rounded-l-xl',
-                      'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
-                      'disabled:opacity-40 disabled:cursor-not-allowed'
-                    )}
-                  >
-                    <MinusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  </button>
-                  <div className="w-8 text-center">
-                    <span className="font-display text-lg font-bold text-[var(--color-text-primary)]">
-                      {quantity}
-                    </span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {/* Quantity stepper */}
+                  <div className="flex items-center h-9 bg-[var(--color-bg-secondary)] rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={quantity <= (unit && unit !== 'each' ? 0.25 : 1)}
+                      className={clsx(
+                        'w-8 h-full flex items-center justify-center transition-colors rounded-l-xl',
+                        'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
+                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      <MinusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </button>
+                    <div className="w-10 text-center">
+                      <span className="font-display text-lg font-bold text-[var(--color-text-primary)]">
+                        {Number.isInteger(quantity) ? quantity : quantity.toFixed(1)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={quantity >= 99}
+                      className={clsx(
+                        'w-8 h-full flex items-center justify-center transition-colors rounded-r-xl',
+                        'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
+                        'disabled:opacity-40 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= 99}
+                  {/* Unit input with datalist suggestions */}
+                  <input
+                    list="unit-options"
+                    value={unit || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      setUnit(val && val !== 'each' ? val : null);
+                    }}
+                    placeholder="ea"
                     className={clsx(
-                      'w-8 h-full flex items-center justify-center transition-colors rounded-r-xl',
-                      'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-card)]',
-                      'disabled:opacity-40 disabled:cursor-not-allowed'
+                      'h-9 w-16 px-2 rounded-xl text-sm text-center',
+                      'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]',
+                      'border-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/30',
+                      'placeholder:text-[var(--color-text-muted)]',
                     )}
-                  >
-                    <PlusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  </button>
+                  />
+                  <datalist id="unit-options">
+                    {UNIT_OPTIONS.filter(opt => opt.value !== 'each').map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </datalist>
                 </div>
               </div>
             </div>

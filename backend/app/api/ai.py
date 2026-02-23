@@ -8,6 +8,7 @@ from app.database import get_db
 from app.schemas import (
     CategorizeRequest,
     CategorizeResponse,
+    ExtractUrlRequest,
     FeedbackRequest,
     FeedbackResponse,
     ParseRequest,
@@ -16,6 +17,10 @@ from app.schemas import (
 )
 from app.services.ai_service import ai_service
 from app.services.llm_service import llm_service
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_auth)])
 
@@ -70,10 +75,18 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
         )
 
     # Parse input into items using LLM
-    parsed_items = llm_service.parse(data.input, data.list_type)
+    try:
+        parsed_items = llm_service.parse(data.input, data.list_type)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"NL parsing failed: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="AI parsing failed. Please try again or add items individually.",
+        )
 
     if not parsed_items:
-        # Return empty list if parsing failed or no items found
         return ParseResponse(
             original_input=data.input,
             items=[],
@@ -85,16 +98,22 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
     total_confidence = 0.0
 
     for item in parsed_items:
-        category, confidence = ai_service.categorize(
-            item_name=item.name,
-            list_type=data.list_type,
-            db=db,
-        )
+        try:
+            category, confidence = ai_service.categorize(
+                item_name=item.name,
+                list_type=data.list_type,
+                db=db,
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Categorization failed for '{item.name}': {e}")
+            category = "Uncategorized"
+            confidence = 0.0
         categorized_items.append(
             ParsedItemResponse(
                 name=item.name,
                 category=category,
                 quantity=item.quantity,
+                unit=item.unit or "each",
             )
         )
         total_confidence += confidence
@@ -103,6 +122,80 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
 
     return ParseResponse(
         original_input=data.input,
+        items=categorized_items,
+        confidence=avg_confidence,
+    )
+
+
+@router.post("/extract-url", response_model=ParseResponse, operation_id="extract_recipe_from_url")
+def extract_recipe_from_url(data: ExtractUrlRequest, db: Session = Depends(get_db)):
+    """Extract recipe ingredients from a URL via JSON-LD structured data.
+
+    Only supported for grocery lists. Fetches the URL, looks for schema.org
+    Recipe JSON-LD data, and normalizes ingredients via LLM. No LLM fallback
+    for pages without structured recipe data (avoids wasting tokens).
+
+    Returns 503 if LLM service is not available.
+    """
+    if data.list_type != "grocery":
+        raise HTTPException(
+            status_code=422,
+            detail="URL recipe extraction is only supported for grocery lists.",
+        )
+
+    if not llm_service.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="URL extraction requires the AI service, which is not available.",
+        )
+
+    try:
+        parsed_items, display_title = llm_service.extract_from_url(data.url, data.list_type)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"URL extraction failed for {data.url}: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Could not fetch or process this URL. Please check the link and try again.",
+        )
+
+    if not parsed_items:
+        return ParseResponse(
+            original_input=display_title,
+            items=[],
+            confidence=0.0,
+        )
+
+    # Categorize each extracted item, with per-item fallback
+    categorized_items = []
+    total_confidence = 0.0
+
+    for item in parsed_items:
+        try:
+            category, confidence = ai_service.categorize(
+                item_name=item.name,
+                list_type=data.list_type,
+                db=db,
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning(f"Categorization failed for '{item.name}': {e}")
+            category = "Uncategorized"
+            confidence = 0.0
+        categorized_items.append(
+            ParsedItemResponse(
+                name=item.name,
+                category=category,
+                quantity=item.quantity,
+                unit=item.unit or "each",
+            )
+        )
+        total_confidence += confidence
+
+    avg_confidence = total_confidence / len(categorized_items) if categorized_items else 0.0
+
+    return ParseResponse(
+        original_input=display_title,
         items=categorized_items,
         confidence=avg_confidence,
     )

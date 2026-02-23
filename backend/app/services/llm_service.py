@@ -1,9 +1,12 @@
 """LLM service for natural language parsing."""
 
+import ipaddress
 import json
 import logging
 import re
+import socket
 from typing import ClassVar
+from urllib.parse import urljoin, urlparse
 
 import requests
 from openai import OpenAI
@@ -12,6 +15,28 @@ from app.config import get_settings
 from app.schemas import ListType
 
 logger = logging.getLogger(__name__)
+
+# Prompt for normalizing raw recipe ingredient strings into grocery items.
+RECIPE_NORMALIZE_PROMPT = """Convert these recipe ingredients into grocery list items.
+
+Ingredients:
+{ingredients}
+
+Return a JSON array of items to buy. Each item has:
+- "name": grocery item name, lowercase
+- "quantity": numeric amount (e.g., 2, 0.5, 1)
+- "unit": unit of measure. Must be one of: each, tsp, tbsp, cup, fl oz, pint, quart, gallon, ml, L, oz, lb, g, kg, can, bottle, jar, bag, box, pkg, bunch, dozen, clove, pinch
+
+Examples:
+- "1 cup all-purpose flour" → {{"name": "all-purpose flour", "quantity": 1, "unit": "cup"}}
+- "2 large eggs" → {{"name": "eggs", "quantity": 2, "unit": "each"}}
+- "3 cloves garlic, minced" → {{"name": "garlic", "quantity": 3, "unit": "clove"}}
+- "2 (14 oz) cans diced tomatoes" → {{"name": "diced tomatoes", "quantity": 2, "unit": "can"}}
+- "salt and pepper to taste" → {{"name": "salt", "quantity": 1, "unit": "pinch"}}, {{"name": "pepper", "quantity": 1, "unit": "pinch"}}
+- "1 lb ground beef" → {{"name": "ground beef", "quantity": 1, "unit": "lb"}}
+- "1/2 cup sugar" → {{"name": "sugar", "quantity": 0.5, "unit": "cup"}}
+
+JSON array:"""
 
 # Prompt templates for parsing natural language into items, keyed by list type.
 # Note: For GPT-5 models, the response_format schema constrains output to
@@ -69,16 +94,18 @@ JSON array:""",
 class ParsedItem:
     """Parsed item from LLM."""
 
-    def __init__(self, name: str, quantity: int = 1, category: str = ""):
+    def __init__(self, name: str, quantity: float = 1, category: str = "", unit: str = "each"):
         self.name = name
         self.quantity = quantity
         self.category = category
+        self.unit = unit
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "quantity": self.quantity,
             "category": self.category,
+            "unit": self.unit,
         }
 
 
@@ -231,9 +258,10 @@ class LLMParsingService:
                                         "type": "object",
                                         "properties": {
                                             "name": {"type": "string"},
-                                            "quantity": {"type": "integer"},
+                                            "quantity": {"type": "number"},
+                                            "unit": {"type": "string"},
                                         },
-                                        "required": ["name", "quantity"],
+                                        "required": ["name", "quantity", "unit"],
                                         "additionalProperties": False,
                                     },
                                 }
@@ -348,6 +376,218 @@ class LLMParsingService:
 
         return []
 
+    def _call_backend(self, prompt: str) -> str:
+        """Call the active LLM backend with a prompt and return raw text."""
+        if self._backend == "openai":
+            return self._call_openai(prompt)
+        elif self._backend == "local":
+            return self._call_local(prompt)
+        elif self._backend == "ollama":
+            return self._call_ollama(prompt)
+        else:
+            raise RuntimeError(f"No LLM backend configured (backend={self._backend})")
+
+    def _validate_url_target(self, url: str) -> None:
+        """Reject URLs targeting private/internal networks (SSRF protection)."""
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("Invalid URL: no hostname")
+        try:
+            addrs = socket.getaddrinfo(hostname, None)
+            for addr_info in addrs:
+                ip = ipaddress.ip_address(addr_info[4][0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise ValueError("URL must point to a public address")
+        except socket.gaierror:
+            raise ValueError("Could not resolve URL hostname")
+        except ValueError:
+            raise  # Re-raise our own ValueErrors and ip_address parsing failures
+        except Exception as e:
+            logger.warning(f"SSRF validation failed for {hostname}: {type(e).__name__}: {e}")
+            raise ValueError(f"Could not validate URL target: {hostname}")
+
+    def _fetch_url(self, url: str) -> str:
+        """Fetch HTML content from a URL with SSRF protection and size limits."""
+        max_size = 2 * 1024 * 1024  # 2MB — plenty for recipe pages
+        max_redirects = 5
+
+        self._validate_url_target(url)
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; FamilyList/1.0)",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+
+        # Follow redirects manually to validate each hop against SSRF
+        current_url = url
+        try:
+            response = requests.get(current_url, headers=headers, timeout=10, allow_redirects=False, stream=True)
+            redirect_count = 0
+            while response.is_redirect and redirect_count < max_redirects:
+                redirect_url = response.headers.get("Location")
+                if not redirect_url:
+                    break
+                redirect_url = urljoin(current_url, redirect_url)
+                response.close()
+                self._validate_url_target(redirect_url)
+                current_url = redirect_url
+                response = requests.get(current_url, headers=headers, timeout=10, allow_redirects=False, stream=True)
+                redirect_count += 1
+            if response.is_redirect:
+                response.close()
+                raise ValueError("Too many redirects. Please check the URL.")
+            response.raise_for_status()
+        except requests.Timeout:
+            raise ValueError("The page took too long to load. Please try again.")
+        except requests.ConnectionError:
+            raise ValueError("Could not connect to this URL. Please check the link.")
+        except requests.HTTPError as e:
+            raise ValueError(f"Page returned an error (HTTP {e.response.status_code})")
+        except ValueError:
+            raise  # Re-raise our SSRF and other ValueErrors
+        except requests.RequestException as e:
+            logger.warning(f"Unexpected request error fetching {current_url}: {type(e).__name__}: {e}")
+            raise ValueError("Could not fetch this URL. Please check the link and try again.")
+
+        # Reject non-HTML responses early
+        content_type = response.headers.get("Content-Type", "")
+        if not any(ct in content_type for ct in ["text/html", "application/xhtml+xml"]):
+            response.close()
+            raise ValueError("URL does not appear to be a web page")
+
+        # Check Content-Length header before downloading
+        content_length = response.headers.get("Content-Length")
+        if content_length:
+            try:
+                cl = int(content_length)
+            except (ValueError, TypeError):
+                cl = 0  # Ignore unparseable Content-Length, rely on streaming check
+            if cl > max_size:
+                response.close()
+                raise ValueError("Page too large to process")
+
+        # Stream download with running size limit
+        chunks = []
+        total = 0
+        for chunk in response.iter_content(chunk_size=8192):
+            total += len(chunk)
+            if total > max_size:
+                response.close()
+                raise ValueError("Page too large to process")
+            chunks.append(chunk)
+
+        content = b"".join(chunks)
+        response.close()
+        return content.decode(response.encoding or "utf-8", errors="replace")
+
+    def _find_recipe_in_jsonld(self, data: dict | list) -> dict | None:
+        """Recursively find a Recipe object in JSON-LD data."""
+        if isinstance(data, dict):
+            type_val = data.get("@type", "")
+            if type_val == "Recipe" or (isinstance(type_val, list) and "Recipe" in type_val):
+                return data
+            if "@graph" in data:
+                return self._find_recipe_in_jsonld(data["@graph"])
+        elif isinstance(data, list):
+            for item in data:
+                result = self._find_recipe_in_jsonld(item)
+                if result:
+                    return result
+        return None
+
+    def _extract_jsonld_recipe(self, html: str) -> tuple[list[str], str | None]:
+        """Try to extract recipe ingredients from JSON-LD structured data.
+
+        Returns (ingredient_strings, recipe_title) or ([], None).
+        """
+        pattern = re.compile(
+            r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+            re.DOTALL | re.IGNORECASE,
+        )
+        for match in pattern.finditer(html):
+            try:
+                data = json.loads(match.group(1))
+                recipe = self._find_recipe_in_jsonld(data)
+                if recipe:
+                    ingredients = recipe.get("recipeIngredient", [])
+                    title = recipe.get("name")
+                    if ingredients and isinstance(ingredients, list):
+                        return [str(i) for i in ingredients], title
+            except (json.JSONDecodeError, KeyError, TypeError, RecursionError) as e:
+                logger.debug(f"Skipping malformed JSON-LD block: {type(e).__name__}: {e}")
+                continue
+        return [], None
+
+    def _extract_page_title(self, html: str) -> str | None:
+        """Extract page title from HTML."""
+        match = re.search(r"<title[^>]*>(.*?)</title>", html, re.DOTALL | re.IGNORECASE)
+        if match:
+            title = match.group(1).strip()
+            # Clean up common suffixes like " | AllRecipes" or " - Food Network"
+            title = re.split(r"\s*[|\-–—]\s*(?=[A-Z])", title)[0].strip()
+            return title if title else None
+        return None
+
+    def extract_from_url(self, url: str, list_type: ListType) -> tuple[list[ParsedItem], str]:
+        """Fetch a URL and extract recipe ingredients via JSON-LD structured data.
+
+        Only works for recipe pages with schema.org Recipe JSON-LD. If no
+        structured recipe data is found, returns empty — no LLM fallback
+        to avoid wasting tokens on non-recipe pages.
+
+        Returns (items, display_title) where display_title is the recipe name or URL.
+        """
+        if not self.load():
+            raise ValueError("LLM service not available")
+
+        html = self._fetch_url(url)
+
+        # Try JSON-LD structured data (most recipe sites use schema.org Recipe)
+        ingredients, jsonld_title = self._extract_jsonld_recipe(html)
+        display_title = jsonld_title or self._extract_page_title(html) or url
+
+        if not ingredients:
+            logger.info(f"No JSON-LD recipe found on {url} — skipping LLM to avoid cost")
+            return [], display_title
+
+        logger.info(f"Found {len(ingredients)} ingredients via JSON-LD from {url}")
+        prompt = RECIPE_NORMALIZE_PROMPT.format(
+            ingredients="\n".join(f"- {i}" for i in ingredients)
+        )
+
+        try:
+            response = self._call_backend(prompt)
+            if not response:
+                logger.warning(f"LLM returned empty response for URL: {url}")
+                return [], display_title
+
+            items_data = self._extract_json(response)
+            items = []
+            for item in items_data:
+                if isinstance(item, dict) and "name" in item:
+                    name = str(item["name"]).strip()
+                    if name:
+                        try:
+                            quantity = float(item.get("quantity", 1))
+                        except (ValueError, TypeError):
+                            quantity = 1.0
+                        unit = str(item.get("unit", "each")).strip()
+                        items.append(ParsedItem(
+                            name=name,
+                            quantity=max(0.25, quantity),
+                            unit=unit,
+                        ))
+
+            logger.info(f"Extracted {len(items)} items from URL: {url}")
+            return items, display_title
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"LLM URL extraction failed for '{url}': {type(e).__name__}: {e}")
+            raise
+
     def parse(self, input_text: str, list_type: ListType) -> list[ParsedItem]:
         """Parse natural language input into a list of items.
 
@@ -371,14 +611,7 @@ class LLMParsingService:
         prompt = prompt_template.format(input=input_text)
 
         try:
-            # Call appropriate backend
-            if self._backend == "openai":
-                response = self._call_openai(prompt)
-            elif self._backend == "local":
-                response = self._call_local(prompt)
-            else:
-                response = self._call_ollama(prompt)
-
+            response = self._call_backend(prompt)
             logger.info(f"LLM response: {response}")
 
             # Parse JSON from response
@@ -390,8 +623,16 @@ class LLMParsingService:
                 if isinstance(item, dict) and "name" in item:
                     name = str(item["name"]).strip()
                     if name:
-                        quantity = int(item.get("quantity", 1))
-                        items.append(ParsedItem(name=name, quantity=max(1, quantity)))
+                        try:
+                            quantity = float(item.get("quantity", 1))
+                        except (ValueError, TypeError):
+                            quantity = 1.0
+                        unit = str(item.get("unit", "each")).strip()
+                        items.append(ParsedItem(
+                            name=name,
+                            quantity=max(0.25, quantity),
+                            unit=unit,
+                        ))
 
             logger.info(f"Parsed {len(items)} items from: {input_text}")
             return items
@@ -400,7 +641,7 @@ class LLMParsingService:
             raise
         except Exception as e:
             logger.error(f"LLM parsing failed for '{input_text[:50]}': {type(e).__name__}: {e}")
-            return []
+            raise
 
     def is_available(self) -> bool:
         """Check if LLM parsing is available."""

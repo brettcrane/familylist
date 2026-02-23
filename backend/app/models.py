@@ -150,7 +150,8 @@ class Item(Base):
         String(36), ForeignKey("categories.id", ondelete="SET NULL")
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    quantity: Mapped[float] = mapped_column(Float, default=1)
+    unit: Mapped[str | None] = mapped_column(String(20))
     notes: Mapped[str | None] = mapped_column(Text)
     is_checked: Mapped[bool] = mapped_column(Boolean, default=False)
     checked_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
@@ -185,6 +186,10 @@ class Item(Base):
         CheckConstraint(
             "status IS NULL OR status IN ('open', 'in_progress', 'done', 'blocked')",
             name="ck_item_status",
+        ),
+        CheckConstraint(
+            "unit IS NULL OR length(unit) <= 20",
+            name="ck_item_unit_length",
         ),
     )
 

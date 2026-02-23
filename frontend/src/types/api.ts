@@ -7,6 +7,11 @@ export type Magnitude = 'S' | 'M' | 'L';
 /** Priority levels for task items */
 export type Priority = 'urgent' | 'high' | 'medium' | 'low';
 
+/**
+ * Unit is a freeform string — recipe sites use many different names and users
+ * can type their own. The dropdown provides common suggestions via datalist.
+ */
+
 /** Status values for task items */
 export type ItemStatus = 'open' | 'in_progress' | 'done' | 'blocked';
 
@@ -48,6 +53,7 @@ export interface Item {
   category_id: string | null;
   name: string;
   quantity: number;
+  unit: string | null;
   notes: string | null;
   magnitude: Magnitude | null;
   is_checked: boolean;
@@ -70,6 +76,7 @@ export interface Item {
 export interface ItemCreate {
   name: string;
   quantity?: number;
+  unit?: string | null;
   notes?: string | null;
   category_id?: string | null;
   magnitude?: Magnitude | null;
@@ -88,6 +95,7 @@ export interface ItemBatchCreate {
 export interface ItemUpdate {
   name?: string;
   quantity?: number;
+  unit?: string | null;
   notes?: string | null;
   category_id?: string | null;
   magnitude?: Magnitude | null;
@@ -202,11 +210,18 @@ export interface ParsedItem {
   name: string;
   category: string;
   quantity: number;
+  unit: string;
 }
 
 /** AI parse request for natural language */
 export interface ParseRequest {
   input: string;
+  list_type: ListType;
+}
+
+/** AI extract-url request for recipe ingredient extraction */
+export interface ExtractUrlRequest {
+  url: string;
   list_type: ListType;
 }
 
@@ -267,6 +282,43 @@ export const AI_MODE_HINTS: Record<ListType, string> = {
   packing: 'AI will suggest items to pack',
   tasks: 'AI will break this into tasks',
 };
+
+/** Common unit suggestions for the datalist dropdown */
+export const UNIT_OPTIONS: { value: string; label: string; group: string }[] = [
+  { value: 'each', label: 'Each', group: 'Count' },
+  { value: 'dozen', label: 'Dozen', group: 'Count' },
+  { value: 'tsp', label: 'Teaspoon', group: 'Volume' },
+  { value: 'tbsp', label: 'Tablespoon', group: 'Volume' },
+  { value: 'fl oz', label: 'Fluid Ounce', group: 'Volume' },
+  { value: 'cup', label: 'Cup', group: 'Volume' },
+  { value: 'pint', label: 'Pint', group: 'Volume' },
+  { value: 'quart', label: 'Quart', group: 'Volume' },
+  { value: 'gallon', label: 'Gallon', group: 'Volume' },
+  { value: 'ml', label: 'Milliliter', group: 'Volume' },
+  { value: 'L', label: 'Liter', group: 'Volume' },
+  { value: 'oz', label: 'Ounce', group: 'Weight' },
+  { value: 'lb', label: 'Pound', group: 'Weight' },
+  { value: 'g', label: 'Gram', group: 'Weight' },
+  { value: 'kg', label: 'Kilogram', group: 'Weight' },
+  { value: 'can', label: 'Can', group: 'Container' },
+  { value: 'bottle', label: 'Bottle', group: 'Container' },
+  { value: 'jar', label: 'Jar', group: 'Container' },
+  { value: 'bag', label: 'Bag', group: 'Container' },
+  { value: 'box', label: 'Box', group: 'Container' },
+  { value: 'pkg', label: 'Package', group: 'Container' },
+  { value: 'bunch', label: 'Bunch', group: 'Other' },
+  { value: 'clove', label: 'Clove', group: 'Other' },
+  { value: 'pinch', label: 'Pinch', group: 'Other' },
+];
+
+/** Format quantity + unit for display */
+export function formatQuantityUnit(quantity: number, unit?: string | null): string {
+  if (!unit || unit === 'each') {
+    return quantity !== 1 ? `×${Number.isInteger(quantity) ? quantity : quantity.toFixed(1)}` : '';
+  }
+  const qtyStr = Number.isInteger(quantity) ? String(quantity) : quantity.toFixed(2).replace(/\.?0+$/, '');
+  return `${qtyStr} ${unit}`;
+}
 
 /** Shared shape for badge/pill display config (magnitude, priority, status) */
 export interface BadgeConfig {

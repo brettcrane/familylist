@@ -51,6 +51,7 @@ def item_to_response(item: Item) -> dict:
         "list_id": item.list_id,
         "name": item.name,
         "quantity": item.quantity,
+        "unit": item.unit,
         "notes": item.notes,
         "category_id": item.category_id,
         "is_checked": item.is_checked,

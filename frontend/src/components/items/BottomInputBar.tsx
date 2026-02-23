@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { PlusIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, SparklesIcon, LinkIcon } from '@heroicons/react/24/outline';
 import type { ListType } from '../../types/api';
 import { AI_MODE_PLACEHOLDERS, AI_MODE_HINTS } from '../../types/api';
 
@@ -30,6 +30,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
     },
     ref
   ) {
+    const isUrlInput = listType === 'grocery' && /^https?:\/\//i.test(inputValue.trim());
     const placeholder = aiMode ? AI_MODE_PLACEHOLDERS[listType] : 'Add item...';
     const hintText = AI_MODE_HINTS[listType];
 
@@ -86,7 +87,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
                   'focus:outline-none focus:border-[var(--color-accent)]/40',
                   'transition-all duration-200',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
-                  aiMode && 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
+                  (aiMode || isUrlInput) && 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
                 )}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]">
@@ -110,10 +111,22 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
             </div>
           </form>
 
-          {/* AI mode hint */}
-          <AnimatePresence>
-            {aiMode && !inputDisabled && (
+          {/* Contextual hints */}
+          <AnimatePresence mode="wait">
+            {isUrlInput && !inputDisabled ? (
               <motion.p
+                key="url-hint"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-2 text-xs text-[var(--color-accent)] flex items-center gap-1.5 overflow-hidden"
+              >
+                <LinkIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                Recipe ingredients will be extracted from this URL
+              </motion.p>
+            ) : aiMode && !inputDisabled ? (
+              <motion.p
+                key="ai-hint"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
@@ -122,7 +135,7 @@ export const BottomInputBar = forwardRef<HTMLInputElement, BottomInputBarProps>(
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-pulse" />
                 {hintText}
               </motion.p>
-            )}
+            ) : null}
           </AnimatePresence>
         </div>
       </div>

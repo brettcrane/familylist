@@ -231,6 +231,10 @@ def _run_migrations() -> None:
             item_migrations.append(
                 "ALTER TABLE items ADD COLUMN created_by VARCHAR(36) REFERENCES users(id)"
             )
+        if "unit" not in item_columns:
+            item_migrations.append(
+                "ALTER TABLE items ADD COLUMN unit VARCHAR(20)"
+            )
 
         for migration in item_migrations:
             try:
