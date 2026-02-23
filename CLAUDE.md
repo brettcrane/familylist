@@ -86,7 +86,7 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals+taskViewMode+myItemsOnly,authStore=Zustand+cached-user+offline-persist,organizationStore=Zustand+per-user-folders+sort-order+localStorage}
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse+extractUrl,shares=invite+update+revoke,push=subscribe+preferences}
-|frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting}
+|frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting,fuzzyMatch=stemmer+editDistance+findDuplicateItem+findFuzzyMatch}
 |frontend/src/types:{api=DTOs+MAGNITUDE_CONFIG+AI_MODE_PLACEHOLDERS+AI_MODE_HINTS+UNIT_OPTIONS+formatQuantityUnit}
 |frontend/src/pages:{HomePage=list-grid+organization,ListPage=items+views+input+duplicate-detection,SignInPage=Clerk-auth}
 ```
@@ -94,8 +94,8 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 ## Key Flows
 
 ```
-Item-Entry(single): enter→input-clears-instantly→duplicate-check→(done-match?→uncheckItem+toast+return)→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s)→user-taps-Change?→updateItem+submitFeedback
-Item-Duplicate(active): duplicate-found→create-item-normally→status='duplicate'→toast-with-DontAdd/Add+1(5s)→DontAdd?→deleteItem | Add+1?→deleteItem→updateItem(fresh-qty) | auto-dismiss→duplicate-stays
+Item-Entry(single): enter→input-clears-instantly→findDuplicateItem(exact+stem+typo)→(done-match?→uncheckItem+toast+return)→fire-and-forget-IIFE→categorizeItem()→createItem.mutateAsync({category_id})→CategoryToastStack-shows-result(4s)→user-taps-Change?→updateItem+submitFeedback
+Item-Duplicate(active): duplicate-found(exact|fuzzy)→create-item-normally→status='duplicate'→toast(exact:"already on list"+Add+1 | fuzzy:"looks like X"+Keep-Both)(5s)→DontAdd?→deleteItem | Add+1/KeepBoth?→deleteItem→updateItem(fresh-qty) | auto-dismiss→duplicate-stays
 Item-Entry(AI-mode): AiMode+input→setIsInputLoading→api/ai.parse()→llm_service.parse()→ParsedItem[]→NLParseModal→createItem.mutate(each)+onError
 URL-Recipe-Extract: paste-URL-in-AI-mode→extractRecipeFromUrl()→POST /ai/extract-url→llm_service.extract_from_url()→_fetch_url(SSRF-validated+redirect-per-hop)→_extract_jsonld_recipe()→RECIPE_NORMALIZE_PROMPT→_call_backend()→ParsedItem[]+display_title→NLParseModal→createItem.mutate(each)
 Item-Create: useCreateItem→api/items.createItem()→POST /items(single)→item_service.create_item | useCreateItems→api/items.createItems()→POST /items/batch→item_service.create_items_batch
@@ -189,16 +189,28 @@ Lists can be organized into folders and reordered on the home page. Per-user, pe
 "Create first, correct after" — items are always created immediately. If a duplicate is detected, the user gets a non-blocking toast to remove or merge quantity. Ignoring the toast (or tapping X) keeps the duplicate (safe default, no silent data loss).
 
 **Scenarios:**
-- **Done-item duplicate:** Auto-restores (unchecks) the existing item, shows success toast, skips creation
-- **Active-item duplicate:** Creates item normally, shows duplicate toast with `[Don't Add]` (red/destructive) and `[Add +1]` (accent) buttons (5s auto-dismiss)
-- **AI/NL parse mode:** Shows warning indicators next to duplicate items in `NLParseModal` review screen
+- **Done-item exact duplicate:** Auto-restores (unchecks) the existing item, shows success toast, skips creation
+- **Active-item exact duplicate:** Creates item normally, shows duplicate toast with `[Don't Add]` and `[Add +1]` buttons (5s auto-dismiss)
+- **Active-item fuzzy duplicate:** Creates item normally, shows toast with `"X" looks like "Y"` message, `[Don't Add]` and `[Keep Both]` buttons
+- **AI/NL parse mode:** Shows warning indicators next to duplicate items in `NLParseModal` review screen (both exact and fuzzy)
 
-**Matching:** Case-insensitive exact name match via `findDuplicateItem()` in `ListPage.tsx`. Frontend-only using cached `list.items`. Prefers unchecked matches. Searches all items regardless of active filters. No fuzzy matching.
+**Matching:** Three-tier fuzzy matching via `fuzzyMatch.ts`, frontend-only using cached `list.items`. Prefers unchecked matches. Searches all items regardless of active filters.
+
+1. **Exact:** Case-insensitive match (e.g., "Eggs" = "eggs")
+2. **Stem:** Plural normalization via `normalizeName()` (e.g., "tomatoes" = "tomato", "berries" = "berry")
+3. **Typo:** Levenshtein edit distance on stemmed names — max 1 edit for 5-7 char words, max 2 for 8+, capped at 30% of length
+
+**Stemmer rules:** `ies→y`, `ves→f` (allowlist only: loaf/half/knife/leaf/shelf/calf/wolf/scarf), `ses/xes/zes/ches/shes→remove es`, `oes→o`, general `s` removal (skips `-ss`, `-us`). Words ≤2 chars unchanged.
 
 **Key files:**
-- `frontend/src/pages/ListPage.tsx` - `findDuplicateItem()`, duplicate handling in `handleSingleItem()`, `handleUndoDuplicate()`, `handleMergeQuantity()`
-- `frontend/src/components/items/CategoryToastStack.tsx` - `RecentItemEntry.status: 'duplicate'`, `duplicateOfItem` field, duplicate toast variant with undo/merge buttons
-- `frontend/src/components/items/NLParseModal.tsx` - `existingItems` prop, `existingItemMap` for O(1) lookup, warning indicators
+- `frontend/src/utils/fuzzyMatch.ts` - `stemWord()`, `normalizeName()`, `editDistance()`, `getFuzzyMatchType()`, `findDuplicateItem()` (single-item entry), `findFuzzyMatch()` (NLParseModal)
+- `frontend/src/pages/ListPage.tsx` - duplicate handling in `handleSingleItem()`, `handleUndoDuplicate()`, `handleMergeQuantity()`
+- `frontend/src/components/items/CategoryToastStack.tsx` - `RecentItemEntry.status: 'duplicate'`, `duplicateOfItem`, `duplicateMatchType` fields, duplicate toast variant with undo/merge buttons
+- `frontend/src/components/items/NLParseModal.tsx` - `existingItems` prop, pre-computed `existingMatches` Map via `useMemo`, warning indicators
+
+**Key differences between the two match functions:**
+- `findDuplicateItem()`: Used for single-item entry. Fuzzy matches unchecked items only (done-item fuzzy matches are too noisy). Returns `DuplicateResult` with `isDone` flag.
+- `findFuzzyMatch()`: Used by NLParseModal. Checks all items (both checked and unchecked) since the modal shows different messages for each.
 
 **Pattern:** `handleMergeQuantity` reads fresh quantity from `list.items` (not the stale snapshot in `duplicateOfItem`), adds the duplicate's actual quantity (not hardcoded +1), and chains mutations sequentially: delete duplicate → on success → update quantity → on success → dismiss toast with `formatQuantityUnit` display. Toast is only removed on mutation success, not immediately.
 
