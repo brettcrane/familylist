@@ -12,6 +12,25 @@ declare let self: ServiceWorkerGlobalScope;
 self.skipWaiting();
 clientsClaim();
 
+// When a new SW activates, force-reload all open pages so they pick up
+// the new precached JS/CSS bundles. This is the most reliable update
+// mechanism — it doesn't depend on any client-side JS, works on mobile,
+// and fires automatically because browsers check for SW updates on
+// every navigation.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((windowClients) => {
+      // Only reload if there are existing clients (skip first install —
+      // the page was loaded from the network, not a stale SW cache)
+      if (windowClients.length > 0) {
+        windowClients.forEach((client) => {
+          (client as WindowClient).navigate(client.url);
+        });
+      }
+    })
+  );
+});
+
 // Precache and route assets
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
