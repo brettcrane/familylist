@@ -228,7 +228,7 @@ Within the To Do tab, `type === 'tasks'` lists support three view modes. Grocery
 
 **SW role:** The service worker only handles API offline caching (NetworkFirst) and push notifications. `skipWaiting()` + `clientsClaim()` ensure new SW versions activate immediately. VitePWA `injectManifest` strategy is still used to compile the SW and generate `manifest.webmanifest`.
 
-**Deploy flow:** GitHub Actions builds image → pushes to ghcr.io → purges Cloudflare cache → triggers Portainer webhook for deterministic redeploy.
+**Deploy flow:** GitHub Actions builds image → pushes to ghcr.io → purges Cloudflare cache → Watchtower auto-pulls new image.
 
 ## Environment Variables
 
@@ -248,7 +248,7 @@ Frontend (optional):
 
 ## CI/CD & Deployment
 
-**Stack:** GitHub Actions → ghcr.io → Portainer webhook → Caddy → Cloudflare Tunnel
+**Stack:** GitHub Actions → ghcr.io → Portainer + Watchtower → Caddy → Cloudflare Tunnel
 
 **Key files:**
 - `.github/workflows/build.yml` - Builds Docker image, pushes to ghcr.io
@@ -260,7 +260,8 @@ Frontend (optional):
 2. Actions builds image with `VITE_CLERK_PUBLISHABLE_KEY` (GitHub secret, build-time)
 3. Image pushed to `ghcr.io/brettcrane/familylist:latest`
 4. Actions auto-purges Cloudflare cache
-5. Actions triggers Portainer webhook → container redeployed with new image
+5. Watchtower polls every 30 seconds, auto-pulls new images
+6. Container recreated automatically
 
 **Manual deploy:**
 1. Portainer → **Containers** → familylist-api → **Recreate** → ✅ "Pull latest image"
@@ -274,7 +275,6 @@ Frontend (optional):
 - `VITE_CLERK_PUBLISHABLE_KEY` - Baked into frontend at build
 - `CLOUDFLARE_ZONE_ID` - For cache purge
 - `CLOUDFLARE_API_TOKEN` - For cache purge (Cache Purge permission)
-- `PORTAINER_WEBHOOK_URL` - Webhook to trigger container redeploy
 
 ## Known Issues
 
