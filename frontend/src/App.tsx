@@ -73,12 +73,14 @@ const persistOptions = {
 };
 
 /**
- * Auto-reload the page when the user backgrounds and foregrounds the app
- * after a new version has been detected. This ensures users always run
- * the latest code without needing to manually click "Reload".
+ * Auto-reload when a new version is detected mid-session.
  *
- * Loop protection via sessionStorage prevents infinite reloads if
- * version.json is somehow stale after reload.
+ * The pre-React version gate in main.tsx handles the initial load case
+ * (reload before React mounts). This hook handles deploys that happen
+ * while the user is already using the app — reloads on the next
+ * hidden→visible transition so we don't interrupt active editing.
+ *
+ * Loop protection via sessionStorage prevents infinite reloads.
  */
 function useAutoReloadOnUpdate(updateAvailable: boolean) {
   useEffect(() => {
@@ -86,22 +88,17 @@ function useAutoReloadOnUpdate(updateAvailable: boolean) {
 
     // Loop protection: don't reload more than once per 60s
     try {
-      const lastReload = sessionStorage.getItem('fl-auto-reload');
+      const lastReload = sessionStorage.getItem('fl-version-reload');
       const lastReloadTime = lastReload ? Number(lastReload) : 0;
       if (!isNaN(lastReloadTime) && lastReloadTime > 0 && Date.now() - lastReloadTime < 60_000) return;
     } catch {
-      // sessionStorage unavailable (Safari private browsing, iframe, etc.)
-      // Skip loop protection — a single reload is still safe
+      // sessionStorage unavailable — skip loop protection
     }
 
-    // Reload on next hidden→visible transition
-    let wasHidden = document.visibilityState === 'hidden';
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        wasHidden = true;
-      } else if (wasHidden) {
+      if (document.visibilityState === 'visible') {
         try {
-          sessionStorage.setItem('fl-auto-reload', Date.now().toString());
+          sessionStorage.setItem('fl-version-reload', Date.now().toString());
         } catch {
           // sessionStorage unavailable — proceed without loop protection
         }
@@ -109,6 +106,8 @@ function useAutoReloadOnUpdate(updateAvailable: boolean) {
       }
     };
 
+    // If the page is already hidden (e.g., update detected in background tab),
+    // the next visible event will trigger reload
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [updateAvailable]);
