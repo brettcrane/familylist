@@ -386,6 +386,49 @@ class TestFetchUrl:
         with pytest.raises(ValueError, match="Could not connect"):
             self.service._fetch_url("https://example.com/down")
 
+    @patch("app.services.llm_service.requests.get")
+    @patch.object(LLMParsingService, "_validate_url_target")
+    def test_too_many_redirects_gives_friendly_error(self, mock_validate, mock_get):
+        """Redirect limit exhaustion produces a clear error, not a silent empty result."""
+        redirect_response = MagicMock()
+        redirect_response.is_redirect = True
+        redirect_response.headers = {"Location": "https://example.com/next"}
+        # Return redirect responses for initial + 5 hops (exceeds max_redirects=5)
+        mock_get.return_value = redirect_response
+        with pytest.raises(ValueError, match="Too many redirects"):
+            self.service._fetch_url("https://example.com/loop")
+
+    @patch("app.services.llm_service.requests.get")
+    @patch.object(LLMParsingService, "_validate_url_target")
+    def test_relative_redirect_resolved(self, mock_validate, mock_get):
+        """Relative redirects (no leading slash) are properly resolved."""
+        redirect_response = MagicMock()
+        redirect_response.is_redirect = True
+        redirect_response.headers = {"Location": "recipe.html"}
+
+        final_response = MagicMock()
+        final_response.is_redirect = False
+        final_response.status_code = 200
+        final_response.headers = {"Content-Type": "text/html"}
+        final_response.iter_content.return_value = iter([b"<html></html>"])
+        final_response.encoding = "utf-8"
+
+        mock_get.side_effect = [redirect_response, final_response]
+
+        result = self.service._fetch_url("https://example.com/dir/page")
+        # The relative redirect should resolve to https://example.com/dir/recipe.html
+        second_call_url = mock_get.call_args_list[1][0][0]
+        assert second_call_url == "https://example.com/dir/recipe.html"
+
+    @patch("app.services.llm_service.requests.get")
+    @patch.object(LLMParsingService, "_validate_url_target")
+    def test_unexpected_request_error_gives_friendly_message(self, mock_validate, mock_get):
+        """Unexpected RequestException subclasses get a user-friendly message."""
+        import requests as req
+        mock_get.side_effect = req.RequestException("something weird")
+        with pytest.raises(ValueError, match="Could not fetch"):
+            self.service._fetch_url("https://example.com/weird")
+
 
 # ============================================================================
 # extract_from_url orchestration tests
@@ -511,6 +554,46 @@ class TestExtractUrlEndpoint:
             "list_type": "grocery",
         }, headers=auth_headers)
         assert response.status_code == 502
+
+    @patch("app.api.ai.ai_service")
+    @patch("app.api.ai.llm_service")
+    def test_success_returns_categorized_items(self, mock_llm, mock_ai, client, auth_headers):
+        """Happy path: LLM extracts items, they get categorized, response is correct."""
+        mock_llm.is_available.return_value = True
+        mock_llm.extract_from_url.return_value = (
+            [ParsedItem(name="flour", quantity=2, unit="cup"),
+             ParsedItem(name="eggs", quantity=3, unit="each")],
+            "Chocolate Cake",
+        )
+        mock_ai.categorize.return_value = ("Baking", 0.9)
+        response = client.post("/api/ai/extract-url", json={
+            "url": "https://example.com/recipe",
+            "list_type": "grocery",
+        }, headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["original_input"] == "Chocolate Cake"
+        assert len(data["items"]) == 2
+        assert data["items"][0]["name"] == "flour"
+        assert data["items"][0]["unit"] == "cup"
+        assert data["items"][0]["quantity"] == 2
+        assert data["items"][1]["unit"] == "each"
+        assert data["confidence"] > 0
+
+    @patch("app.api.ai.llm_service")
+    def test_empty_result_returns_display_title(self, mock_llm, client, auth_headers):
+        """When no recipe is found, response includes the display title."""
+        mock_llm.is_available.return_value = True
+        mock_llm.extract_from_url.return_value = ([], "Some Page Title")
+        response = client.post("/api/ai/extract-url", json={
+            "url": "https://example.com/recipe",
+            "list_type": "grocery",
+        }, headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["original_input"] == "Some Page Title"
+        assert data["items"] == []
+        assert data["confidence"] == 0.0
 
 
 # ============================================================================

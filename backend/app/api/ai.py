@@ -75,10 +75,18 @@ def parse_natural_language(data: ParseRequest, db: Session = Depends(get_db)):
         )
 
     # Parse input into items using LLM
-    parsed_items = llm_service.parse(data.input, data.list_type)
+    try:
+        parsed_items = llm_service.parse(data.input, data.list_type)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"NL parsing failed: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="AI parsing failed. Please try again or add items individually.",
+        )
 
     if not parsed_items:
-        # Return empty list if parsing failed or no items found
         return ParseResponse(
             original_input=data.input,
             items=[],

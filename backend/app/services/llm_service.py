@@ -6,7 +6,7 @@ import logging
 import re
 import socket
 from typing import ClassVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from openai import OpenAI
@@ -428,15 +428,15 @@ class LLMParsingService:
                 redirect_url = response.headers.get("Location")
                 if not redirect_url:
                     break
-                # Resolve relative redirects
-                if redirect_url.startswith("/"):
-                    parsed = urlparse(current_url)
-                    redirect_url = f"{parsed.scheme}://{parsed.netloc}{redirect_url}"
+                redirect_url = urljoin(current_url, redirect_url)
                 response.close()
                 self._validate_url_target(redirect_url)
                 current_url = redirect_url
                 response = requests.get(current_url, headers=headers, timeout=10, allow_redirects=False, stream=True)
                 redirect_count += 1
+            if response.is_redirect:
+                response.close()
+                raise ValueError("Too many redirects. Please check the URL.")
             response.raise_for_status()
         except requests.Timeout:
             raise ValueError("The page took too long to load. Please try again.")
@@ -446,6 +446,9 @@ class LLMParsingService:
             raise ValueError(f"Page returned an error (HTTP {e.response.status_code})")
         except ValueError:
             raise  # Re-raise our SSRF and other ValueErrors
+        except requests.RequestException as e:
+            logger.warning(f"Unexpected request error fetching {current_url}: {type(e).__name__}: {e}")
+            raise ValueError("Could not fetch this URL. Please check the link and try again.")
 
         # Reject non-HTML responses early
         content_type = response.headers.get("Content-Type", "")
@@ -475,6 +478,7 @@ class LLMParsingService:
             chunks.append(chunk)
 
         content = b"".join(chunks)
+        response.close()
         return content.decode(response.encoding or "utf-8", errors="replace")
 
     def _find_recipe_in_jsonld(self, data: dict | list) -> dict | None:
@@ -637,7 +641,7 @@ class LLMParsingService:
             raise
         except Exception as e:
             logger.error(f"LLM parsing failed for '{input_text[:50]}': {type(e).__name__}: {e}")
-            return []
+            raise
 
     def is_available(self) -> bool:
         """Check if LLM parsing is available."""

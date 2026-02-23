@@ -233,7 +233,7 @@ def _run_migrations() -> None:
             )
         if "unit" not in item_columns:
             item_migrations.append(
-                "ALTER TABLE items ADD COLUMN unit VARCHAR(10)"
+                "ALTER TABLE items ADD COLUMN unit VARCHAR(20)"
             )
 
         for migration in item_migrations:
