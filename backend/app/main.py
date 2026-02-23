@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 
 from app.api import ai, categories, items, lists, push, shares, stream, users
 from app.config import get_settings
@@ -119,7 +119,10 @@ if frontend_dist:
         file_path = frontend_dist / "icons" / path
         if file_path.exists():
             return FileResponse(file_path)
-        return FileResponse(frontend_dist / "index.html")
+        return FileResponse(
+            frontend_dist / "index.html",
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/favicon.svg")
     async def serve_favicon():
@@ -128,19 +131,6 @@ if frontend_dist:
     @app.get("/manifest.webmanifest")
     async def serve_manifest():
         return FileResponse(frontend_dist / "manifest.webmanifest")
-
-    @app.get("/version.json")
-    async def serve_version():
-        file_path = frontend_dist / "version.json"
-        if not file_path.exists():
-            return JSONResponse(status_code=404, content={"error": "not found"})
-        return FileResponse(
-            file_path,
-            media_type="application/json",
-            headers={
-                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-            },
-        )
 
     @app.get("/sw.js")
     async def serve_sw():
@@ -158,7 +148,10 @@ if frontend_dist:
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
         # Otherwise serve index.html for SPA routing
-        return FileResponse(frontend_dist / "index.html")
+        return FileResponse(
+            frontend_dist / "index.html",
+            headers={"Cache-Control": "no-store"},
+        )
 else:
     logger.warning("Frontend dist not found. PWA will not be served.")
 

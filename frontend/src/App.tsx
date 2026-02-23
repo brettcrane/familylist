@@ -19,9 +19,6 @@ import {
   AuthProvider,
   FallbackAuthProvider,
 } from './contexts/AuthContext';
-import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate';
-import { useVersionCheck } from './hooks/useVersionCheck';
-import { UpdateBanner } from './components/ui/UpdateBanner';
 
 // Check if Clerk is configured
 const isClerkConfigured = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -72,47 +69,6 @@ const persistOptions = {
   },
 };
 
-/**
- * Auto-reload when a new version is detected mid-session.
- *
- * The pre-React version gate in main.tsx handles the initial load case
- * (reload before React mounts). This hook handles deploys that happen
- * while the user is already using the app — reloads on the next
- * hidden→visible transition so we don't interrupt active editing.
- *
- * Loop protection via sessionStorage prevents infinite reloads.
- */
-function useAutoReloadOnUpdate(updateAvailable: boolean) {
-  useEffect(() => {
-    if (!updateAvailable) return;
-
-    // Loop protection: don't reload more than once per 60s
-    try {
-      const lastReload = sessionStorage.getItem('fl-version-reload');
-      const lastReloadTime = lastReload ? Number(lastReload) : 0;
-      if (!isNaN(lastReloadTime) && lastReloadTime > 0 && Date.now() - lastReloadTime < 60_000) return;
-    } catch {
-      // sessionStorage unavailable — skip loop protection
-    }
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        try {
-          sessionStorage.setItem('fl-version-reload', Date.now().toString());
-        } catch {
-          // sessionStorage unavailable — proceed without loop protection
-        }
-        window.location.reload();
-      }
-    };
-
-    // If the page is already hidden (e.g., update detected in background tab),
-    // the next visible event will trigger reload
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [updateAvailable]);
-}
-
 /** Invalidate all queries when the browser reconnects to the network. */
 function useReconnectRefresh(): void {
   const client = useQueryClient();
@@ -142,11 +98,7 @@ function LoadingScreen() {
 function ClerkAppContent() {
   // Set up auth token injection for API requests
   const { isAuthReady } = useAuthSetup();
-  const { updateAvailable: swUpdate, applyUpdate } = useServiceWorkerUpdate();
-  const { updateAvailable: versionUpdate } = useVersionCheck();
-  const updateAvailable = swUpdate || versionUpdate;
 
-  useAutoReloadOnUpdate(updateAvailable);
   useReconnectRefresh();
 
   // Initialize theme on mount
@@ -156,7 +108,6 @@ function ClerkAppContent() {
 
   return (
     <AuthProvider isAuthReady={isAuthReady}>
-      {updateAvailable && <UpdateBanner onReload={applyUpdate} />}
       <Routes>
         {/* Public routes */}
         <Route path="/sign-in/*" element={<SignInPage />} />
@@ -199,11 +150,6 @@ function ClerkAppContent() {
  * App content without Clerk (API key mode).
  */
 function FallbackAppContent() {
-  const { updateAvailable: swUpdate, applyUpdate } = useServiceWorkerUpdate();
-  const { updateAvailable: versionUpdate } = useVersionCheck();
-  const updateAvailable = swUpdate || versionUpdate;
-
-  useAutoReloadOnUpdate(updateAvailable);
   useReconnectRefresh();
 
   // Initialize theme on mount
@@ -213,7 +159,6 @@ function FallbackAppContent() {
 
   return (
     <FallbackAuthProvider>
-      {updateAvailable && <UpdateBanner onReload={applyUpdate} />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/lists/:id" element={<ListPage />} />

@@ -81,9 +81,9 @@ Hybrid auth supporting both Clerk user auth and API key auth.
 |frontend/src/components/layout:{Header=title+actions,ListHeader=list-actions+sync,SyncIndicator,UserButton=avatar+theme+signout,Layout=page-wrapper}
 |frontend/src/components/views:{ViewModeSwitcher=segmented-control-tasks,FocusView=time-bucketed-container,FocusSection=collapsible-time-bucket,PersonGroup=person-grouped-items,TrackerView=task-stats-dashboard,TrackerChart=CSS-stacked-bar-chart}
 |frontend/src/components/icons:{CategoryIcons=ListTypeIcon+CategoryIcon+ListIcon+LIST_ICON_OPTIONS}
-|frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh,Toast,ErrorState,UpdateBanner=PWA-update-prompt}
+|frontend/src/components/ui:{Button,Input,Checkbox,Tabs,ErrorBoundary,PullToRefresh,Toast,ErrorState}
 |frontend/src/components/done:{DoneList=checked-items-section}
-|frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets,useServiceWorkerUpdate=SW-update-detection+visibility-nudge,useVersionCheck=build-ID-polling-update-detection}
+|frontend/src/hooks:{useItems=mutations+optimistic-updates+reorder,useLists=queries,useShares=share-mutations,useCategories=category-mutations,useLongPress=long-press-gestures,useAuthSetup=Clerk-token-injection,useListStream=SSE-real-time-sync,usePushNotifications=web-push-subscribe,useOrganization=folders+sort-order,useFocusItems=time-bucket-grouping,useTrackerStats=stats+timeline-buckets}
 |frontend/src/stores:{uiStore=Zustand+theme+collapse+modals+taskViewMode+myItemsOnly,authStore=Zustand+cached-user+offline-persist,organizationStore=Zustand+per-user-folders+sort-order+localStorage}
 |frontend/src/api:{client=base-HTTP+ApiError,items,lists,categories,ai=categorize+feedback+parse+extractUrl,shares=invite+update+revoke,push=subscribe+preferences}
 |frontend/src/utils:{colors=getUserColor-deterministic-avatar-colors,strings=getInitials-from-display-name,dates=daysOverdue+weekBuckets+formatting}
@@ -106,9 +106,6 @@ Offline: PersistQueryClientProvider(idb-keyval)→cached-queries+SW-NetworkFirst
 User-Sync: ClerkProvider→useAuthSetup→setTokenGetter→apiRequest(Bearer)→get_auth→get_current_user→user_service.get_or_create_user→local-DB
 Drag-Reorder: drag-end→useReorderItems/useReorderCategories→optimistic-sort-update→POST /items/reorder or /categories/reorder→broadcast-event→rollback-on-error
 List-Organization: OrganizeButton→organizeMode→drag-lists/folders→setSortOrder→localStorage-persist | MoveToFolderModal→moveListToFolder→organizationStore
-Version-Gate: page-load→main.tsx:checkVersionAndBoot()→fetch(/version.json)→compare-vs-__BUILD_ID__→stale?→reload-before-React-mounts | loop-protection:sessionStorage(fl-version-reload,60s) | offline:proceed-with-cache
-SW-Update: deploy→new-SW→skipWaiting+clientsClaim→controllerchange→useServiceWorkerUpdate→UpdateBanner+useAutoReloadOnUpdate→reload-on-re-focus
-Version-Polling: useVersionCheck→fetch(/version.json?_t=,cache:no-store)→compare-vs-__BUILD_ID__→updateAvailable→UpdateBanner+auto-reload-on-re-focus | triggers:mount(1s)+visibilitychange+2min-interval | throttle:15s-min
 ```
 
 ## Item Fields: Magnitude & Assigned-To
@@ -223,31 +220,15 @@ Within the To Do tab, `type === 'tasks'` lists support three view modes. Grocery
 
 **Pattern:** Focus section IDs use `focus-` prefix (e.g., `focus-today`) stored in the same `collapsedCategories` map — no collision with UUID category IDs. `defaultCollapsed` applied via mount-only `useEffect`.
 
-## PWA Update Detection
+## PWA & Freshness
 
-Three mechanisms ensure users always run the latest code after a deploy.
+**No precaching.** The SW does NOT precache JS/CSS bundles — Vite generates content-hashed filenames, so as long as `index.html` is served fresh, the browser always loads correct bundles.
 
-**1. Pre-React version gate** (catches stale SW cache on load):
-- `frontend/src/main.tsx` - `checkVersionAndBoot()` runs before React mounts: fetches `/version.json`, compares against `__BUILD_ID__`, reloads immediately if stale. Feels like a slightly slow page load, not a visible reload. Loop protection via `sessionStorage('fl-version-reload')` prevents reloading more than once per 60s. Skipped in dev mode. Falls through gracefully if offline or fetch fails.
+**`index.html` freshness:** Backend serves `index.html` with `Cache-Control: no-store` (both the SPA catch-all and the icon fallback route in `backend/app/main.py`).
 
-**2. SW controllerchange** (mid-session desktop updates):
-- `frontend/src/hooks/useServiceWorkerUpdate.ts` - Listens for `controllerchange` on `navigator.serviceWorker`
-- Also nudges `reg.update()` on `visibilitychange` to prompt mobile browsers to check for SW updates
-- Records `hadControllerRef` at mount to skip first-time installs. Try-catch around SW API access for restricted contexts.
+**SW role:** The service worker only handles API offline caching (NetworkFirst) and push notifications. `skipWaiting()` + `clientsClaim()` ensure new SW versions activate immediately. VitePWA `injectManifest` strategy is still used to compile the SW and generate `manifest.webmanifest`.
 
-**3. Version polling** (mid-session fallback, works everywhere including iOS Safari PWAs):
-- `frontend/src/hooks/useVersionCheck.ts` - Fetches `/version.json?_t={timestamp}` with `cache: 'no-store'`, compares against `__BUILD_ID__`
-- `frontend/vite.config.ts` - Generates `BUILD_ID` at build time, injects via `define` + writes `dist/version.json` via `closeBundle` plugin
-- `frontend/src/sw.ts` - `NetworkOnly` route for `/version.json` (defense-in-depth, prevents SW caching)
-- `backend/app/main.py` - Explicit `/version.json` route with `Cache-Control: no-store` headers (prevents Cloudflare/browser HTTP caching)
-- Triggers: mount (1s delay), `visibilitychange`, every 2 minutes. Throttled to max once per 15s. Skipped in dev mode (`import.meta.env.DEV`). Stops polling once update detected.
-
-**Mid-session auto-reload:**
-- `frontend/src/App.tsx` - `useAutoReloadOnUpdate()`: when SW or version polling detects update, auto-reloads on next hidden→visible transition (so we don't interrupt active editing). Shares `fl-version-reload` sessionStorage key for loop protection.
-
-**Shared UI:**
-- `frontend/src/components/ui/UpdateBanner.tsx` - Fixed top bar, non-dismissible, `bg-[var(--color-accent)]`
-- `frontend/src/App.tsx` - `updateAvailable = swUpdate || versionUpdate`, wired in both `ClerkAppContent` and `FallbackAppContent`
+**Deploy flow:** GitHub Actions builds image → pushes to ghcr.io → purges Cloudflare cache → triggers Portainer webhook for deterministic redeploy.
 
 ## Environment Variables
 
@@ -267,7 +248,7 @@ Frontend (optional):
 
 ## CI/CD & Deployment
 
-**Stack:** GitHub Actions → ghcr.io → Portainer + Watchtower → Caddy → Cloudflare Tunnel
+**Stack:** GitHub Actions → ghcr.io → Portainer webhook → Caddy → Cloudflare Tunnel
 
 **Key files:**
 - `.github/workflows/build.yml` - Builds Docker image, pushes to ghcr.io
@@ -279,20 +260,11 @@ Frontend (optional):
 2. Actions builds image with `VITE_CLERK_PUBLISHABLE_KEY` (GitHub secret, build-time)
 3. Image pushed to `ghcr.io/brettcrane/familylist:latest`
 4. Actions auto-purges Cloudflare cache
-5. Watchtower polls every 30 seconds, auto-pulls new images
-6. Container recreated automatically
+5. Actions triggers Portainer webhook → container redeployed with new image
 
-**Manual deploy (when Watchtower hasn't picked up changes):**
-1. Portainer → **Images** → delete `ghcr.io/brettcrane/familylist` (forces fresh pull)
-2. Portainer → **Containers** → familylist-api → **Recreate** → ✅ "Pull latest image"
-3. Verify new image: container Image hash should match GitHub Actions build output
-4. **Cloudflare cache** → https://dash.cloudflare.com → domain → Caching → Configuration → **Purge Everything**
-5. Hard refresh browser (Ctrl+Shift+R) or clear PWA service worker
-
-**Troubleshooting deploy issues:**
-- Old JS file in browser? → PWA service worker cached. Clear site data + unregister SW
-- Container has old image hash? → Delete image in Portainer, then recreate with pull
-- Still old after pull? → Cloudflare CDN cached. Purge everything in Cloudflare dashboard
+**Manual deploy:**
+1. Portainer → **Containers** → familylist-api → **Recreate** → ✅ "Pull latest image"
+2. **Cloudflare cache** → https://dash.cloudflare.com → domain → Caching → Configuration → **Purge Everything**
 
 **Portainer environment variables (runtime):**
 - `API_KEY`, `LLM_OPENAI_API_KEY` - Core config
@@ -302,6 +274,7 @@ Frontend (optional):
 - `VITE_CLERK_PUBLISHABLE_KEY` - Baked into frontend at build
 - `CLOUDFLARE_ZONE_ID` - For cache purge
 - `CLOUDFLARE_API_TOKEN` - For cache purge (Cache Purge permission)
+- `PORTAINER_WEBHOOK_URL` - Webhook to trigger container redeploy
 
 ## Known Issues
 

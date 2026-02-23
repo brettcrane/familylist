@@ -53,3 +53,8 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}'
+
+      - name: Trigger Portainer redeploy
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" || true
