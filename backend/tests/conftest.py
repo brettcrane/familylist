@@ -32,8 +32,14 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 # Set the test engine BEFORE importing any app modules
 from app.database import Base, get_db, reset_engine, set_engine
+from app.api.query import get_readonly_db, set_ro_engine
 
 set_engine(test_engine)
+# The query endpoint uses a separate read-only engine. In tests, point it
+# at the same in-memory DB (StaticPool shares the connection) so the query
+# endpoint can see tables/data created by other fixtures. PRAGMA query_only
+# is set per-session in the client fixture override below.
+set_ro_engine(test_engine)
 
 # Now import models (they will use the Base which is already defined)
 from app.models import Category, CategoryLearning, Item, List, User  # noqa: E402, F401
@@ -73,7 +79,19 @@ def client(db_session):
         finally:
             pass
 
+    def override_get_readonly_db():
+        """Read-only session: same DB, but with query_only pragma."""
+        session = TestSessionLocal()
+        raw = session.connection().connection.dbapi_connection
+        raw.execute("PRAGMA query_only = ON")
+        try:
+            yield session
+        finally:
+            raw.execute("PRAGMA query_only = OFF")
+            session.close()
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_readonly_db] = override_get_readonly_db
 
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
