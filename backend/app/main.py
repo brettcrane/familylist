@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from app.api import ai, categories, items, lists, push, shares, stream, users
+from app.api import ai, categories, items, lists, push, query, shares, stream, users
 from app.config import get_settings
 from app.database import create_indexes, get_db_context, init_db
 from app.mcp_server import setup_mcp
@@ -73,6 +73,7 @@ app.include_router(users.router, prefix="/api")
 app.include_router(shares.router, prefix="/api")
 app.include_router(stream.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
+app.include_router(query.router, prefix="/api")
 
 
 # Mount MCP server — must be before the SPA catch-all (/{path:path})
