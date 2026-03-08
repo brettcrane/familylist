@@ -16,8 +16,7 @@ class TestQueryBasic:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["columns"] == ["num", "msg"]
-        assert data["rows"] == [[1, "hello"]]
+        assert data["rows"] == [{"num": 1, "msg": "hello"}]
         assert data["row_count"] == 1
         assert data["truncated"] is False
 
@@ -30,7 +29,7 @@ class TestQueryBasic:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "name" in data["columns"]
+        assert "name" in data["rows"][0]
         assert data["row_count"] >= 1
 
     def test_with_cte(self, client, auth_headers):
@@ -40,7 +39,7 @@ class TestQueryBasic:
             headers=auth_headers,
         )
         assert response.status_code == 200
-        assert response.json()["rows"] == [[1]]
+        assert response.json()["rows"] == [{"x": 1}]
 
     def test_truncation_at_250(self, client, auth_headers):
         response = client.post(
@@ -236,7 +235,7 @@ class TestQuerySQLiteEnforcement:
             headers=auth_headers,
         )
         assert response.status_code == 200
-        assert response.json()["rows"][0][0] >= 1
+        assert response.json()["rows"][0]["n"] >= 1
 
 
 class TestQueryErrorHandling:

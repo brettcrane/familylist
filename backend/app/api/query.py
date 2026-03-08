@@ -134,8 +134,7 @@ class QueryRequest(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    columns: list[str]
-    rows: list[list[Any]]
+    rows: list[dict[str, Any]]
     row_count: int
     truncated: bool = Field(
         description=f"True if results were capped at {MAX_ROWS} rows"
@@ -171,13 +170,14 @@ def query_sql(data: QueryRequest, db: Session = Depends(get_readonly_db)):
                 logger.info("Slow query (%dms): %.200s", int(elapsed_ms), sql)
 
             columns = list(result.keys())
-            rows = [list(row) for row in result.fetchmany(MAX_ROWS + 1)]
-            truncated = len(rows) > MAX_ROWS
+            raw_rows = result.fetchmany(MAX_ROWS + 1)
+            truncated = len(raw_rows) > MAX_ROWS
             if truncated:
-                rows = rows[:MAX_ROWS]
+                raw_rows = raw_rows[:MAX_ROWS]
+
+            rows = [dict(zip(columns, row)) for row in raw_rows]
 
             return QueryResponse(
-                columns=columns,
                 rows=rows,
                 row_count=len(rows),
                 truncated=truncated,
