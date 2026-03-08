@@ -8,6 +8,7 @@
 ## Item Fields (all items)
 - `name` (required) — Item name
 - `quantity` (default: 1) — How many
+- `unit` — Unit of measure (cup, tbsp, oz, etc.)
 - `notes` — Free-text notes, links, details
 - `category_id` — Category within the list (use `get_categories` to find IDs)
 - `magnitude` — Effort sizing: S (quick, <10min), M (10-60min), L (1+ hours)
@@ -33,25 +34,20 @@
 - **M** = Medium (10-60 min) — research a topic, fill out forms
 - **L** = Large (1+ hours) — estate planning, house tours
 
-## How to Create Items
-1. Call `get_lists` to find existing lists
-2. Call `get_categories` for the target list to get category IDs
-3. Call `lookup_users` to resolve people's names to user IDs (for `assigned_to`)
-4. Call `create_items` with the list ID, item data, and optional task fields
-5. For task items, set priority, magnitude, due_date, status, and assigned_to as appropriate
+## Reading Data — Use `query_sql`
 
-## How to Query Items
-- `get_items` with `?is_checked=unchecked` — items not yet checked off
-- `get_items` with `?is_checked=checked` — completed/checked items
-- `get_items` with `?status=open,in_progress` — active tasks
-- `get_items` with `?priority=urgent,high` — high-priority items
-- `get_items` with `?due_before=YYYY-MM-DD` — items due before a date
-- `get_items` with `?due_after=YYYY-MM-DD` — items due on or after a date
-- `get_items` with `?assigned_to=USER_ID` — items assigned to someone
-- `get_items` with `?created_by=USER_ID` — items created by a specific user
-- Filters can be combined: `?status=open&priority=urgent,high&due_before=2026-03-01`
+**Always use `query_sql` for reading data.** It returns only the columns you need and is far more efficient than `get_items` or `get_lists`. See `efficient-queries.md` for the schema and common patterns.
 
-## How to Update and Complete Items
+The only exceptions: use `get_categories` and `lookup_users` directly — they return small payloads.
+
+## Writing Data — Use MCP Tools
+
+### Creating Items
+1. Call `get_categories` for the target list to get category IDs
+2. Call `lookup_users` to resolve people's names to user IDs (for `assigned_to`)
+3. Call `create_items` with the list ID, item data, and optional task fields
+
+### Updating and Completing Items
 - `update_item` — Change name, notes, priority, status, due_date, assigned_to, etc.
 - `check_item` — Mark an item as done (also sets status to "done" for task items)
 - `uncheck_item` — Mark an item as not done (resets status to "open" for task items)

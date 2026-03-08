@@ -5,7 +5,10 @@ Parse the current conversation for actionable items and add them to FamilyList.
 ## Steps
 
 1. Review the conversation for actionable items, deadlines, and implied assignments
-2. Call `get_lists` to find the target task list
+2. Find the target task list:
+   ```sql
+   SELECT id, name FROM lists WHERE type = 'tasks' AND is_template = 0
+   ```
 3. Call `lookup_users` to resolve any mentioned people to user IDs
 4. Call `get_categories` for the target list to find appropriate category IDs
 5. For each actionable item, determine:
