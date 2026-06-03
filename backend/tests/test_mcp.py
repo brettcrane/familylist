@@ -5,11 +5,31 @@ class TestMCPEndpoint:
     """Test suite for MCP server integration."""
 
     def test_mcp_route_registered(self, client):
-        """Test that the MCP SSE route is registered in the app."""
+        """Test that the Streamable HTTP /mcp route is registered for POST.
+
+        Streamable-HTTP-only clients (e.g. Hermes) POST JSON-RPC to /mcp,
+        so the route must exist and accept POST.
+        """
         from app.main import app
 
-        mcp_paths = [r.path for r in app.routes if hasattr(r, "path") and "/mcp" in r.path]
-        assert len(mcp_paths) > 0, "No /mcp route found in app"
+        mcp_post = [
+            r
+            for r in app.routes
+            if getattr(r, "path", None) == "/mcp" and "POST" in getattr(r, "methods", set())
+        ]
+        assert mcp_post, "No POST /mcp route found — Streamable HTTP transport not mounted"
+
+    def test_legacy_sse_route_registered(self, client):
+        """Test that the legacy SSE transport is retained at /sse as a fallback."""
+        from app.main import app
+
+        sse_paths = {
+            getattr(r, "path", None)
+            for r in app.routes
+            if getattr(r, "path", "").startswith("/sse")
+        }
+        assert "/sse" in sse_paths, "Legacy SSE connection route /sse not found"
+        assert "/sse/messages/" in sse_paths, "Legacy SSE messages route not found"
 
     def test_operation_ids_set(self, client):
         """Test that all API endpoints have explicit operation_ids in the OpenAPI schema."""
