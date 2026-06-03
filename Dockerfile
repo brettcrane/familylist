@@ -49,12 +49,6 @@ WORKDIR /app
 # Copy virtual environment from builder
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application code
-COPY backend/app ./app
-
-# Copy frontend build from frontend-builder
-COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
-
 # Create data and cache directories with correct ownership
 RUN mkdir -p /app/data /home/appuser/.cache && chown -R appuser:appuser /app /home/appuser
 
@@ -66,8 +60,18 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Pre-download the embedding model during build (baked into image)
+# Pre-download the embedding model during build (baked into image).
+# This is placed BEFORE copying app/frontend code so the (network-bound,
+# rarely-changing) download layer stays cached across app-code changes —
+# it only re-runs when the venv changes. Avoids re-hitting Hugging Face
+# (and its rate limits) on every code-only deploy.
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
+# Copy application code (changes frequently — kept after the model layer)
+COPY --chown=appuser:appuser backend/app ./app
+
+# Copy frontend build from frontend-builder
+COPY --chown=appuser:appuser --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # Expose port
 EXPOSE 8000
