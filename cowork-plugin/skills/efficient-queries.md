@@ -1,12 +1,12 @@
 # Efficient Data Access
 
-## Rule: Use `query_sql` for reads, MCP tools for writes
+## Rule: Prefer `query_sql` for reads, MCP tools for writes
 
-- **Reading data** → Always use `query_sql` with a SQL SELECT. It returns only the columns you need, saving tokens.
+- **Reading data** → Prefer `query_sql` with a SQL SELECT. It returns only the columns you need, can be filtered/aggregated, and is capped at 250 rows — so it's safe on large lists.
 - **Creating/updating/deleting** → Use the MCP tools (`create_items`, `update_item`, `check_item`, `delete_item`, etc.)
-- **The bulk read tools (`get_items`, `get_list`, `get_lists`) are not exposed over MCP** — they return every field on every item (~1KB per item), can't be filtered by column, and overflow tool-result token limits on large lists. Use `query_sql` instead.
+- **The bulk read tools (`get_items`, `get_list`, `get_lists`) are available** and fine for normal-sized lists, but they return every field on every item (~1KB per item) with no pagination. On a large list they can overflow a client's tool-result token limit — use `query_sql` for those.
 
-The one exception: use `get_categories` and `lookup_users` normally — they return small payloads and you need the IDs for writes.
+`get_categories` and `lookup_users` are small and return the IDs you need for writes — use them normally.
 
 ## Database Schema
 
