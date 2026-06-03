@@ -64,25 +64,22 @@ class TestMCPEndpoint:
         assert body.get("jsonrpc") == "2.0"
         assert body["result"]["serverInfo"]["name"] == "familylist"
 
-    def test_bulk_read_tools_excluded_query_sql_available(self, client):
-        """Bulk get_* reads are excluded from MCP; query_sql (the lean read path) is present.
+    def test_read_and_write_tools_available(self, client):
+        """Both the bulk get_* reads and the lean query_sql read path are exposed.
 
-        get_items/get_list/get_lists return every field on every item with no
-        pagination, overflowing clients' per-tool-result token limits on large
-        lists. Reads must go through query_sql instead. Inspect the FastApiMCP
-        tool set directly (the streamable session flow is awkward under TestClient).
+        The bulk reads (get_items/get_list/get_lists) are kept for simplicity;
+        query_sql is available as the efficient option for large lists. Inspect
+        the FastApiMCP tool set directly (the streamable session flow is awkward
+        under TestClient).
         """
         from app.main import app
 
         names = {t.name for t in app.state.mcp.tools}
 
-        for excluded in ("get_items", "get_list", "get_lists"):
-            assert excluded not in names, f"{excluded} should be excluded from MCP tools"
-
-        assert "query_sql" in names, "query_sql must be available as the read path"
-        # Writes and small lookups remain available.
-        for kept in ("create_item", "update_item", "check_item", "get_categories", "get_me"):
-            assert kept in names, f"{kept} should remain available"
+        for read in ("get_items", "get_list", "get_lists", "query_sql"):
+            assert read in names, f"{read} should be available"
+        for write in ("create_item", "update_item", "check_item", "get_categories", "get_me"):
+            assert write in names, f"{write} should be available"
 
     def test_operation_ids_set(self, client):
         """Test that all API endpoints have explicit operation_ids in the OpenAPI schema."""
