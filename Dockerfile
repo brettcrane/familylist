@@ -37,6 +37,14 @@ COPY backend/pyproject.toml backend/uv.lock ./
 # Install dependencies (production only, no dev)
 RUN uv sync --frozen --no-dev --no-install-project
 
+# Stage 2.5: Source the pre-baked embedding model from the last-good image.
+# Hugging Face rate-limits (HTTP 429) the shared GitHub Actions runner IPs,
+# so downloading the model at build time is unreliable. The previously
+# published image already contains the model in appuser's cache; we carry it
+# forward instead of re-fetching from HF. The chain is self-sustaining: each
+# new image bakes the model in, so it only ever had to be downloaded once.
+FROM ghcr.io/brettcrane/familylist:latest AS model-cache
+
 # Stage 3: Runtime
 FROM python:3.12-slim AS runtime
 
@@ -59,12 +67,18 @@ USER appuser
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+# Never reach out to Hugging Face — the model is baked in below. This also
+# avoids a network HEAD/revalidation on every container startup.
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
 
-# Pre-download the embedding model during build (baked into image).
-# This is placed BEFORE copying app/frontend code so the (network-bound,
-# rarely-changing) download layer stays cached across app-code changes —
-# it only re-runs when the venv changes. Avoids re-hitting Hugging Face
-# (and its rate limits) on every code-only deploy.
+# Bring the embedding model cache in from the last-good image (see model-cache
+# stage). Placed BEFORE the app/frontend copies so this layer stays cached
+# across code-only changes.
+COPY --from=model-cache --chown=appuser:appuser /home/appuser/.cache /home/appuser/.cache
+
+# Verify the model loads fully offline — fails the build fast if the cache
+# copy is incomplete, rather than discovering it at runtime.
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Copy application code (changes frequently — kept after the model layer)
