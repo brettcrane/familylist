@@ -143,10 +143,33 @@ class QueryResponse(BaseModel):
 
 @router.post("/sql", response_model=QueryResponse, operation_id="query_sql")
 def query_sql(data: QueryRequest, db: Session = Depends(get_readonly_db)):
-    """Execute a read-only SQL query against the database.
+    """Execute a read-only SQL query — the primary way to READ familylist data.
 
-    Returns up to 250 rows. Only SELECT statements are allowed.
-    Tables: users, lists, categories, items, list_shares, category_learnings.
+    Use this for ALL reads: it returns only the columns you SELECT, so it is far
+    smaller and more flexible than fetching whole lists or items. SELECT/WITH
+    only, up to 250 rows, 5s timeout. Writes go through the dedicated tools
+    (create_item, update_item, check_item, etc.).
+
+    Schema (-> marks a foreign key):
+      lists(id, name, type, icon, color, owner_id->users, is_template, created_at, updated_at)
+      categories(id, list_id->lists, name, sort_order, created_at, updated_at)
+      items(id, list_id->lists, category_id->categories, name, quantity, unit, notes,
+            is_checked, checked_by->users, checked_at, sort_order, magnitude,
+            assigned_to->users, priority, due_date, status, created_by->users,
+            created_at, updated_at)
+      users(id, clerk_user_id, display_name, email, avatar_url, created_at, updated_at)
+      list_shares(id, list_id->lists, user_id->users, permission, created_at)
+      category_learnings(id, item_name_normalized, list_type, category_name, confidence_boost, created_at, updated_at)
+
+    Enums: lists.type = grocery|packing|tasks; items.priority = urgent|high|medium|low;
+    items.status = open|in_progress|done|blocked; items.magnitude = S|M|L;
+    list_shares.permission = view|edit.
+
+    Examples:
+      Find lists:   SELECT id, name, type FROM lists WHERE is_template = 0
+      Open items:   SELECT id, name, status, priority, due_date FROM items
+                    WHERE list_id = '<LIST_ID>' AND is_checked = 0 ORDER BY due_date
+      Count status: SELECT status, COUNT(*) FROM items WHERE list_id = '<LIST_ID>' GROUP BY status
     """
     sql = data.sql.strip()
 

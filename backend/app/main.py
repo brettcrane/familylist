@@ -79,7 +79,7 @@ app.include_router(query.router, prefix="/api")
 # Mount MCP server — must be before the SPA catch-all (/{path:path})
 # which would otherwise shadow GET /mcp with index.html.
 try:
-    setup_mcp(app)
+    app.state.mcp = setup_mcp(app)
 except Exception:
     logger.exception("Failed to mount MCP server — continuing without MCP")
 

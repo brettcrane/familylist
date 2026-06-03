@@ -64,6 +64,26 @@ class TestMCPEndpoint:
         assert body.get("jsonrpc") == "2.0"
         assert body["result"]["serverInfo"]["name"] == "familylist"
 
+    def test_bulk_read_tools_excluded_query_sql_available(self, client):
+        """Bulk get_* reads are excluded from MCP; query_sql (the lean read path) is present.
+
+        get_items/get_list/get_lists return every field on every item with no
+        pagination, overflowing clients' per-tool-result token limits on large
+        lists. Reads must go through query_sql instead. Inspect the FastApiMCP
+        tool set directly (the streamable session flow is awkward under TestClient).
+        """
+        from app.main import app
+
+        names = {t.name for t in app.state.mcp.tools}
+
+        for excluded in ("get_items", "get_list", "get_lists"):
+            assert excluded not in names, f"{excluded} should be excluded from MCP tools"
+
+        assert "query_sql" in names, "query_sql must be available as the read path"
+        # Writes and small lookups remain available.
+        for kept in ("create_item", "update_item", "check_item", "get_categories", "get_me"):
+            assert kept in names, f"{kept} should remain available"
+
     def test_operation_ids_set(self, client):
         """Test that all API endpoints have explicit operation_ids in the OpenAPI schema."""
         response = client.get("/openapi.json")

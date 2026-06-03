@@ -4,7 +4,7 @@
 
 - **Reading data** → Always use `query_sql` with a SQL SELECT. It returns only the columns you need, saving tokens.
 - **Creating/updating/deleting** → Use the MCP tools (`create_items`, `update_item`, `check_item`, `delete_item`, etc.)
-- **Never use `get_items` or `get_lists`** for reading data — they return every field on every item (~1KB per item) and can't be filtered by column.
+- **The bulk read tools (`get_items`, `get_list`, `get_lists`) are not exposed over MCP** — they return every field on every item (~1KB per item), can't be filtered by column, and overflow tool-result token limits on large lists. Use `query_sql` instead.
 
 The one exception: use `get_categories` and `lookup_users` normally — they return small payloads and you need the IDs for writes.
 
