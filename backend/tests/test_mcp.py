@@ -31,6 +31,39 @@ class TestMCPEndpoint:
         assert "/sse" in sse_paths, "Legacy SSE connection route /sse not found"
         assert "/sse/messages/" in sse_paths, "Legacy SSE messages route not found"
 
+    def test_streamable_http_initialize_handshake(self, client):
+        """Test that POST /mcp performs a real Streamable HTTP initialize handshake.
+
+        This goes beyond route registration: it exercises the actual transport,
+        asserting a JSON-RPC initialize returns serverInfo and a session id. The
+        handshake is intentionally unauthenticated (auth is enforced per
+        tool call via x-api-key forwarding), so no auth header is sent here.
+        """
+        resp = client.post(
+            "/mcp",
+            headers={
+                "Content-Type": "application/json",
+                # Streamable HTTP requires the client to accept both.
+                "Accept": "application/json, text/event-stream",
+            },
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "pytest", "version": "0"},
+                },
+            },
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.headers.get("mcp-session-id"), "No mcp-session-id header returned"
+        body = resp.json()
+        assert body.get("jsonrpc") == "2.0"
+        assert body["result"]["serverInfo"]["name"] == "familylist"
+
     def test_operation_ids_set(self, client):
         """Test that all API endpoints have explicit operation_ids in the OpenAPI schema."""
         response = client.get("/openapi.json")
